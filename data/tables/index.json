@@ -1,0 +1,103 @@
+{
+ "planets": {
+  "GJ 1214 b": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "gj-1214-b"
+  },
+  "GJ 3470 b": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "gj-3470-b"
+  },
+  "HAT-P-11 b": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "hat-p-11-b"
+  },
+  "HD 189733 b": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "hd-189733-b"
+  },
+  "HD 209458 b": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "hd-209458-b"
+  },
+  "K2-18 b": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "k2-18-b"
+  },
+  "LHS 1140 b": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "lhs-1140-b"
+  },
+  "TOI-270 d": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "toi-270-d"
+  },
+  "TRAPPIST-1 e": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "trappist-1-e"
+  },
+  "WASP-107 b": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "wasp-107-b"
+  },
+  "WASP-12 b": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "wasp-12-b"
+  },
+  "WASP-121 b": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "wasp-121-b"
+  },
+  "WASP-39 b": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "wasp-39-b"
+  },
+  "WASP-96 b": {
+   "has_noise": false,
+   "scenarios": [
+    "flat"
+   ],
+   "slug": "wasp-96-b"
+  }
+ },
+ "version": 1
+}
