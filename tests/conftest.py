@@ -23,6 +23,6 @@ def fixture_tables(tmp_path):
     wl_n = np.geomspace(0.4, 1.7, 500)
     tables.write_noise_table(tdir, PLANET, wl_n,
                              np.full_like(wl_n, SIGMA_CH),
-                             meta={"t14_s": 7200.0})
+                             meta={"t14_s": 7200.0, "t_obs_s": 60.0})
     tables.rebuild_index(tdir)
     return tdir

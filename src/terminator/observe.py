@@ -29,6 +29,10 @@ class SimulatedSpectrum:
         from .detect import detect_features
         return detect_features(self.wavelength, self.depth, self.depth_err)
 
+    def light_curves(self, n_groups=1, seed=None, **kwargs):
+        from .lightcurve import light_curves
+        return light_curves(self, n_groups=n_groups, seed=seed, **kwargs)
+
     def plot(self, ax=None, **kwargs):
         from .plotting import plot_spectrum
         return plot_spectrum(self, ax=ax, **kwargs)

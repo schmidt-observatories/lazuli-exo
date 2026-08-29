@@ -93,6 +93,40 @@ def test_observe_rejects_bad_inputs(client, query):
     assert "error" in r.get_json()
 
 
+def test_lightcurve_matches_direct_call(client):
+    r = client.get("/api/lightcurve", query_string={
+        "planet": "WASP-39 b", "scenario": "cloudy",
+        "n_transits": 2, "R": 100, "seed": 4, "groups": 3})
+    assert r.status_code == 200
+    j = r.get_json()
+
+    obs = terminator.observe("WASP-39 b", scenario="cloudy",
+                             n_transits=2, R=100)
+    lc = obs.light_curves(n_groups=3, seed=4)
+    np.testing.assert_allclose(j["time_hr"], lc.time_hr)
+    assert len(j["groups"]) == 3
+    for i, g in enumerate(j["groups"]):
+        np.testing.assert_allclose(g["flux_model"], lc.flux_model[i])
+        np.testing.assert_allclose(g["flux"], lc.flux[i])
+        assert g["depth"] == pytest.approx(lc.depth[i])
+        assert g["sigma_point"] == pytest.approx(lc.sigma_point[i])
+        assert g["label"] == lc.labels[i]
+    assert j["t14_s"] == pytest.approx(lc.t14_s)
+    assert j["cadence_s"] == pytest.approx(lc.cadence_s)
+
+
+@pytest.mark.parametrize("query", [
+    {"planet": "WASP-39 b", "groups": 0},
+    {"planet": "WASP-39 b", "groups": 13},
+    {"planet": "WASP-39 b", "groups": "two"},
+    {"planet": "Vulcan b"},
+])
+def test_lightcurve_rejects_bad_inputs(client, query):
+    r = client.get("/api/lightcurve", query_string=query)
+    assert r.status_code == 400
+    assert "error" in r.get_json()
+
+
 def test_r_beyond_native_noise_sampling_is_json_400(client):
     """R within the accepted range can still exceed the noise tables'
     native sampling; the library's ValueError must surface as a JSON 400,

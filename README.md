@@ -91,6 +91,11 @@ repo/package.
 
 - **Isothermal equilibrium chemistry**: every scenario uses a single T = T_eq
   isotherm, not a real P-T profile.
+- **Light-curve shape** (`terminator.lightcurve`): trapezoid for a central
+  transit (b = 0), no limb darkening — the tables carry no orbital geometry
+  or limb-darkening coefficients. Per-point noise is derived from the band's
+  depth precision via sigma_pt = sigma_band * sqrt(t14 / 2c), consistent
+  with the noise tables' equal out-of-transit baseline assumption.
 - **Cold-planet temperature floor**: the fastchem equilibrium-chemistry grid
   has a hard floor at 300 K. K2-18 b (T_eq ~ 284 K), LHS 1140 b (~226 K), and
   TRAPPIST-1 e (~250 K) are clamped to 300 K for both the isotherm and the
@@ -126,9 +131,10 @@ repo/package.
 ## Local web demo
 
 A single-page Flask + Plotly UI over the runtime (`webapp/`): pick planet,
-scenario, transits, R, and noise seed; get the interactive spectrum and the
-predicted detection significances. Local exploration tool only — not the
-deployable frontend.
+scenario, transits, R, and noise seed; get the interactive spectrum, the
+predicted detection significances, and simulated transit light curves
+(white-light or split into wavelength bands). Local exploration tool only —
+not the deployable frontend.
 
 ```bash
 pip install -e ".[web]"

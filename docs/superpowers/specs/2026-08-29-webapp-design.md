@@ -45,9 +45,21 @@ JS build step.
   - `flat_depth`, plus the echoed inputs for the title
   - Defaults: `scenario=clear`, `n_transits=1`, `R=100`, `seed=0`
 
+- `GET /api/lightcurve?planet=&scenario=&n_transits=&R=&seed=&groups=` —
+  simulated transit light curves from `terminator.lightcurve` (added
+  2026-08-29 by request): `time_hr`, `t14_s`, `cadence_s`, and per band a
+  `{label, wl_lo, wl_hi, depth, sigma_point, flux_model, flux}` record.
+  `groups=1` (default, cap 12) is white light; `k` splits the spectral bins
+  into k contiguous bands. Trapezoid shape (central transit, no limb
+  darkening — the tables carry no geometry or LD coefficients); per-point
+  noise `sigma_band * sqrt(t14/2c)`, self-consistent with the spectrum's
+  error bars.
+
 Validation → HTTP 400 + `{"error": msg}`: unknown planet or scenario,
 non-integer or `< 1` `n_transits` (cap 1000), `R` outside [10, 500],
-non-integer seed.
+non-integer seed, `groups` outside [1, 12]. `observe()`'s own ValueError
+(R beyond the noise tables' native sampling) also maps to a JSON 400 —
+never Flask's HTML 500, which the JSON-parsing front end can't render.
 
 ## Page behavior
 

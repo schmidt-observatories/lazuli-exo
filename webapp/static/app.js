@@ -60,30 +60,79 @@ function renderPlot(j) {
   Plotly.react("plot", [model, points], layout, { responsive: true });
 }
 
+function bandColor(i, n) {
+  const f = n > 1 ? i / (n - 1) : 0;      // 0 = bluest, 1 = reddest
+  return `hsl(${Math.round(225 * (1 - f))}, 70%, 45%)`;
+}
+
+function renderLightcurve(j) {
+  const n = j.groups.length;
+  // stack curves with a shared offset step; bluest band on top
+  const step = 1.6 * Math.max(...j.groups.map(
+    (g) => g.depth + 6 * g.sigma_point));
+  const traces = [];
+  j.groups.forEach((g, i) => {
+    const off = -i * step;
+    const color = bandColor(i, n);
+    traces.push({
+      x: j.time_hr, y: g.flux.map((v) => v + off), mode: "markers",
+      name: g.label, marker: { size: 3, color, opacity: 0.55 },
+      hovertemplate: "%{x:.2f} hr — %{y:.5f}<extra>" + g.label + "</extra>",
+    });
+    traces.push({
+      x: j.time_hr, y: g.flux_model.map((v) => v + off), mode: "lines",
+      line: { width: 1.5, color }, showlegend: false, hoverinfo: "skip",
+    });
+  });
+  const nt = j.n_transits;
+  const layout = {
+    title: { text: `Transit light curve${n > 1 ? "s" : ""} — ` +
+            `${nt > 1 ? `phase-folded, ${nt} transits, ` : ""}` +
+            `${(j.cadence_s).toFixed(0)} s sampling`, font: { size: 14 } },
+    xaxis: { title: { text: "Time from mid-transit (hr)" } },
+    yaxis: { title: { text: n > 1 ? "Relative flux + offset"
+                                  : "Relative flux" } },
+    legend: { x: 0.02, y: 0.02, yanchor: "bottom" },
+    margin: { t: 40, r: 20, b: 45, l: 60 },
+    paper_bgcolor: "#fff", plot_bgcolor: "#fff",
+  };
+  Plotly.react("lcplot", traces, layout, { responsive: true });
+}
+
+async function fetchJSON(url, signal) {
+  const r = await fetch(url, { signal });
+  let j;
+  try {
+    j = await r.json();
+  } catch {
+    throw new Error(`Server error (HTTP ${r.status})`);
+  }
+  if (!r.ok) throw new Error(j.error);
+  return j;
+}
+
 async function refresh() {
-  const q = new URLSearchParams({
+  const params = {
     planet: $("planet").value, scenario: $("scenario").value,
     n_transits: $("n_transits").value, R: $("R").value, seed: seed,
-  });
+  };
+  const qObs = new URLSearchParams(params);
+  const qLc = new URLSearchParams({ ...params, groups: $("lc_groups").value });
   const ctrl = new AbortController();
   if (inflight) inflight.abort();
   inflight = ctrl;
   $("seedlabel").textContent = `seed = ${seed}`;
   try {
-    const r = await fetch(`/api/observe?${q}`, { signal: ctrl.signal });
-    let j;
-    try {
-      j = await r.json();
-    } catch {
-      $("error").textContent = `Server error (HTTP ${r.status})`;
-      return;
-    }
-    if (!r.ok) { $("error").textContent = j.error; return; }
+    const [obs, lc] = await Promise.all([
+      fetchJSON(`/api/observe?${qObs}`, ctrl.signal),
+      fetchJSON(`/api/lightcurve?${qLc}`, ctrl.signal),
+    ]);
     $("error").textContent = "";
-    renderPlot(j);
-    renderDetections(j.detections);
+    renderPlot(obs);
+    renderDetections(obs.detections);
+    renderLightcurve(lc);
   } catch (e) {
-    if (e.name !== "AbortError") $("error").textContent = String(e);
+    if (e.name !== "AbortError") $("error").textContent = e.message;
   }
 }
 
@@ -97,7 +146,7 @@ async function init() {
   }
   fillScenarios(psel.value);
   psel.addEventListener("change", () => { fillScenarios(psel.value); refresh(); });
-  for (const id of ["scenario", "n_transits", "R"])
+  for (const id of ["scenario", "n_transits", "R", "lc_groups"])
     $(id).addEventListener("change", refresh);
   $("reroll").addEventListener("click", () => { seed += 1; refresh(); });
   $("show_model").addEventListener("change", () =>

@@ -26,7 +26,8 @@
            border-radius: 4px; background: var(--accent); color: #fff; font: inherit;
            cursor: pointer; }
   button:hover { filter: brightness(1.08); }
-  #plot { width: 100%; min-height: 480px; }
+  #plot { width: 100%; min-height: 420px; }
+  #lcplot { width: 100%; min-height: 420px; margin-top: 6px; }
   table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   td, th { padding: 4px 2px; text-align: left; border-bottom: 1px solid var(--line);
            font-size: 13px; }
@@ -49,6 +50,13 @@
     <input id="n_transits" type="number" min="1" max="1000" step="1" value="1">
     <label for="R">Resolution R (10–500)</label>
     <input id="R" type="number" min="10" max="500" step="5" value="100">
+    <label for="lc_groups">Light-curve bands</label>
+    <select id="lc_groups">
+      <option value="1" selected>White light</option>
+      <option value="3">3 bands</option>
+      <option value="5">5 bands</option>
+      <option value="8">8 bands</option>
+    </select>
     <div class="check">
       <input id="show_model" type="checkbox" checked>
       <label for="show_model">Show model</label>
@@ -57,7 +65,15 @@
     <div id="seedlabel">seed = 0</div>
     <div id="error"></div>
   </div>
-  <div class="panel"><div id="plot"></div></div>
+  <div class="panel">
+    <div id="plot"></div>
+    <div id="lcplot"></div>
+    <div class="caveat">Light curves: trapezoid shape for a central transit
+      (b&nbsp;=&nbsp;0), no limb darkening — the tables carry no orbital
+      geometry or limb-darkening coefficients. Per-point noise follows from
+      the same depth uncertainties as the spectrum
+      (&sigma;<sub>pt</sub> = &sigma;<sub>band</sub>&nbsp;&radic;(t&#8321;&#8324;/2c)).</div>
+  </div>
   <div class="panel">
     <h2>Detections</h2>
     <table id="detections"><thead><tr><th>Feature</th><th>&sigma;</th></tr></thead>
