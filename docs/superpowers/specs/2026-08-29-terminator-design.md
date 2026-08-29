@@ -1,13 +1,13 @@
-# slixer — Lazuli IFS Transmission Spectroscopy Simulator
+# terminator — Lazuli IFS Transmission Spectroscopy Simulator
 
 **Date:** 2026-08-29
 **Status:** Approved design
-**Repo:** `GIT/slixer` (new project)
+**Repo:** `GIT/terminator` (new project)
 
 ## Purpose
 
 Simulate exoplanet transmission spectroscopy with the Lazuli IFS. For a
-showcase planet, an atmosphere scenario, and a number of transits, slixer
+showcase planet, an atmosphere scenario, and a number of transits, terminator
 produces (a) the model transmission spectrum binned to the IFS with realistic
 error bars, and (b) detection significances for the atmosphere overall and for
 individual molecules. The science core is a numpy-only runtime library backed
@@ -53,7 +53,7 @@ Three stages, two environments:
    σ_depth(λ) = sqrt(1/SNR_in² + 1/SNR_out²)
    at native IFS sampling in `data/tables/noise/`.
 
-3. **Runtime** (`src/slixer/`, imports numpy only; matplotlib as an optional
+3. **Runtime** (`src/terminator/`, imports numpy only; matplotlib as an optional
    `[plot]` extra). Loads the two table families, bins the model to a
    requested resolving power, attaches errors scaled by 1/√N_transits, and
    computes detection significances.
@@ -65,9 +65,9 @@ package.
 ## Repo layout
 
 ```
-slixer/
+terminator/
 ├── pyproject.toml            # runtime deps: numpy; extras: [plot] matplotlib
-├── src/slixer/
+├── src/terminator/
 │   ├── __init__.py           # observe(), list_planets(), list_scenarios()
 │   ├── targets.py            # frozen showcase planet registry
 │   ├── tables.py             # table reader; index.json schema + versioning
@@ -123,12 +123,12 @@ minutes.
 ## Runtime API
 
 ```python
-import slixer
+import terminator
 
-slixer.list_planets()                 # -> [str]
-slixer.list_scenarios("WASP-39 b")    # -> [str]
+terminator.list_planets()                 # -> [str]
+terminator.list_scenarios("WASP-39 b")    # -> [str]
 
-obs = slixer.observe("WASP-39 b", scenario="cloudy", n_transits=5, R=100)
+obs = terminator.observe("WASP-39 b", scenario="cloudy", n_transits=5, R=100)
 obs.wavelength          # bin centers [µm]
 obs.depth               # binned model transit depth
 obs.depth_err           # per-bin 1σ uncertainty

@@ -1,7 +1,7 @@
 import math
 import pytest
 
-from slixer import targets
+from terminator import targets
 
 REQUIRED = ["R_p_RJ", "M_p_MJ", "R_s_RSun", "T_eff_K", "log_g_star",
             "Met_star", "T_eq_K", "period_d", "t14_s", "depth",

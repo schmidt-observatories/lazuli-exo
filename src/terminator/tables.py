@@ -1,4 +1,4 @@
-"""Lookup-table storage for slixer.
+"""Lookup-table storage for terminator.
 
 Layout under a tables directory:
     index.json
@@ -25,14 +25,14 @@ def slugify(name):
 def resolve_tables_dir(tables_dir=None):
     if tables_dir is not None:
         return Path(tables_dir)
-    env = os.environ.get("SLIXER_TABLES")
+    env = os.environ.get("TERMINATOR_TABLES")
     if env:
         return Path(env)
     default = Path(__file__).resolve().parents[2] / "data" / "tables"
     if default.exists():
         return default
     raise FileNotFoundError(
-        "No tables directory: pass tables_dir=, set $SLIXER_TABLES, "
+        "No tables directory: pass tables_dir=, set $TERMINATOR_TABLES, "
         f"or create {default}"
     )
 
@@ -143,7 +143,7 @@ def load_index(tables_dir):
     if index.get("version") != SCHEMA_VERSION:
         raise RuntimeError(
             f"Table schema version {index.get('version')} != supported "
-            f"{SCHEMA_VERSION}; regenerate tables (precompute/) or update slixer.")
+            f"{SCHEMA_VERSION}; regenerate tables (precompute/) or update terminator.")
     return index
 
 

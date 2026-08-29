@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from slixer.detect import BAND_MASKS, detect_features
+from terminator.detect import BAND_MASKS, detect_features
 
 
 def test_flat_spectrum_zero_sigma():

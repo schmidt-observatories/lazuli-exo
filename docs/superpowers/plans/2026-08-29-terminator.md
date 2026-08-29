@@ -1,18 +1,18 @@
-# slixer Implementation Plan
+# terminator Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the slixer package: a numpy-only runtime that simulates Lazuli IFS transmission spectroscopy from precomputed POSEIDON model tables and slicersim noise tables, for 14 showcase planets × 5 scenarios.
+**Goal:** Build the terminator package: a numpy-only runtime that simulates Lazuli IFS transmission spectroscopy from precomputed POSEIDON model tables and slicersim noise tables, for 14 showcase planets × 5 scenarios.
 
-**Architecture:** Two-stage precompute. Stage 1 (dedicated `poseidon` conda env) writes high-resolution transit-depth spectra and PHOENIX host-star spectra per planet×scenario. Stage 2 (py313 env: slicersim + lazuli_transit) writes single-transit depth-uncertainty tables. The runtime package under `src/slixer/` imports only numpy (matplotlib as `[plot]` extra) and combines the tables.
+**Architecture:** Two-stage precompute. Stage 1 (dedicated `poseidon` conda env) writes high-resolution transit-depth spectra and PHOENIX host-star spectra per planet×scenario. Stage 2 (py313 env: slicersim + lazuli_transit) writes single-transit depth-uncertainty tables. The runtime package under `src/terminator/` imports only numpy (matplotlib as `[plot]` extra) and combines the tables.
 
 **Tech Stack:** Python, numpy, pytest; precompute only: POSEIDON (own conda env), slicersim, lazuli_transit, jaxoplanet, astroquery, sncosmo.
 
-**Spec:** `docs/superpowers/specs/2026-08-29-slixer-design.md`
+**Spec:** `docs/superpowers/specs/2026-08-29-terminator-design.md`
 
 ## Global Constraints
 
-- Runtime package (`src/slixer/`) imports **numpy only**; `plotting.py` may import matplotlib lazily. NO scipy, POSEIDON, slicersim, jax, jaxoplanet, pandas, astropy anywhere under `src/slixer/`.
+- Runtime package (`src/terminator/`) imports **numpy only**; `plotting.py` may import matplotlib lazily. NO scipy, POSEIDON, slicersim, jax, jaxoplanet, pandas, astropy anywhere under `src/terminator/`.
 - **No GPL dependencies** anywhere (jaxoplanet not batman; POSEIDON is BSD; slicersim is checked Apache-2.0).
 - Dev/test environment: conda `py313` → `/Users/gudmundurstefansson/anaconda3/envs/py313/bin/python`. All pytest runs use this env.
 - Stage-1 precompute runs ONLY in the new `poseidon` conda env (`~/anaconda3/envs/poseidon/bin/python`) with env vars `POSEIDON_input_data=$HOME/Downloads/inputs/` and `PYSYN_CDBS=$HOME/Downloads/inputs/stellar_grids`.
@@ -20,7 +20,7 @@
 - IFS instrument config: slicersim `instrument="lazuli_cbe"`. Native grid ≈ 4000–16993 Å, 525 channels (⇒ native sampling resolution R≈360; requested output R must be lower).
 - Model wavelength grid: constant-R, `WL_MIN_UM=0.35`, `WL_MAX_UM=1.85`, `R_MODEL=10000`.
 - Wavelength unit everywhere in tables and runtime: **µm**. slicersim works in Å — convert at the boundary in `make_noise_tables.py` only.
-- Working directory for all commands: `/Users/gudmundurstefansson/Dropbox/mypylib/notebooks/GIT/slixer`.
+- Working directory for all commands: `/Users/gudmundurstefansson/Dropbox/mypylib/notebooks/GIT/terminator`.
 - Commit after every task (repo already initialized, `main` branch).
 
 ---
@@ -29,26 +29,26 @@
 
 **Files:**
 - Create: `pyproject.toml`
-- Create: `src/slixer/__init__.py`
-- Create: `src/slixer/tables.py`
+- Create: `src/terminator/__init__.py`
+- Create: `src/terminator/tables.py`
 - Create: `tests/test_tables.py`
 - Create: `.gitignore`
 
 **Interfaces:**
 - Produces (used by every later task):
-  - `slixer.tables.slugify(name: str) -> str`
-  - `slixer.tables.resolve_tables_dir(tables_dir=None) -> pathlib.Path`
-  - `slixer.tables.write_model_table(tables_dir, planet, scenario, wavelength_um, transit_depth, meta: dict) -> Path`
-  - `slixer.tables.write_star_table(tables_dir, planet, wavelength_um, f_lambda, meta: dict) -> Path`
-  - `slixer.tables.write_noise_table(tables_dir, planet, wavelength_um, depth_err_1transit, meta: dict) -> Path`
-  - `slixer.tables.load_model(tables_dir, planet, scenario) -> (np.ndarray, np.ndarray, dict)`
-  - `slixer.tables.load_star(tables_dir, planet) -> (np.ndarray, np.ndarray, dict)`
-  - `slixer.tables.load_noise(tables_dir, planet) -> (np.ndarray, np.ndarray, dict)`
-  - `slixer.tables.rebuild_index(tables_dir) -> dict` (writes `index.json`)
-  - `slixer.tables.load_index(tables_dir) -> dict` (raises on version mismatch)
-  - `slixer.tables.list_planets(tables_dir=None) -> list[str]`
-  - `slixer.tables.list_scenarios(planet, tables_dir=None) -> list[str]`
-  - `slixer.tables.SCHEMA_VERSION = 1`
+  - `terminator.tables.slugify(name: str) -> str`
+  - `terminator.tables.resolve_tables_dir(tables_dir=None) -> pathlib.Path`
+  - `terminator.tables.write_model_table(tables_dir, planet, scenario, wavelength_um, transit_depth, meta: dict) -> Path`
+  - `terminator.tables.write_star_table(tables_dir, planet, wavelength_um, f_lambda, meta: dict) -> Path`
+  - `terminator.tables.write_noise_table(tables_dir, planet, wavelength_um, depth_err_1transit, meta: dict) -> Path`
+  - `terminator.tables.load_model(tables_dir, planet, scenario) -> (np.ndarray, np.ndarray, dict)`
+  - `terminator.tables.load_star(tables_dir, planet) -> (np.ndarray, np.ndarray, dict)`
+  - `terminator.tables.load_noise(tables_dir, planet) -> (np.ndarray, np.ndarray, dict)`
+  - `terminator.tables.rebuild_index(tables_dir) -> dict` (writes `index.json`)
+  - `terminator.tables.load_index(tables_dir) -> dict` (raises on version mismatch)
+  - `terminator.tables.list_planets(tables_dir=None) -> list[str]`
+  - `terminator.tables.list_scenarios(planet, tables_dir=None) -> list[str]`
+  - `terminator.tables.SCHEMA_VERSION = 1`
 
 - [ ] **Step 1: Write scaffold files**
 
@@ -60,7 +60,7 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "slixer"
+name = "terminator"
 version = "0.1.0"
 description = "Lazuli IFS exoplanet transmission spectroscopy simulator (lookup-table runtime)"
 requires-python = ">=3.10"
@@ -83,10 +83,10 @@ __pycache__/
 .ipynb_checkpoints/
 ```
 
-`src/slixer/__init__.py` (temporary; Task 4 extends it):
+`src/terminator/__init__.py` (temporary; Task 4 extends it):
 
 ```python
-"""slixer: Lazuli IFS exoplanet transmission spectroscopy simulator."""
+"""terminator: Lazuli IFS exoplanet transmission spectroscopy simulator."""
 from . import tables
 from .tables import list_planets, list_scenarios
 
@@ -102,7 +102,7 @@ import json
 import numpy as np
 import pytest
 
-from slixer import tables
+from terminator import tables
 
 
 @pytest.fixture
@@ -177,21 +177,21 @@ def test_unknown_scenario_lists_options(tdir):
 
 def test_resolve_tables_dir_env(tdir, monkeypatch):
     _write_minimal(tdir)
-    monkeypatch.setenv("SLIXER_TABLES", str(tdir))
+    monkeypatch.setenv("TERMINATOR_TABLES", str(tdir))
     assert tables.resolve_tables_dir(None) == tdir
 ```
 
 - [ ] **Step 3: Run tests to verify they fail**
 
 Run: `~/anaconda3/envs/py313/bin/python -m pytest tests/test_tables.py -v`
-Expected: FAIL / collection errors ("No module named slixer" until install; after `pip install -e .`, AttributeError on missing functions).
+Expected: FAIL / collection errors ("No module named terminator" until install; after `pip install -e .`, AttributeError on missing functions).
 
 First install editable: `~/anaconda3/envs/py313/bin/python -m pip install -e ".[test,plot]"`
 
-- [ ] **Step 4: Implement `src/slixer/tables.py`**
+- [ ] **Step 4: Implement `src/terminator/tables.py`**
 
 ```python
-"""Lookup-table storage for slixer.
+"""Lookup-table storage for terminator.
 
 Layout under a tables directory:
     index.json
@@ -218,14 +218,14 @@ def slugify(name):
 def resolve_tables_dir(tables_dir=None):
     if tables_dir is not None:
         return Path(tables_dir)
-    env = os.environ.get("SLIXER_TABLES")
+    env = os.environ.get("TERMINATOR_TABLES")
     if env:
         return Path(env)
     default = Path(__file__).resolve().parents[2] / "data" / "tables"
     if default.exists():
         return default
     raise FileNotFoundError(
-        "No tables directory: pass tables_dir=, set $SLIXER_TABLES, "
+        "No tables directory: pass tables_dir=, set $TERMINATOR_TABLES, "
         f"or create {default}"
     )
 
@@ -336,7 +336,7 @@ def load_index(tables_dir):
     if index.get("version") != SCHEMA_VERSION:
         raise RuntimeError(
             f"Table schema version {index.get('version')} != supported "
-            f"{SCHEMA_VERSION}; regenerate tables (precompute/) or update slixer.")
+            f"{SCHEMA_VERSION}; regenerate tables (precompute/) or update terminator.")
     return index
 
 
@@ -357,7 +357,7 @@ Expected: all PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add pyproject.toml .gitignore src/slixer tests/test_tables.py
+git add pyproject.toml .gitignore src/terminator tests/test_tables.py
 git commit -m "feat: package scaffold and lookup-table I/O"
 ```
 
@@ -367,14 +367,14 @@ git commit -m "feat: package scaffold and lookup-table I/O"
 
 **Files:**
 - Create: `precompute/freeze_targets.py`
-- Create: `src/slixer/targets.py` (generated by the script, then committed)
+- Create: `src/terminator/targets.py` (generated by the script, then committed)
 - Test: `tests/test_targets.py`
 
 **Interfaces:**
 - Produces:
-  - `slixer.targets.TARGETS: dict[str, dict]` — keys are display names (e.g. `"WASP-39 b"`); each value has float fields `R_p_RJ, M_p_MJ, R_s_RSun, T_eff_K, log_g_star, Met_star, T_eq_K, period_d, t14_s, depth, a_over_rs, inc_deg, ecc, w_deg, J_mag` and str fields `name, slug, provenance`.
-  - `slixer.targets.get_target(name) -> dict` (KeyError lists options)
-  - `slixer.targets.PLANET_NAMES: list[str]` (the 14 names, sorted)
+  - `terminator.targets.TARGETS: dict[str, dict]` — keys are display names (e.g. `"WASP-39 b"`); each value has float fields `R_p_RJ, M_p_MJ, R_s_RSun, T_eff_K, log_g_star, Met_star, T_eq_K, period_d, t14_s, depth, a_over_rs, inc_deg, ecc, w_deg, J_mag` and str fields `name, slug, provenance`.
+  - `terminator.targets.get_target(name) -> dict` (KeyError lists options)
+  - `terminator.targets.PLANET_NAMES: list[str]` (the 14 names, sorted)
 
 **Details:** The 14 planets: HD 209458 b, HD 189733 b, WASP-39 b, WASP-96 b, WASP-107 b, WASP-121 b, WASP-12 b, HAT-P-11 b, GJ 1214 b, GJ 3470 b, K2-18 b, TOI-270 d, TRAPPIST-1 e, LHS 1140 b.
 
@@ -388,7 +388,7 @@ git commit -m "feat: package scaffold and lookup-table I/O"
 import math
 import pytest
 
-from slixer import targets
+from terminator import targets
 
 REQUIRED = ["R_p_RJ", "M_p_MJ", "R_s_RSun", "T_eff_K", "log_g_star",
             "Met_star", "T_eq_K", "period_d", "t14_s", "depth",
@@ -426,12 +426,12 @@ def test_get_target_unknown():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `~/anaconda3/envs/py313/bin/python -m pytest tests/test_targets.py -v`
-Expected: FAIL (`slixer.targets` missing).
+Expected: FAIL (`terminator.targets` missing).
 
 - [ ] **Step 3: Write `precompute/freeze_targets.py`**
 
 ```python
-"""Generate src/slixer/targets.py from the NASA Exoplanet Archive (PSCompPars).
+"""Generate src/terminator/targets.py from the NASA Exoplanet Archive (PSCompPars).
 
 Run (needs astroquery, network):
     ~/anaconda3/envs/py313/bin/python precompute/freeze_targets.py
@@ -453,7 +453,7 @@ COLS = ("pl_name, pl_radj, pl_bmassj, pl_orbper, pl_trandur, pl_eqt, "
         "pl_ratror, pl_ratdor, pl_orbincl, pl_orbeccen, pl_orblper, "
         "st_rad, st_teff, st_logg, st_met, sy_jmag")
 
-OUT = Path(__file__).resolve().parents[1] / "src" / "slixer" / "targets.py"
+OUT = Path(__file__).resolve().parents[1] / "src" / "terminator" / "targets.py"
 
 HEADER = '''"""Frozen showcase-target registry (GENERATED by precompute/freeze_targets.py).
 
@@ -576,7 +576,7 @@ Expected: all PASS. If a sanity bound fails, inspect the archive value; fix via 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add precompute/freeze_targets.py src/slixer/targets.py tests/test_targets.py
+git add precompute/freeze_targets.py src/terminator/targets.py tests/test_targets.py
 git commit -m "feat: frozen showcase target registry (14 planets)"
 ```
 
@@ -585,15 +585,15 @@ git commit -m "feat: frozen showcase target registry (14 planets)"
 ### Task 3: Wavelength binning (`binning.py`)
 
 **Files:**
-- Create: `src/slixer/binning.py`
+- Create: `src/terminator/binning.py`
 - Test: `tests/test_binning.py`
 
 **Interfaces:**
 - Produces:
-  - `slixer.binning.constant_R_edges(wl_min, wl_max, R) -> np.ndarray` — log-spaced bin edges with Δλ/λ = 1/R; last edge ≤ wl_max is kept, so coverage never exceeds [wl_min, wl_max].
-  - `slixer.binning.bin_centers(edges) -> np.ndarray` — geometric means.
-  - `slixer.binning.bin_model(wl, depth, edges) -> np.ndarray` — unweighted mean of model samples inside each bin; raises `ValueError` naming the empty bin if any bin catches no samples.
-  - `slixer.binning.bin_sigma(wl, sigma, edges) -> np.ndarray` — inverse-variance combination `1/sqrt(sum(1/σ_i²))` of noise channels inside each bin; same empty-bin `ValueError` (message says "requested R exceeds the native noise sampling").
+  - `terminator.binning.constant_R_edges(wl_min, wl_max, R) -> np.ndarray` — log-spaced bin edges with Δλ/λ = 1/R; last edge ≤ wl_max is kept, so coverage never exceeds [wl_min, wl_max].
+  - `terminator.binning.bin_centers(edges) -> np.ndarray` — geometric means.
+  - `terminator.binning.bin_model(wl, depth, edges) -> np.ndarray` — unweighted mean of model samples inside each bin; raises `ValueError` naming the empty bin if any bin catches no samples.
+  - `terminator.binning.bin_sigma(wl, sigma, edges) -> np.ndarray` — inverse-variance combination `1/sqrt(sum(1/σ_i²))` of noise channels inside each bin; same empty-bin `ValueError` (message says "requested R exceeds the native noise sampling").
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -603,7 +603,7 @@ git commit -m "feat: frozen showcase target registry (14 planets)"
 import numpy as np
 import pytest
 
-from slixer import binning
+from terminator import binning
 
 
 def test_constant_R_edges_spacing():
@@ -654,7 +654,7 @@ def test_empty_bin_raises():
 Run: `~/anaconda3/envs/py313/bin/python -m pytest tests/test_binning.py -v`
 Expected: FAIL (module missing).
 
-- [ ] **Step 3: Implement `src/slixer/binning.py`**
+- [ ] **Step 3: Implement `src/terminator/binning.py`**
 
 ```python
 """Constant-R wavelength binning for model spectra and noise channels."""
@@ -713,7 +713,7 @@ Expected: all PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/slixer/binning.py tests/test_binning.py
+git add src/terminator/binning.py tests/test_binning.py
 git commit -m "feat: constant-R binning with inverse-variance noise combination"
 ```
 
@@ -722,17 +722,17 @@ git commit -m "feat: constant-R binning with inverse-variance noise combination"
 ### Task 4: Observation assembly (`observe.py`)
 
 **Files:**
-- Create: `src/slixer/observe.py`
+- Create: `src/terminator/observe.py`
 - Create: `tests/conftest.py` (shared synthetic-table fixture)
-- Modify: `src/slixer/__init__.py`
+- Modify: `src/terminator/__init__.py`
 - Test: `tests/test_observe.py`
 
 **Interfaces:**
 - Consumes: `tables.load_model/load_noise/list_*`, `binning.*` (Tasks 1, 3).
 - Produces:
-  - `slixer.observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None) -> SimulatedSpectrum`
+  - `terminator.observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None) -> SimulatedSpectrum`
   - `SimulatedSpectrum` attributes: `planet, scenario, n_transits, R, wavelength, depth, depth_err, model_wavelength, model_depth, flat_depth (float)`; methods: `detect() -> dict` (Task 5 wires it), `simulate_points(seed=None) -> np.ndarray`, `plot(ax=None, **kw)` (Task 6 wires it).
-  - `slixer.__init__` re-exports: `observe`, `SimulatedSpectrum`, `list_planets`, `list_scenarios`.
+  - `terminator.__init__` re-exports: `observe`, `SimulatedSpectrum`, `list_planets`, `list_scenarios`.
 
 - [ ] **Step 1: Write the shared fixture**
 
@@ -742,7 +742,7 @@ git commit -m "feat: constant-R binning with inverse-variance noise combination"
 import numpy as np
 import pytest
 
-from slixer import tables
+from terminator import tables
 
 PLANET = "Testar-1 b"
 BASE_DEPTH = 0.0100
@@ -777,12 +777,12 @@ def fixture_tables(tmp_path):
 import numpy as np
 import pytest
 
-import slixer
+import terminator
 from conftest import PLANET, BASE_DEPTH, SIGMA_CH  # pytest puts tests/ on sys.path
 
 
 def test_observe_shapes(fixture_tables):
-    obs = slixer.observe(PLANET, scenario="clear", n_transits=1, R=50,
+    obs = terminator.observe(PLANET, scenario="clear", n_transits=1, R=50,
                          tables_dir=fixture_tables)
     assert obs.wavelength.shape == obs.depth.shape == obs.depth_err.shape
     assert np.isfinite(obs.depth).all() and np.isfinite(obs.depth_err).all()
@@ -790,20 +790,20 @@ def test_observe_shapes(fixture_tables):
 
 
 def test_flat_scenario_is_flat(fixture_tables):
-    obs = slixer.observe(PLANET, scenario="flat", R=50,
+    obs = terminator.observe(PLANET, scenario="flat", R=50,
                          tables_dir=fixture_tables)
     np.testing.assert_allclose(obs.depth, BASE_DEPTH, rtol=1e-12)
 
 
 def test_error_scaling_with_transits(fixture_tables):
-    o1 = slixer.observe(PLANET, n_transits=1, R=50, tables_dir=fixture_tables)
-    o9 = slixer.observe(PLANET, n_transits=9, R=50, tables_dir=fixture_tables)
+    o1 = terminator.observe(PLANET, n_transits=1, R=50, tables_dir=fixture_tables)
+    o9 = terminator.observe(PLANET, n_transits=9, R=50, tables_dir=fixture_tables)
     np.testing.assert_allclose(o1.depth_err / o9.depth_err, 3.0)
 
 
 def test_error_magnitude(fixture_tables):
     # 500 uniform channels at R such that ~10 channels/bin
-    obs = slixer.observe(PLANET, n_transits=1, R=50, tables_dir=fixture_tables)
+    obs = terminator.observe(PLANET, n_transits=1, R=50, tables_dir=fixture_tables)
     # every bin: sigma = SIGMA_CH / sqrt(n_channels_in_bin); just check bounds
     assert (obs.depth_err < SIGMA_CH).all()
     assert (obs.depth_err > SIGMA_CH / np.sqrt(30)).all()
@@ -811,11 +811,11 @@ def test_error_magnitude(fixture_tables):
 
 def test_r_too_high_raises(fixture_tables):
     with pytest.raises(ValueError, match="native noise sampling"):
-        slixer.observe(PLANET, R=2000, tables_dir=fixture_tables)
+        terminator.observe(PLANET, R=2000, tables_dir=fixture_tables)
 
 
 def test_simulate_points_reproducible(fixture_tables):
-    obs = slixer.observe(PLANET, R=50, tables_dir=fixture_tables)
+    obs = terminator.observe(PLANET, R=50, tables_dir=fixture_tables)
     a = obs.simulate_points(seed=42)
     b = obs.simulate_points(seed=42)
     np.testing.assert_array_equal(a, b)
@@ -825,15 +825,15 @@ def test_simulate_points_reproducible(fixture_tables):
 
 def test_unknown_planet_raises(fixture_tables):
     with pytest.raises(KeyError, match="Testar-1 b"):
-        slixer.observe("Nope-1 b", tables_dir=fixture_tables)
+        terminator.observe("Nope-1 b", tables_dir=fixture_tables)
 ```
 
 - [ ] **Step 3: Run tests to verify they fail**
 
 Run: `~/anaconda3/envs/py313/bin/python -m pytest tests/test_observe.py -v`
-Expected: FAIL (`slixer.observe` missing).
+Expected: FAIL (`terminator.observe` missing).
 
-- [ ] **Step 4: Implement `src/slixer/observe.py`**
+- [ ] **Step 4: Implement `src/terminator/observe.py`**
 
 ```python
 """Assemble a simulated Lazuli IFS transmission-spectroscopy observation."""
@@ -900,10 +900,10 @@ def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None):
         meta={"model": meta_m, "noise": meta_n})
 ```
 
-Update `src/slixer/__init__.py`:
+Update `src/terminator/__init__.py`:
 
 ```python
-"""slixer: Lazuli IFS exoplanet transmission spectroscopy simulator."""
+"""terminator: Lazuli IFS exoplanet transmission spectroscopy simulator."""
 from . import binning, tables
 from .observe import SimulatedSpectrum, observe
 from .tables import list_planets, list_scenarios
@@ -920,7 +920,7 @@ Expected: all PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/slixer/observe.py src/slixer/__init__.py tests/conftest.py tests/test_observe.py
+git add src/terminator/observe.py src/terminator/__init__.py tests/conftest.py tests/test_observe.py
 git commit -m "feat: observe() assembling binned spectra with noise scaling"
 ```
 
@@ -929,14 +929,14 @@ git commit -m "feat: observe() assembling binned spectra with noise scaling"
 ### Task 5: Detection significances (`detect.py`)
 
 **Files:**
-- Create: `src/slixer/detect.py`
+- Create: `src/terminator/detect.py`
 - Test: `tests/test_detect.py`
 
 **Interfaces:**
 - Consumes: `SimulatedSpectrum.detect()` calls `detect_features` (already wired in Task 4).
 - Produces:
-  - `slixer.detect.BAND_MASKS: dict[str, list[tuple[float, float]]]`
-  - `slixer.detect.detect_features(wavelength, depth, depth_err) -> dict[str, float]` — keys `"atmosphere"` plus each molecule whose mask overlaps the wavelength range.
+  - `terminator.detect.BAND_MASKS: dict[str, list[tuple[float, float]]]`
+  - `terminator.detect.detect_features(wavelength, depth, depth_err) -> dict[str, float]` — keys `"atmosphere"` plus each molecule whose mask overlaps the wavelength range.
 
 **Statistic (documented in the module docstring):** the predicted significance of rejecting the best-fit flat line: with weights `w = 1/σ²` and weighted-mean level `d̄`, `σ_detect = sqrt(Σ w (d − d̄)²)`. `depth` is the noiseless binned model, so this is the expected Δχ² of a flat fit — the standard predicted detection significance. Per-molecule values reuse the same global `d̄` restricted to that molecule's band mask, which double-counts overlapping bands (e.g. H2O/CH4 near 1.15 µm); the docstring states this and names leave-one-out tables as the rigorous upgrade.
 
@@ -960,7 +960,7 @@ BAND_MASKS = {
 import numpy as np
 import pytest
 
-from slixer.detect import BAND_MASKS, detect_features
+from terminator.detect import BAND_MASKS, detect_features
 
 
 def test_flat_spectrum_zero_sigma():
@@ -1005,7 +1005,7 @@ def test_masks_within_ifs_range():
 Run: `~/anaconda3/envs/py313/bin/python -m pytest tests/test_detect.py -v`
 Expected: FAIL (module missing).
 
-- [ ] **Step 3: Implement `src/slixer/detect.py`**
+- [ ] **Step 3: Implement `src/terminator/detect.py`**
 
 ```python
 """Predicted detection significances from a noiseless binned model spectrum.
@@ -1059,7 +1059,7 @@ Expected: all PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/slixer/detect.py tests/test_detect.py
+git add src/terminator/detect.py tests/test_detect.py
 git commit -m "feat: flat-line-rejection detection significances with band masks"
 ```
 
@@ -1068,12 +1068,12 @@ git commit -m "feat: flat-line-rejection detection significances with band masks
 ### Task 6: Plotting (`plotting.py`)
 
 **Files:**
-- Create: `src/slixer/plotting.py`
+- Create: `src/terminator/plotting.py`
 - Test: `tests/test_plotting.py`
 
 **Interfaces:**
 - Consumes: `SimulatedSpectrum` (Task 4).
-- Produces: `slixer.plotting.plot_spectrum(obs, ax=None, seed=0, show_model=True) -> matplotlib Axes` (already wired as `obs.plot()`).
+- Produces: `terminator.plotting.plot_spectrum(obs, ax=None, seed=0, show_model=True) -> matplotlib Axes` (already wired as `obs.plot()`).
 
 **Style:** follow the gks-plotting skill (`plt.style.use('gks')` if that style is registered; wrap in try/except so the package works without it). Depth axis in percent, x log-scaled 0.4–1.7 µm with plain-number ticks, hi-res model as a line, simulated points with error bars, title `"<planet> — <scenario>, N transits"`.
 
@@ -1085,12 +1085,12 @@ git commit -m "feat: flat-line-rejection detection significances with band masks
 import matplotlib
 matplotlib.use("Agg")
 
-import slixer
+import terminator
 from conftest import PLANET  # pytest puts tests/ on sys.path
 
 
 def test_plot_returns_axes(fixture_tables):
-    obs = slixer.observe(PLANET, R=50, tables_dir=fixture_tables)
+    obs = terminator.observe(PLANET, R=50, tables_dir=fixture_tables)
     ax = obs.plot(seed=1)
     assert ax.get_xlabel()
     assert len(ax.lines) + len(ax.containers) >= 2  # model line + errorbars
@@ -1101,7 +1101,7 @@ def test_plot_returns_axes(fixture_tables):
 Run: `~/anaconda3/envs/py313/bin/python -m pytest tests/test_plotting.py -v`
 Expected: FAIL.
 
-- [ ] **Step 3: Implement `src/slixer/plotting.py`**
+- [ ] **Step 3: Implement `src/terminator/plotting.py`**
 
 ```python
 """Matplotlib plotting for SimulatedSpectrum (requires the [plot] extra)."""
@@ -1143,7 +1143,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/slixer/plotting.py tests/test_plotting.py
+git add src/terminator/plotting.py tests/test_plotting.py
 git commit -m "feat: spectrum plotting with simulated error bars"
 ```
 
@@ -1158,7 +1158,7 @@ git commit -m "feat: spectrum plotting with simulated error bars"
 - Generated: `data/tables/models/<slug>__flat.npz` × 14 (committed)
 
 **Interfaces:**
-- Consumes: `slixer.targets`, `slixer.tables` (precompute scripts may import slixer; the constraint is one-directional).
+- Consumes: `terminator.targets`, `terminator.tables` (precompute scripts may import terminator; the constraint is one-directional).
 - Produces:
   - `precompute/scenarios.py` constants: `WL_MIN_UM = 0.35`, `WL_MAX_UM = 1.85`, `R_MODEL = 10_000`, `PARAM_SPECIES = ["H2O", "CO", "CO2", "CH4", "NH3", "Na", "K"]`, `P_GRID_ARGS = (-7.0, 2.0, 100)` (log10 bar), `P_REF_BAR = 10.0`,
     `SCENARIOS: dict[str, dict]` with keys `clear, cloudy, high_metallicity, hazy`, each value `{"cloud_model": ..., "cloud_type": ..., "cloud_params": [...], "C_to_O": float, "log_Met": float}`.
@@ -1251,7 +1251,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent))
 from scenarios import make_wl_grid
 
-from slixer import tables, targets
+from terminator import tables, targets
 
 TABLES = Path(__file__).resolve().parents[1] / "data" / "tables"
 
@@ -1278,7 +1278,7 @@ Run: `~/anaconda3/envs/py313/bin/python -m pytest tests/test_scenarios.py -v` �
 Run: `~/anaconda3/envs/py313/bin/python precompute/make_flat_tables.py`
 Expected: 14 lines printed; `data/tables/models/` holds 14 `__flat.npz` files; `data/tables/index.json` lists all 14 planets with `["flat"]`.
 
-Sanity: `~/anaconda3/envs/py313/bin/python -c "import slixer; print(slixer.list_planets())"` → 14 names.
+Sanity: `~/anaconda3/envs/py313/bin/python -c "import terminator; print(terminator.list_planets())"` → 14 names.
 
 - [ ] **Step 6: Commit**
 
@@ -1425,7 +1425,7 @@ git commit -m "feat: POSEIDON env spec and forward-model smoke test"
 - Generated: `data/tables/models/<slug>__{clear,cloudy,high_metallicity,hazy}.npz` × 14, `data/tables/star/<slug>.npz` × 14 (committed)
 
 **Interfaces:**
-- Consumes: the verified recipe from `smoke_poseidon.py`; `slixer.targets` (import via `sys.path` — slixer is not installed in the poseidon env, so add `src/` to `sys.path`); `slixer.tables` writers (numpy-only, safe in the poseidon env).
+- Consumes: the verified recipe from `smoke_poseidon.py`; `terminator.targets` (import via `sys.path` — terminator is not installed in the poseidon env, so add `src/` to `sys.path`); `terminator.tables` writers (numpy-only, safe in the poseidon env).
 - Produces: model tables for all 4 POSEIDON scenarios; star tables `(wavelength_um, f_lambda)` with PHOENIX spectra (`create_star(..., stellar_grid='phoenix', wl=wl, interp_backend='pysynphot')`, reading `star['wl_star'], star['F_star']`; units noted in meta as POSEIDON-native W/m²/m — absolute scale is irrelevant because Stage 2 renormalizes to J mag).
 
 - [ ] **Step 1: Write `precompute/make_model_tables.py`**
@@ -1451,13 +1451,13 @@ os.environ.setdefault("PYSYN_CDBS",
                       str(Path.home() / "Downloads" / "inputs" / "stellar_grids"))
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))      # slixer not pip-installed here
+sys.path.insert(0, str(ROOT / "src"))      # terminator not pip-installed here
 sys.path.insert(0, str(Path(__file__).parent))
 
 from scenarios import (P_GRID_ARGS, P_REF_BAR, PARAM_SPECIES, SCENARIOS,
                        make_wl_grid)
-from slixer import tables
-from slixer.targets import PLANET_NAMES, get_target
+from terminator import tables
+from terminator.targets import PLANET_NAMES, get_target
 
 from POSEIDON.constants import M_J, R_J, R_Sun
 from POSEIDON.core import (compute_spectrum, create_planet, create_star,
@@ -1549,9 +1549,9 @@ Same command without a planet argument. Expected ~14 star + 56 model tables (plu
 
 ```bash
 ~/anaconda3/envs/py313/bin/python -c "
-import slixer
-for p in slixer.list_planets():
-    print(p, slixer.list_scenarios(p))"
+import terminator
+for p in terminator.list_planets():
+    print(p, terminator.list_scenarios(p))"
 ```
 
 Expected: every planet lists `['clear', 'cloudy', 'flat', 'hazy', 'high_metallicity']`.
@@ -1572,7 +1572,7 @@ git commit -m "feat: POSEIDON model tables and PHOENIX star spectra for all targ
 - Generated: `data/tables/noise/<slug>.npz` × 14 (committed); refreshed `index.json`
 
 **Interfaces:**
-- Consumes: star tables (Task 9), `slixer.targets` (t14_s, J_mag), slicersim `LazuliTarget` (py313).
+- Consumes: star tables (Task 9), `terminator.targets` (t14_s, J_mag), slicersim `LazuliTarget` (py313).
 - Produces: noise tables `(wavelength_um, depth_err_1transit)` on the native IFS grid.
 
 **Physics:** slicersim's default readout gives SNR(λ) for its default `observing_time` t_obs. Ramps are independent exposures, so SNR scales as √t. In-transit SNR for T₁₄: `snr_in = snr_default * sqrt(t14 / t_obs)`; with an equal out-of-transit baseline, per-channel depth error `σ = sqrt(1/snr_in² + 1/snr_out²) = sqrt(2)/snr_in`.
@@ -1598,8 +1598,8 @@ TABLES = ROOT / "data" / "tables"
 
 from slicersim.lazuli import LazuliTarget
 
-from slixer import tables
-from slixer.targets import PLANET_NAMES, get_target
+from terminator import tables
+from terminator.targets import PLANET_NAMES, get_target
 
 INSTRUMENT = "lazuli_cbe"
 NORM_BAND = "2massj"      # sncosmo bandpass for J-mag normalization
@@ -1680,22 +1680,22 @@ git commit -m "feat: slicersim single-transit noise tables for all targets"
 import numpy as np
 import pytest
 
-import slixer
+import terminator
 
-PLANETS = slixer.list_planets()
+PLANETS = terminator.list_planets()
 
 
 def test_fourteen_planets_all_scenarios():
     assert len(PLANETS) == 14
     for p in PLANETS:
-        assert slixer.list_scenarios(p) == [
+        assert terminator.list_scenarios(p) == [
             "clear", "cloudy", "flat", "hazy", "high_metallicity"]
 
 
 @pytest.mark.parametrize("planet", PLANETS)
 def test_every_planet_observes(planet):
-    for scen in slixer.list_scenarios(planet):
-        obs = slixer.observe(planet, scenario=scen, n_transits=3, R=80)
+    for scen in terminator.list_scenarios(planet):
+        obs = terminator.observe(planet, scenario=scen, n_transits=3, R=80)
         assert np.isfinite(obs.depth).all()
         assert np.isfinite(obs.depth_err).all()
         assert (obs.depth_err > 0).all()
@@ -1706,27 +1706,27 @@ def test_every_planet_observes(planet):
 
 def test_flat_scenario_detects_nothing():
     for planet in PLANETS:
-        obs = slixer.observe(planet, scenario="flat", R=80)
+        obs = terminator.observe(planet, scenario="flat", R=80)
         assert obs.detect()["atmosphere"] < 1e-6
 
 
 def test_clear_beats_cloudy():
     # a grey deck mutes features -> lower detection significance
     for planet in ["WASP-39 b", "HD 209458 b"]:
-        clear = slixer.observe(planet, scenario="clear", R=80).detect()
-        cloudy = slixer.observe(planet, scenario="cloudy", R=80).detect()
+        clear = terminator.observe(planet, scenario="clear", R=80).detect()
+        cloudy = terminator.observe(planet, scenario="cloudy", R=80).detect()
         assert clear["atmosphere"] > cloudy["atmosphere"]
 
 
 def test_bright_hot_jupiter_beats_faint_temperate():
-    hj = slixer.observe("HD 209458 b", scenario="clear", R=80).detect()
-    tp = slixer.observe("TRAPPIST-1 e", scenario="clear", R=80).detect()
+    hj = terminator.observe("HD 209458 b", scenario="clear", R=80).detect()
+    tp = terminator.observe("TRAPPIST-1 e", scenario="clear", R=80).detect()
     assert hj["atmosphere"] > tp["atmosphere"]
 
 
 def test_sqrt_n_scaling_on_significance():
-    s1 = slixer.observe("WASP-39 b", n_transits=1, R=80).detect()["atmosphere"]
-    s4 = slixer.observe("WASP-39 b", n_transits=4, R=80).detect()["atmosphere"]
+    s1 = terminator.observe("WASP-39 b", n_transits=1, R=80).detect()["atmosphere"]
+    s4 = terminator.observe("WASP-39 b", n_transits=4, R=80).detect()["atmosphere"]
     assert s4 == pytest.approx(2 * s1, rel=1e-6)
 
 
@@ -1744,7 +1744,7 @@ Expected: all PASS. Failures here are findings, not test bugs — e.g. if `clear
 
 - [ ] **Step 3: Write `README.md`**
 
-Contents (concise, Gummi-style): what slixer is (one paragraph), install (`pip install -e ".[plot,test]"`), quickstart (the `observe`/`detect`/`plot` snippet from the spec), the two-stage precompute diagram (a short fenced text block: inputs → poseidon env → models/star tables; star tables + slicersim → noise tables; runtime = numpy + tables), how to regenerate tables (the three commands with their env vars), table schema note + `SLIXER_TABLES`, known approximations (isothermal eq-chem, band-mask molecule significances, √t SNR scaling, equal out-of-transit baseline), and a "Django/Heroku (planned)" section stating the runtime ships with tables and no heavy deps.
+Contents (concise, Gummi-style): what terminator is (one paragraph), install (`pip install -e ".[plot,test]"`), quickstart (the `observe`/`detect`/`plot` snippet from the spec), the two-stage precompute diagram (a short fenced text block: inputs → poseidon env → models/star tables; star tables + slicersim → noise tables; runtime = numpy + tables), how to regenerate tables (the three commands with their env vars), table schema note + `TERMINATOR_TABLES`, known approximations (isothermal eq-chem, band-mask molecule significances, √t SNR scaling, equal out-of-transit baseline), and a "Django/Heroku (planned)" section stating the runtime ships with tables and no heavy deps.
 
 - [ ] **Step 4: Commit**
 
@@ -1765,7 +1765,7 @@ git commit -m "test: end-to-end suite on real tables; add README"
 
 - [ ] **Step 1: Invoke the notebook-demo skill** and build a notebook with these sections:
 
-1. **Setup** — imports, `slixer.list_planets()` table.
+1. **Setup** — imports, `terminator.list_planets()` table.
 2. **Gallery** — `obs.plot()` for WASP-39 b (clear, 1 transit) and K2-18 b (clear, 20 transits).
 3. **Scenario comparison** — WASP-39 b: all four non-flat scenarios over-plotted (hi-res models, %).
 4. **Detectability curves** — σ(atmosphere) and σ(H2O) vs n_transits ∈ {1,2,5,10,20,50} for WASP-39 b, K2-18 b, TRAPPIST-1 e; horizontal 5σ line.

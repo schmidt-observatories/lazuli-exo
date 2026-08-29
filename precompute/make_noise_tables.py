@@ -30,8 +30,8 @@ TABLES = ROOT / "data" / "tables"
 
 from slicersim.lazuli import LazuliTarget
 
-from slixer import tables
-from slixer.targets import PLANET_NAMES, get_target
+from terminator import tables
+from terminator.targets import PLANET_NAMES, get_target
 
 INSTRUMENT = "lazuli_cbe"
 NORM_BAND = "2massj"      # sncosmo bandpass for J-mag normalization

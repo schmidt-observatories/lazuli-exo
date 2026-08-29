@@ -22,13 +22,13 @@ os.environ.setdefault("PYSYN_CDBS",
                       str(Path.home() / "inputs" / "stellar_grids"))
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))      # slixer not pip-installed here
+sys.path.insert(0, str(ROOT / "src"))      # terminator not pip-installed here
 sys.path.insert(0, str(Path(__file__).parent))
 
 from scenarios import (P_GRID_ARGS, P_REF_BAR, PARAM_SPECIES, SCENARIOS,
                        make_wl_grid)
-from slixer import tables
-from slixer.targets import PLANET_NAMES, get_target
+from terminator import tables
+from terminator.targets import PLANET_NAMES, get_target
 
 from POSEIDON.chemistry import load_chemistry_grid
 from POSEIDON.constants import M_J, R_J, R_Sun

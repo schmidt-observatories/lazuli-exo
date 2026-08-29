@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from slixer import tables
+from terminator import tables
 
 PLANET = "Testar-1 b"
 BASE_DEPTH = 0.0100

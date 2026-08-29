@@ -2,7 +2,7 @@ import json
 import numpy as np
 import pytest
 
-from slixer import tables
+from terminator import tables
 
 
 @pytest.fixture
@@ -82,5 +82,5 @@ def test_unknown_scenario_lists_options(tdir):
 
 def test_resolve_tables_dir_env(tdir, monkeypatch):
     _write_minimal(tdir)
-    monkeypatch.setenv("SLIXER_TABLES", str(tdir))
+    monkeypatch.setenv("TERMINATOR_TABLES", str(tdir))
     assert tables.resolve_tables_dir(None) == tdir

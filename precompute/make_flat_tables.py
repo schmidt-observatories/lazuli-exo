@@ -10,7 +10,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent))
 from scenarios import make_wl_grid
 
-from slixer import tables, targets
+from terminator import tables, targets
 
 TABLES = Path(__file__).resolve().parents[1] / "data" / "tables"
 

@@ -1,6 +1,6 @@
-# slixer
+# terminator
 
-slixer simulates exoplanet transmission spectroscopy with the Lazuli IFS. For
+terminator simulates exoplanet transmission spectroscopy with the Lazuli IFS. For
 a showcase planet, an atmosphere scenario, and a number of transits, it
 returns the model transmission spectrum binned to the instrument with
 realistic error bars, plus detection significances for the atmosphere
@@ -20,12 +20,12 @@ pip install -e ".[plot,test]"
 ## Quickstart
 
 ```python
-import slixer
+import terminator
 
-slixer.list_planets()                 # -> [str], 14 showcase targets
-slixer.list_scenarios("WASP-39 b")    # -> ["clear", "cloudy", "flat", "hazy", "high_metallicity"]
+terminator.list_planets()                 # -> [str], 14 showcase targets
+terminator.list_scenarios("WASP-39 b")    # -> ["clear", "cloudy", "flat", "hazy", "high_metallicity"]
 
-obs = slixer.observe("WASP-39 b", scenario="cloudy", n_transits=5, R=100)
+obs = terminator.observe("WASP-39 b", scenario="cloudy", n_transits=5, R=100)
 obs.wavelength      # bin centers [um]
 obs.depth           # binned model transit depth
 obs.depth_err       # per-bin 1-sigma uncertainty (scaled by 1/sqrt(n_transits))
@@ -45,7 +45,7 @@ models/<planet>__<scenario>.npz   star/<planet>.npz
       v  py313 env + slicersim
 noise/<planet>.npz   (per-planet single-transit depth_err(lambda))
 
-runtime (src/slixer/) = numpy + these tables, nothing heavier
+runtime (src/terminator/) = numpy + these tables, nothing heavier
 ```
 
 Model/star tables and noise tables are built in separate steps, in separate
@@ -81,10 +81,10 @@ star/<planet-slug>.npz                  # wavelength_um, f_lambda, meta
 noise/<planet-slug>.npz                 # wavelength_um, depth_err_1transit, meta
 ```
 
-`index.json` carries a schema `version` integer; `slixer.tables` refuses to
+`index.json` carries a schema `version` integer; `terminator.tables` refuses to
 load a mismatched version with a clear error. `observe()` resolves the
 tables directory as: an explicit `tables_dir=` argument, else the
-`SLIXER_TABLES` environment variable, else the `data/tables/` shipped in the
+`TERMINATOR_TABLES` environment variable, else the `data/tables/` shipped in the
 repo/package.
 
 ## Known approximations
@@ -105,7 +105,7 @@ repo/package.
   opacity.
 - **Band-mask molecule significances**: per-molecule detection significance
   restricts the same chi-squared statistic to a fixed wavelength band mask
-  per molecule (`slixer.detect.BAND_MASKS`). Bands overlap (e.g. H2O and CH4
+  per molecule (`terminator.detect.BAND_MASKS`). Bands overlap (e.g. H2O and CH4
   near 1.15 um), so these are approximate, not a joint fit. A rigorous
   upgrade path is per-molecule leave-one-out model tables, which slots into
   the existing table schema without API changes.
@@ -127,13 +127,13 @@ repo/package.
 
 The runtime ships with its lookup tables and no heavy dependencies (numpy,
 plus matplotlib as an optional extra), so a future Django frontend can be
-deployed on Heroku importing `slixer` directly — no POSEIDON, slicersim,
+deployed on Heroku importing `terminator` directly — no POSEIDON, slicersim,
 jax, or opacity data needs to reach the web dyno. That app is a separate,
 not-yet-started follow-up project.
 
 The tables live at `<repo>/data/tables` and are found relative to the package
 source, which works for editable installs and repo checkouts (Heroku slugs
-built from this repo included), but a plain `pip install slixer` wheel would
-NOT include them — a non-repo deployment must set `SLIXER_TABLES` to a
+built from this repo included), but a plain `pip install terminator` wheel would
+NOT include them — a non-repo deployment must set `TERMINATOR_TABLES` to a
 directory containing the tables. Packaging the tables inside the wheel
-(`src/slixer/data` + `importlib.resources`) is deferred to the Django project.
+(`src/terminator/data` + `importlib.resources`) is deferred to the Django project.

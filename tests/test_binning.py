@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from slixer import binning
+from terminator import binning
 
 
 def test_constant_R_edges_spacing():
