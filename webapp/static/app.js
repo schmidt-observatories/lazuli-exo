@@ -71,7 +71,13 @@ async function refresh() {
   $("seedlabel").textContent = `seed = ${seed}`;
   try {
     const r = await fetch(`/api/observe?${q}`, { signal: ctrl.signal });
-    const j = await r.json();
+    let j;
+    try {
+      j = await r.json();
+    } catch {
+      $("error").textContent = `Server error (HTTP ${r.status})`;
+      return;
+    }
     if (!r.ok) { $("error").textContent = j.error; return; }
     $("error").textContent = "";
     renderPlot(j);

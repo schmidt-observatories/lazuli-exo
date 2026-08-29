@@ -91,3 +91,13 @@ def test_observe_rejects_bad_inputs(client, query):
     r = client.get("/api/observe", query_string=query)
     assert r.status_code == 400
     assert "error" in r.get_json()
+
+
+def test_r_beyond_native_noise_sampling_is_json_400(client):
+    """R within the accepted range can still exceed the noise tables'
+    native sampling; the library's ValueError must surface as a JSON 400,
+    never an HTML 500 (the front end parses every response as JSON)."""
+    r = client.get("/api/observe",
+                   query_string={"planet": "WASP-39 b", "R": 500})
+    assert r.status_code == 400
+    assert "native noise sampling" in r.get_json()["error"]

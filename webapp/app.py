@@ -56,8 +56,13 @@ def create_app():
         if not R_MIN <= R <= R_MAX:
             return jsonify(error=f"R must be in [{R_MIN}, {R_MAX}]"), 400
 
-        obs = terminator.observe(planet, scenario=scenario,
-                                 n_transits=n_transits, R=R)
+        try:
+            obs = terminator.observe(planet, scenario=scenario,
+                                     n_transits=n_transits, R=R)
+        except ValueError as e:
+            # e.g. R within our cap but beyond the noise tables' native
+            # sampling — surface the library's message as JSON, not HTML 500
+            return jsonify(error=str(e)), 400
         return jsonify(
             planet=obs.planet, scenario=obs.scenario,
             n_transits=obs.n_transits, R=obs.R, seed=seed,
