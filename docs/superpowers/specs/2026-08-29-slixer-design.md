@@ -113,7 +113,7 @@ literature by hand in `scenarios.py` overrides, with provenance noted.
 | `flat` | Featureless baseline | analytic constant depth = (R_p/R_s)² from targets.py (no POSEIDON call) |
 
 Chemistry uses POSEIDON equilibrium-chemistry grids (present in
-`~/Downloads/inputs/chemistry_grids`). Forward models are computed at high
+`~/inputs/chemistry_grids`). Forward models are computed at high
 resolution (R ≳ 5000) over the IFS bandpass read from the slicersim config,
 with margin on both ends for rebinning. Scenario parameters (P_cloud, haze
 strength, metallicity) live in `scenarios.py` as constants so a re-run is
