@@ -1,0 +1,28 @@
+name: poseidon
+channels: [conda-forge]
+dependencies:
+  - python=3.11
+  - "numpy<2"
+  - scipy
+  - matplotlib
+  - astropy
+  - h5py
+  - numba
+  - pandas
+  - tqdm
+  - mpi4py
+  - openmpi
+  - pip
+  - pip:
+      - pysynphot
+      - spectres
+      # POSEIDON.core / POSEIDON.utility / POSEIDON.clouds do unconditional
+      # top-level imports of these even though forward models never call
+      # into their retrieval-only code paths. Installed to satisfy import,
+      # not because forward models use them.
+      - pymultinest
+      - miepython==2.5.5
+      # pysynphot still imports pkg_resources, which setuptools>=81 dropped
+      # from its default install. Pin to the version POSEIDON's own
+      # setup.py specifies so `import pysynphot` doesn't crash.
+      - setuptools==81.0.0

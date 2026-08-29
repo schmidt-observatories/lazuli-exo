@@ -24,6 +24,19 @@ SCENARIOS = {
 
 
 def make_wl_grid():
-    """Constant-R grid matching POSEIDON's wl_grid_constant_R convention."""
-    n = int(np.floor(np.log(WL_MAX_UM / WL_MIN_UM) * R_MODEL))
-    return WL_MIN_UM * np.exp(np.arange(n + 1) / R_MODEL)
+    """Constant-R grid, byte-for-byte matching POSEIDON.core.wl_grid_constant_R.
+
+    POSEIDON builds this as N_wl = round((ln(wl_max)-ln(wl_min)) * R) points
+    linearly spaced in log-wavelength (not floor(...)+1 points as an earlier
+    version of this function did) — verified against
+    POSEIDON.core.wl_grid_constant_R(0.35, 1.85, 10_000) in
+    precompute/smoke_poseidon.py (Task 8).
+    """
+    delta_log_wl = 1.0 / R_MODEL
+    n_wl = np.log(WL_MAX_UM / WL_MIN_UM) / delta_log_wl
+    n_wl = int(np.around(n_wl))
+    log_wl = np.linspace(np.log(WL_MIN_UM), np.log(WL_MAX_UM), n_wl)
+    wl = np.exp(log_wl)
+    wl[0] = WL_MIN_UM
+    wl[-1] = WL_MAX_UM
+    return wl
