@@ -123,6 +123,22 @@ repo/package.
   rather than silently ignored; `depth_err` for these three hosts is mildly
   pessimistic relative to a hypothetical unsaturated readout.
 
+## Local web demo
+
+A single-page Flask + Plotly UI over the runtime (`webapp/`): pick planet,
+scenario, transits, R, and noise seed; get the interactive spectrum and the
+predicted detection significances. Local exploration tool only — not the
+deployable frontend.
+
+```bash
+pip install -e ".[web]"
+flask --app webapp/app run   # then open http://127.0.0.1:5000
+```
+
+Noise realizations happen server-side (`simulate_points(seed)`), so a given
+seed reproduces the notebook figures exactly. Design notes:
+`docs/superpowers/specs/2026-08-29-webapp-design.md`.
+
 ## Django/Heroku (planned)
 
 The runtime ships with its lookup tables and no heavy dependencies (numpy,

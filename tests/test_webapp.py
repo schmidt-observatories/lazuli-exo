@@ -1,0 +1,93 @@
+"""Tests for the local Flask demo UI (webapp/)."""
+import pathlib
+import sys
+
+import numpy as np
+import pytest
+
+import terminator
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+
+flask = pytest.importorskip("flask")
+from webapp.app import create_app  # noqa: E402
+
+
+@pytest.fixture
+def client():
+    app = create_app()
+    app.config["TESTING"] = True
+    return app.test_client()
+
+
+def test_index_serves_page(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert b"plotly" in r.data.lower()
+
+
+def test_targets_shape(client):
+    r = client.get("/api/targets")
+    assert r.status_code == 200
+    targets = r.get_json()
+    assert set(targets) == set(terminator.list_planets())
+    assert targets["WASP-39 b"] == terminator.list_scenarios("WASP-39 b")
+
+
+def test_observe_matches_direct_call(client):
+    r = client.get("/api/observe", query_string={
+        "planet": "WASP-39 b", "scenario": "cloudy",
+        "n_transits": 5, "R": 100, "seed": 3})
+    assert r.status_code == 200
+    j = r.get_json()
+
+    obs = terminator.observe("WASP-39 b", scenario="cloudy",
+                             n_transits=5, R=100)
+    np.testing.assert_allclose(j["wavelength"], obs.wavelength)
+    np.testing.assert_allclose(j["depth"], obs.depth)
+    np.testing.assert_allclose(j["depth_err"], obs.depth_err)
+    np.testing.assert_allclose(j["points"], obs.simulate_points(seed=3))
+    np.testing.assert_allclose(j["model_wavelength"], obs.model_wavelength)
+    np.testing.assert_allclose(j["model_depth"], obs.model_depth)
+    assert j["flat_depth"] == pytest.approx(obs.flat_depth)
+    direct = obs.detect()
+    assert set(j["detections"]) == set(direct)
+    for mol, sig in direct.items():
+        assert j["detections"][mol] == pytest.approx(sig)
+    assert (j["planet"], j["scenario"]) == ("WASP-39 b", "cloudy")
+    assert (j["n_transits"], j["R"], j["seed"]) == (5, 100, 3)
+
+
+def test_observe_defaults(client):
+    r = client.get("/api/observe", query_string={"planet": "WASP-39 b"})
+    assert r.status_code == 200
+    j = r.get_json()
+    assert (j["scenario"], j["n_transits"], j["R"], j["seed"]) == \
+        ("clear", 1, 100, 0)
+
+
+def test_seed_reproducibility(client):
+    q = {"planet": "GJ 1214 b", "scenario": "hazy", "seed": 7}
+    a = client.get("/api/observe", query_string=q).get_json()
+    b = client.get("/api/observe", query_string=q).get_json()
+    assert a["points"] == b["points"]
+    c = client.get("/api/observe",
+                   query_string={**q, "seed": 8}).get_json()
+    assert a["points"] != c["points"]
+
+
+@pytest.mark.parametrize("query", [
+    {},                                                    # missing planet
+    {"planet": "Vulcan b"},                                # unknown planet
+    {"planet": "WASP-39 b", "scenario": "lava"},           # unknown scenario
+    {"planet": "WASP-39 b", "n_transits": 0},              # < 1
+    {"planet": "WASP-39 b", "n_transits": 1001},           # > cap
+    {"planet": "WASP-39 b", "n_transits": "2.5"},          # non-integer
+    {"planet": "WASP-39 b", "R": 5},                       # R too low
+    {"planet": "WASP-39 b", "R": 501},                     # R too high
+    {"planet": "WASP-39 b", "seed": "abc"},                # bad seed
+])
+def test_observe_rejects_bad_inputs(client, query):
+    r = client.get("/api/observe", query_string=query)
+    assert r.status_code == 400
+    assert "error" in r.get_json()

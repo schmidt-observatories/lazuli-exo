@@ -12,6 +12,7 @@ dependencies = ["numpy"]
 [project.optional-dependencies]
 plot = ["matplotlib"]
 test = ["pytest"]
+web = ["flask"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

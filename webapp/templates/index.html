@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>terminator — Lazuli IFS simulator</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<style>
+  :root { --ink: #1a1a1a; --muted: #6b6b6b; --line: #e2e2e2; --accent: #0b7285; }
+  body { margin: 0; font: 14px/1.45 -apple-system, "Helvetica Neue", Arial, sans-serif;
+         color: var(--ink); background: #fafaf8; }
+  header { padding: 14px 22px; border-bottom: 1px solid var(--line); background: #fff; }
+  header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+  header h1 span { color: var(--muted); font-weight: 400; }
+  main { display: grid; grid-template-columns: 230px 1fr 220px; gap: 18px;
+         padding: 18px 22px; max-width: 1400px; }
+  .panel { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 14px; }
+  .panel h2 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase;
+              letter-spacing: .06em; color: var(--muted); }
+  label { display: block; margin: 10px 0 3px; font-size: 12px; color: var(--muted); }
+  select, input[type=number] { width: 100%; box-sizing: border-box; padding: 6px 8px;
+       border: 1px solid var(--line); border-radius: 4px; font: inherit; background: #fff; }
+  .check { margin-top: 12px; display: flex; align-items: center; gap: 6px; }
+  .check label { margin: 0; color: var(--ink); }
+  button { margin-top: 14px; width: 100%; padding: 7px 0; border: 1px solid var(--accent);
+           border-radius: 4px; background: var(--accent); color: #fff; font: inherit;
+           cursor: pointer; }
+  button:hover { filter: brightness(1.08); }
+  #plot { width: 100%; min-height: 480px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  td, th { padding: 4px 2px; text-align: left; border-bottom: 1px solid var(--line);
+           font-size: 13px; }
+  td:last-child, th:last-child { text-align: right; }
+  .caveat { margin-top: 10px; font-size: 11px; color: var(--muted); }
+  #error { color: #b02a37; font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+  #seedlabel { font-size: 11px; color: var(--muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+<header><h1>terminator <span>— Lazuli IFS transmission spectroscopy (local demo)</span></h1></header>
+<main>
+  <div class="panel">
+    <h2>Inputs</h2>
+    <label for="planet">Planet</label>
+    <select id="planet"></select>
+    <label for="scenario">Scenario</label>
+    <select id="scenario"></select>
+    <label for="n_transits">Transits (1–1000)</label>
+    <input id="n_transits" type="number" min="1" max="1000" step="1" value="1">
+    <label for="R">Resolution R (10–500)</label>
+    <input id="R" type="number" min="10" max="500" step="5" value="100">
+    <div class="check">
+      <input id="show_model" type="checkbox" checked>
+      <label for="show_model">Show model</label>
+    </div>
+    <button id="reroll">Re-roll noise</button>
+    <div id="seedlabel">seed = 0</div>
+    <div id="error"></div>
+  </div>
+  <div class="panel"><div id="plot"></div></div>
+  <div class="panel">
+    <h2>Detections</h2>
+    <table id="detections"><thead><tr><th>Feature</th><th>&sigma;</th></tr></thead>
+      <tbody></tbody></table>
+    <div class="caveat">Band masks overlap (e.g. H<sub>2</sub>O and CH<sub>4</sub> near
+      1.15&nbsp;µm), so per-molecule significances are approximate. CO and NH<sub>3</sub>
+      have no masks in 0.4–1.7&nbsp;µm and are never reported.</div>
+  </div>
+</main>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
