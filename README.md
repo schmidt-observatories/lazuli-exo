@@ -130,3 +130,10 @@ plus matplotlib as an optional extra), so a future Django frontend can be
 deployed on Heroku importing `slixer` directly — no POSEIDON, slicersim,
 jax, or opacity data needs to reach the web dyno. That app is a separate,
 not-yet-started follow-up project.
+
+The tables live at `<repo>/data/tables` and are found relative to the package
+source, which works for editable installs and repo checkouts (Heroku slugs
+built from this repo included), but a plain `pip install slixer` wheel would
+NOT include them — a non-repo deployment must set `SLIXER_TABLES` to a
+directory containing the tables. Packaging the tables inside the wheel
+(`src/slixer/data` + `importlib.resources`) is deferred to the Django project.

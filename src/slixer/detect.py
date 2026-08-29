@@ -7,6 +7,12 @@ molecule's wavelength band mask (relative to the same global dbar). Bands of
 different molecules overlap (H2O and CH4 near 1.15 um), so per-molecule
 values are approximate; per-molecule leave-one-out model tables are the
 rigorous upgrade path.
+
+In-band continuum structure (e.g., a haze's Rayleigh slope or a cloud-deck
+step crossing a band) is also attributed to that molecule's significance, not
+just its own absorption. CO and NH3 are present in the models but have no band
+masks in the 0.4-1.7 µm range, so detect() does not report them — their
+absence from the output is not a non-detection.
 """
 import numpy as np
 

@@ -39,7 +39,7 @@ Three stages, two environments:
 
 1. **Model tables** (dedicated `poseidon` conda env: Python 3.11, `numpy<2`,
    POSEIDON installed editable from `GIT/POSEIDON`, opacity inputs at
-   `~/Downloads/inputs/` via the `POSEIDON_input_data` environment variable).
+   `~/inputs/` via the `POSEIDON_input_data` environment variable).
    `precompute/make_model_tables.py` computes a high-resolution transit-depth
    spectrum for every planet × scenario over the full IFS bandpass and writes
    one `.npz` per (planet, scenario) to `data/tables/models/`.
@@ -59,7 +59,7 @@ Three stages, two environments:
    computes detection significances.
 
 The runtime package never imports POSEIDON, slicersim, jax, or jaxoplanet.
-`data/tables/` (a few MB) is committed to the repo and shipped with the
+`data/tables/` (~17 MB) is committed to the repo and shipped with the
 package.
 
 ## Repo layout
@@ -129,11 +129,11 @@ slixer.list_planets()                 # -> [str]
 slixer.list_scenarios("WASP-39 b")    # -> [str]
 
 obs = slixer.observe("WASP-39 b", scenario="cloudy", n_transits=5, R=100)
-obs.wavelength     # bin centers [µm]
-obs.depth          # binned model transit depth
-obs.depth_err      # per-bin 1σ uncertainty
-obs.model_hires    # (wavelength, depth) at native table resolution
-obs.detect()       # {"atmosphere": 11.2, "H2O": 7.4, ...} in σ
+obs.wavelength          # bin centers [µm]
+obs.depth               # binned model transit depth
+obs.depth_err           # per-bin 1σ uncertainty
+obs.model_wavelength, obs.model_depth   # native-resolution model
+obs.detect()            # {"atmosphere": 11.2, "H2O": 7.4, ...} in σ
 obs.simulate_points(seed=...)  # noisy realization for plotting
 obs.plot()         # requires [plot] extra
 ```

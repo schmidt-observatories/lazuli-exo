@@ -3,6 +3,11 @@ import numpy as np
 
 
 def constant_R_edges(wl_min, wl_max, R):
+    """Wavelength bin edges for constant resolving power R.
+
+    The grid keeps only complete bins, so coverage may stop up to one bin
+    short of wl_max (the last partial bin is dropped).
+    """
     step = 1.0 + 1.0 / float(R)
     n = int(np.floor(np.log(wl_max / wl_min) / np.log(step)))
     if n < 1:
