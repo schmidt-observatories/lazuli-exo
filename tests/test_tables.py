@@ -32,6 +32,7 @@ def test_model_roundtrip(tdir):
     path = tables.write_model_table(tdir, "Testar-1 b", "clear", wl, depth,
                                     meta={"scenario": "clear"})
     assert path.exists()
+    tables.rebuild_index(tdir)
     wl2, d2, meta = tables.load_model(tdir, "Testar-1 b", "clear")
     np.testing.assert_allclose(wl2, wl)
     np.testing.assert_allclose(d2, depth)
@@ -41,7 +42,11 @@ def test_model_roundtrip(tdir):
 def test_noise_roundtrip(tdir):
     wl = np.linspace(0.4, 1.7, 20)
     err = np.full(20, 2e-4)
+    # Write a model table first so rebuild_index discovers the planet
+    tables.write_model_table(tdir, "Testar-1 b", "clear", wl, np.full(20, 0.01),
+                             meta={})
     tables.write_noise_table(tdir, "Testar-1 b", wl, err, meta={})
+    tables.rebuild_index(tdir)
     wl2, e2, _ = tables.load_noise(tdir, "Testar-1 b")
     np.testing.assert_allclose(e2, err)
 

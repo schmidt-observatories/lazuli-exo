@@ -84,15 +84,12 @@ def _planet_entry(index, planet):
 
 
 def load_model(tables_dir, planet, scenario):
-    try:
-        index = load_index(tables_dir)
-        name, entry = _planet_entry(index, planet)
-        if scenario not in entry["scenarios"]:
-            raise KeyError(
-                f"Unknown scenario {scenario!r} for {name!r}. "
-                f"Available: {entry['scenarios']}")
-    except FileNotFoundError:
-        name = planet
+    index = load_index(tables_dir)
+    name, entry = _planet_entry(index, planet)
+    if scenario not in entry["scenarios"]:
+        raise KeyError(
+            f"Unknown scenario {scenario!r} for {name!r}. "
+            f"Available: {entry['scenarios']}")
     path = _model_path(tables_dir, name, scenario)
     if not path.exists():
         raise FileNotFoundError(
@@ -110,11 +107,8 @@ def load_star(tables_dir, planet):
 
 
 def load_noise(tables_dir, planet):
-    try:
-        index = load_index(tables_dir)
-        name, _ = _planet_entry(index, planet)
-    except FileNotFoundError:
-        name = planet
+    index = load_index(tables_dir)
+    name, _ = _planet_entry(index, planet)
     path = Path(tables_dir) / "noise" / f"{slugify(name)}.npz"
     if not path.exists():
         raise FileNotFoundError(
