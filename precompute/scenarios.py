@@ -10,7 +10,28 @@ P_GRID_ARGS = (-7.0, 2.0, 100)   # log10(P/bar): min, max, n
 P_REF_BAR = 10.0
 
 # POSEIDON MacMad17 cloud_params ordering:
-#   deck: [log_P_cloud (log10 bar)]; haze: [log_a, gamma]
+#   deck: [log_P_cloud (log10 bar)]; haze: [log_a, gamma];
+#   deck_haze: [log_a, gamma, log_P_cloud] (haze params first, then deck --
+#   matches the append order in POSEIDON.parameters.determine_model_parameters).
+#
+# NOTE on "hazy": cloud_type='haze' ALONE (no deck) is a POSEIDON trap -- for
+# a 1D model without a deck, POSEIDON.parameters.unpack_cloud_params sets
+# f_cloud=0.0 (its comment claims this is an unused "dummy value", but it is
+# NOT: f_cloud feeds transmission.extend_rad_transfer_grids' cloudy-sector
+# calculation, which with f_cloud=0 flags zero sectors as cloudy, so the haze
+# opacity (kappa_cloud) is computed but never mixed into the actual
+# transmission spectrum -- a silent no-op, confirmed by an empirical A/B
+# check: cloud_type='haze' gave a spectrum bit-identical (~1e-12) to 'clear'.
+# POSEIDON's own tutorial (transmission_clouds.ipynb) confirms the supported
+# recipe is cloud_type='deck_haze' (its "beginner" combined deck+haze
+# prescription), which sets enable_deck=1 -> f_cloud=1.0, correctly enabling
+# the haze mixing. We pin log_P_cloud to the pressure grid's own deepest
+# level (P_GRID_ARGS hi=2.0 -> 100 bar), which is the same as P[0] here, so
+# the deck's own opaque-cloud contribution (kappa_cloud_0 for P > P_cloud)
+# never triggers (no layer has P > 100.0 when P_cloud == 100.0) -- the deck
+# exists purely to unlock f_cloud=1 for the haze term, contributing no
+# opacity of its own. Verified via a standalone debug diagnostic: with this
+# fix, hazy vs clear differ by >100 ppm at the blue end, not ~1e-12.
 SCENARIOS = {
     "clear": dict(cloud_model="cloud-free", cloud_type=None, cloud_params=[],
                   C_to_O=0.55, log_Met=0.0),
@@ -18,8 +39,8 @@ SCENARIOS = {
                    cloud_params=[-3.0], C_to_O=0.55, log_Met=0.0),
     "high_metallicity": dict(cloud_model="cloud-free", cloud_type=None,
                              cloud_params=[], C_to_O=0.55, log_Met=2.0),
-    "hazy": dict(cloud_model="MacMad17", cloud_type="haze",
-                 cloud_params=[2.0, -6.0], C_to_O=0.55, log_Met=0.0),
+    "hazy": dict(cloud_model="MacMad17", cloud_type="deck_haze",
+                 cloud_params=[2.0, -6.0, 2.0], C_to_O=0.55, log_Met=0.0),
 }
 
 
