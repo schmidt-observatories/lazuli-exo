@@ -75,4 +75,6 @@ spectrum = compute_spectrum(planet, star, model, atmosphere, opac, wl,
 assert np.isfinite(spectrum).all()
 print(f"OK: {len(spectrum)} points, depth range "
       f"{spectrum.min():.5f}-{spectrum.max():.5f} "
-      f"(expect roughly 0.018-0.026 for WASP-39 b)")
+      f"(expect roughly 0.018-0.031 for WASP-39 b; the upper end is set by "
+      f"the saturated Na D line core at ~0.589 um, not the H2O/continuum "
+      f"bulk of the spectrum -- see task-8-report.md)")
