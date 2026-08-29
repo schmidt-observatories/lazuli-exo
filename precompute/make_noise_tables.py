@@ -17,7 +17,6 @@ usable knob. If a star cannot be fully de-saturated even at the minimal ramp
 table's meta and the minimal-ramp config is used anyway (no silent fallback
 to the saturated default).
 """
-import sys
 import warnings
 from datetime import date
 from pathlib import Path
