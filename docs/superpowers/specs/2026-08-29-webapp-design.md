@@ -55,6 +55,14 @@ JS build step.
   noise `sigma_band * sqrt(t14/2c)`, self-consistent with the spectrum's
   error bars.
 
+- `GET /api/target?planet=` — the frozen NEA registry entry plus `derived`
+  (b, g_p, scale height H at μ = 2.3, one-scale-height feature amplitude
+  2HRp/Rs²) and `observing` (instrument, sample time, ramp config,
+  saturation status from the noise-table meta). Fetched once per planet
+  change; feeds the System-parameters panel (left column) and the
+  Diagnostics panel (right column, combined client-side with the current
+  spectrum's per-bin/white-light precision and atmosphere σ).
+
 Validation → HTTP 400 + `{"error": msg}`: unknown planet or scenario,
 non-integer or `< 1` `n_transits` (cap 1000), `R` outside [10, 500],
 non-integer seed, `groups` outside [1, 12]. `observe()`'s own ValueError

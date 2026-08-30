@@ -115,6 +115,66 @@ function renderLightcurve(j) {
   }
 }
 
+function rows(tbodyId, entries) {
+  $(tbodyId).querySelector("tbody").innerHTML = entries
+    .filter(([, v]) => v !== null && v !== undefined && v !== "")
+    .map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+}
+
+function fmt(v, digits = 2) {
+  return (v === null || v === undefined) ? null : Number(v).toFixed(digits);
+}
+
+let lastTarget = null;
+
+function renderTarget(j) {
+  lastTarget = j;
+  const t = j.target, d = j.derived, o = j.observing;
+  rows("targetparams", [
+    ["Rₚ (Rⱼ)", fmt(t.R_p_RJ, 3)],
+    ["Mₚ (Mⱼ)", fmt(t.M_p_MJ, 3)],
+    ["Tₑq (K)", fmt(t.T_eq_K, 0)],
+    ["gₚ (m/s²)", fmt(d.g_p_ms2, 1)],
+    ["H (km)", fmt(d.H_km, 0)],
+    ["P (d)", fmt(t.period_d, 4)],
+    ["t₁₄ (h)", fmt(t.t14_s / 3600, 2)],
+    ["a/R★", fmt(t.a_over_rs, 2)],
+    ["i (°)", fmt(t.inc_deg, 2)],
+    ["e", fmt(t.ecc, 3)],
+    ["b", fmt(d.b, 3)],
+    ["depth (%)", fmt(t.depth * 100, 3)],
+    ["Tₑff (K)", fmt(t.T_eff_K, 0)],
+    ["log g★", fmt(t.log_g_star, 2)],
+    ["[M/H]★", fmt(t.Met_star, 2)],
+    ["R★ (R☉)", fmt(t.R_s_RSun, 3)],
+    ["J (mag)", fmt(t.J_mag, 2)],
+  ]);
+  return o;
+}
+
+function renderDiagnostics(obs) {
+  const w = obs.depth_err.map((s) => 1 / (s * s));
+  const sigWhite = 1 / Math.sqrt(w.reduce((a, v) => a + v, 0));
+  const errs = [...obs.depth_err].sort((a, b) => a - b);
+  const medErr = errs[Math.floor(errs.length / 2)];
+  const d = lastTarget ? lastTarget.derived : {};
+  const o = lastTarget ? lastTarget.observing : {};
+  rows("diagnostics", [
+    ["Bins @ R=" + obs.R, obs.wavelength.length],
+    ["Median σ/bin (ppm)", fmt(medErr * 1e6, 0)],
+    ["White-light σ (ppm)", fmt(sigWhite * 1e6, 1)],
+    ["Feature amp. (ppm)", fmt(d.feature_amp_ppm, 0)],
+    ["Amp / σ per bin", d.feature_amp_ppm
+      ? fmt(d.feature_amp_ppm / (medErr * 1e6), 1) : null],
+    ["Atmosphere σ", fmt(obs.detections.atmosphere, 1)],
+    ["Sample time (s)", fmt(o.t_obs_s, 1)],
+    ["Ramp (nmd)", o.nmd_used ? o.nmd_used.join("/") : null],
+    ["Saturation", o.fully_desaturated === undefined ? null
+      : (o.fully_desaturated ? "clean"
+         : `${o.nsaturated_detpx} px residual`)],
+  ]);
+}
+
 async function fetchJSON(url, signal) {
   const r = await fetch(url, { signal });
   let j;
@@ -139,14 +199,22 @@ async function refresh() {
   inflight = ctrl;
   $("seedlabel").textContent = `seed = ${seed}`;
   try {
-    const [obs, lc] = await Promise.all([
+    const needTarget = !lastTarget
+      || lastTarget.target.name !== $("planet").value;
+    const [obs, lc, target] = await Promise.all([
       fetchJSON(`/api/observe?${qObs}`, ctrl.signal),
       fetchJSON(`/api/lightcurve?${qLc}`, ctrl.signal),
+      needTarget
+        ? fetchJSON(`/api/target?planet=` +
+                    encodeURIComponent($("planet").value), ctrl.signal)
+        : Promise.resolve(null),
     ]);
     $("error").textContent = "";
+    if (target) renderTarget(target);
     renderPlot(obs);
     renderDetections(obs.detections);
     renderLightcurve(lc);
+    renderDiagnostics(obs);
   } catch (e) {
     if (e.name !== "AbortError") $("error").textContent = e.message;
   }

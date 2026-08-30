@@ -3,9 +3,13 @@
 Run from the repo root:  flask --app webapp/app run
 Not the deployable frontend — no packaging, persistence, or auth.
 """
+import math
+
 from flask import Flask, jsonify, render_template, request
 
 import terminator
+from terminator import tables
+from terminator.targets import get_target
 
 N_TRANSITS_MAX = 1000
 R_MIN, R_MAX = 10, 500
@@ -56,6 +60,33 @@ def _validated_observe(args):
     return obs, seed
 
 
+R_JUP_M = 7.1492e7
+M_JUP_KG = 1.89813e27
+G_SI = 6.674e-11
+K_B = 1.380649e-23
+M_PROTON = 1.6726e-27
+MU_H2 = 2.3          # H2/He-dominated mean molecular weight (assumption)
+R_SUN_M = 6.957e8
+
+
+def _derived(t):
+    """Quantities computed from the registry entry (None-safe)."""
+    e = t["ecc"] or 0.0
+    w = math.radians(t["w_deg"] if t["w_deg"] is not None else 90.0)
+    b = (t["a_over_rs"] * math.cos(math.radians(t["inc_deg"]))
+         * (1.0 - e**2) / (1.0 + e * math.sin(w)))
+    out = {"b": b}
+    if t["M_p_MJ"] and t["R_p_RJ"] and t["T_eq_K"]:
+        r_p = t["R_p_RJ"] * R_JUP_M
+        g_p = G_SI * t["M_p_MJ"] * M_JUP_KG / r_p**2
+        h_m = K_B * t["T_eq_K"] / (MU_H2 * M_PROTON * g_p)
+        r_s = t["R_s_RSun"] * R_SUN_M
+        out.update(
+            g_p_ms2=g_p, H_km=h_m / 1e3, mu_assumed=MU_H2,
+            feature_amp_ppm=2.0 * h_m * r_p / r_s**2 * 1e6)
+    return out
+
+
 def create_app():
     app = Flask(__name__)
 
@@ -71,6 +102,23 @@ def create_app():
     def targets():
         return jsonify({p: terminator.list_scenarios(p)
                         for p in terminator.list_planets()})
+
+    @app.get("/api/target")
+    def target():
+        planet = request.args.get("planet")
+        if planet is None:
+            raise BadRequest("planet is required")
+        try:
+            t = get_target(planet)
+        except KeyError:
+            raise BadRequest(f"unknown planet {planet!r}")
+        *_, noise_meta = tables.load_noise(
+            tables.resolve_tables_dir(None), planet)
+        observing = {k: noise_meta.get(k) for k in
+                     ("instrument", "J_mag", "t14_s", "t_obs_s", "nmd_used",
+                      "nramps", "nsaturated_detpx", "fully_desaturated",
+                      "norm_band")}
+        return jsonify(target=t, derived=_derived(t), observing=observing)
 
     @app.get("/api/observe")
     def observe():

@@ -133,6 +133,31 @@ def test_lightcurve_rejects_bad_inputs(client, query):
     assert "error" in r.get_json()
 
 
+def test_target_endpoint(client):
+    r = client.get("/api/target", query_string={"planet": "WASP-39 b"})
+    assert r.status_code == 200
+    j = r.get_json()
+    for f in ("R_p_RJ", "M_p_MJ", "period_d", "a_over_rs", "inc_deg",
+              "T_eff_K", "log_g_star", "J_mag", "t14_s", "depth"):
+        assert f in j["target"], f
+    # derived quantities consistent with the light-curve geometry
+    obs = terminator.observe("WASP-39 b")
+    lc = obs.light_curves(seed=0)
+    assert j["derived"]["b"] == pytest.approx(lc.meta["b"])
+    assert j["derived"]["H_km"] > 0
+    assert j["derived"]["feature_amp_ppm"] > 0
+    # observing setup from the noise-table meta
+    assert j["observing"]["instrument"] == "lazuli_cbe"
+    assert j["observing"]["t_obs_s"] > 0
+    assert isinstance(j["observing"]["fully_desaturated"], bool)
+
+
+def test_target_endpoint_rejects_unknown(client):
+    r = client.get("/api/target", query_string={"planet": "Vulcan b"})
+    assert r.status_code == 400
+    assert "error" in r.get_json()
+
+
 def test_r_beyond_native_noise_sampling_is_json_400(client):
     """R within the accepted range can still exceed the noise tables'
     native sampling; the library's ValueError must surface as a JSON 400,

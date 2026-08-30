@@ -12,8 +12,9 @@
   header { padding: 14px 22px; border-bottom: 1px solid var(--line); background: #fff; }
   header h1 { margin: 0; font-size: 17px; font-weight: 600; }
   header h1 span { color: var(--muted); font-weight: 400; }
-  main { display: grid; grid-template-columns: 230px 1fr 220px; gap: 18px;
-         padding: 18px 22px; max-width: 1400px; }
+  main { display: grid; grid-template-columns: 230px 1fr 230px; gap: 18px;
+         padding: 18px 22px; max-width: 1400px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 18px; }
   .panel { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 14px; }
   .panel h2 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase;
               letter-spacing: .06em; color: var(--muted); }
@@ -40,6 +41,7 @@
 <body>
 <header><h1>terminator <span>— Lazuli IFS transmission spectroscopy (local demo)</span></h1></header>
 <main>
+  <div class="col">
   <div class="panel">
     <h2>Inputs</h2>
     <label for="planet">Planet</label>
@@ -66,6 +68,13 @@
     <div id="error"></div>
   </div>
   <div class="panel">
+    <h2>System parameters</h2>
+    <table id="targetparams"><tbody></tbody></table>
+    <div class="caveat">NEA PSCompPars, frozen 2026-08-29; b, g, H derived
+      (H assumes H<sub>2</sub>/He, &mu;&nbsp;=&nbsp;2.3).</div>
+  </div>
+  </div>
+  <div class="panel">
     <div id="plot"></div>
     <div id="lcplot"></div>
     <div id="sysparams" class="caveat"></div>
@@ -73,6 +82,7 @@
       uncertainties as the spectrum
       (&sigma;<sub>pt</sub> = &sigma;<sub>band</sub>&nbsp;&radic;(t&#8321;&#8324;/2c)).</div>
   </div>
+  <div class="col">
   <div class="panel">
     <h2>Detections</h2>
     <table id="detections"><thead><tr><th>Feature</th><th>&sigma;</th></tr></thead>
@@ -80,6 +90,13 @@
     <div class="caveat">Band masks overlap (e.g. H<sub>2</sub>O and CH<sub>4</sub> near
       1.15&nbsp;µm), so per-molecule significances are approximate. CO and NH<sub>3</sub>
       have no masks in 0.4–1.7&nbsp;µm and are never reported.</div>
+  </div>
+  <div class="panel">
+    <h2>Diagnostics</h2>
+    <table id="diagnostics"><tbody></tbody></table>
+    <div class="caveat">Feature amplitude is the 2HR<sub>p</sub>/R<sub>&starf;</sub><sup>2</sup>
+      one-scale-height estimate; compare with the per-bin precision.</div>
+  </div>
   </div>
 </main>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
