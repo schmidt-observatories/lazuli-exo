@@ -65,6 +65,10 @@ POSEIDON_input_data=$HOME/inputs/ PYSYN_CDBS=$HOME/inputs/stellar_grids \
 
 # 3. noise tables (py313 env; needs slicersim)
 ~/anaconda3/envs/py313/bin/python precompute/make_noise_tables.py
+
+# 4. limb-darkening tables (py313 env; needs exotic-ld, network on first run;
+#    PHOENIX files cache to $EXOTIC_LD_DATA, default ~/inputs/exotic_ld_data)
+~/anaconda3/envs/py313/bin/python precompute/make_ld_tables.py
 ```
 
 Each script calls `tables.rebuild_index()` when it finishes, so `index.json`
@@ -91,11 +95,18 @@ repo/package.
 
 - **Isothermal equilibrium chemistry**: every scenario uses a single T = T_eq
   isotherm, not a real P-T profile.
-- **Light-curve shape** (`terminator.lightcurve`): trapezoid for a central
-  transit (b = 0), no limb darkening — the tables carry no orbital geometry
-  or limb-darkening coefficients. Per-point noise is derived from the band's
-  depth precision via sigma_pt = sigma_band * sqrt(t14 / 2c), consistent
-  with the noise tables' equal out-of-transit baseline assumption.
+- **Light-curve shape** (`terminator.lightcurve`): quadratically
+  limb-darkened transit (numpy-only numerical disk integration, validated
+  against the analytic uniform-disk and small-planet limits) with geometry
+  from the frozen NEA registry (b from a/R*, cos i and the eccentricity
+  factor; z(t) along the circular-orbit arc at the conjunction speed).
+  LD coefficients come from per-planet tables (`data/tables/ld/`) computed
+  by `precompute/make_ld_tables.py` with exotic-ld (PHOENIX grid, trilinear
+  interpolation, 48 wavelength chunks). Planets without a registry entry or
+  LD table fall back to a b = 0 trapezoid; `meta["shape"]` records which.
+  Per-point noise is derived from the band's depth precision via
+  sigma_pt = sigma_band * sqrt(t14 / 2c), consistent with the noise tables'
+  equal out-of-transit baseline assumption.
 - **Cold-planet temperature floor**: the fastchem equilibrium-chemistry grid
   has a hard floor at 300 K. K2-18 b (T_eq ~ 284 K), LHS 1140 b (~226 K), and
   TRAPPIST-1 e (~250 K) are clamped to 300 K for both the isotherm and the

@@ -5,6 +5,7 @@ Layout under a tables directory:
     models/<planet-slug>__<scenario>.npz   (wavelength_um, transit_depth, meta)
     star/<planet-slug>.npz                 (wavelength_um, f_lambda, meta)
     noise/<planet-slug>.npz                (wavelength_um, depth_err_1transit, meta)
+    ld/<planet-slug>.npz                   (wavelength_um, u1, u2, meta)
 
 All wavelengths are in micron. `meta` is a JSON dict stored as a string array.
 """
@@ -75,6 +76,13 @@ def write_noise_table(tables_dir, planet, wavelength_um,
                   depth_err_1transit=depth_err_1transit)
 
 
+def write_ld_table(tables_dir, planet, wavelength_um, u1, u2, meta):
+    """Quadratic limb-darkening coefficients u1(lambda), u2(lambda)."""
+    meta = dict(meta or {}, planet=planet)
+    return _write(Path(tables_dir) / "ld" / f"{slugify(planet)}.npz", meta,
+                  wavelength_um=wavelength_um, u1=u1, u2=u2)
+
+
 def _planet_entry(index, planet):
     for name, entry in index["planets"].items():
         if name == planet or entry["slug"] == slugify(planet):
@@ -117,6 +125,17 @@ def load_noise(tables_dir, planet):
     return _read(path, "wavelength_um", "depth_err_1transit")
 
 
+def load_ld(tables_dir, planet):
+    index = load_index(tables_dir)
+    name, _ = _planet_entry(index, planet)
+    path = Path(tables_dir) / "ld" / f"{slugify(name)}.npz"
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} missing; re-run precompute/make_ld_tables.py "
+            "and tables.rebuild_index().")
+    return _read(path, "wavelength_um", "u1", "u2")
+
+
 def rebuild_index(tables_dir):
     tdir = Path(tables_dir)
     planets = {}
@@ -129,6 +148,7 @@ def rebuild_index(tables_dir):
     for name, entry in planets.items():
         entry["scenarios"] = sorted(entry["scenarios"])
         entry["has_noise"] = (tdir / "noise" / f"{entry['slug']}.npz").exists()
+        entry["has_ld"] = (tdir / "ld" / f"{entry['slug']}.npz").exists()
     index = {"version": SCHEMA_VERSION, "planets": planets}
     tdir.mkdir(parents=True, exist_ok=True)
     (tdir / "index.json").write_text(json.dumps(index, indent=1, sort_keys=True))

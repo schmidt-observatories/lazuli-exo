@@ -63,4 +63,4 @@ def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None):
         R=int(R), wavelength=binning.bin_centers(edges), depth=depth,
         depth_err=err, model_wavelength=wl_m[keep], model_depth=d_m[keep],
         flat_depth=float(np.median(d_flat)),
-        meta={"model": meta_m, "noise": meta_n})
+        meta={"model": meta_m, "noise": meta_n, "tables_dir": str(tdir)})

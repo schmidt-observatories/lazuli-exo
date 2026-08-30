@@ -97,6 +97,22 @@ function renderLightcurve(j) {
     paper_bgcolor: "#fff", plot_bgcolor: "#fff",
   };
   Plotly.react("lcplot", traces, layout, { responsive: true });
+
+  if (j.shape === "quadratic-ld") {
+    const uSpan = j.groups.length > 1
+      ? `u₁ = ${j.groups[0].u1.toFixed(2)}→` +
+        `${j.groups[j.groups.length - 1].u1.toFixed(2)} (blue→red)`
+      : `u₁ = ${j.groups[0].u1.toFixed(2)}, ` +
+        `u₂ = ${j.groups[0].u2.toFixed(2)}`;
+    $("sysparams").textContent =
+      `Quadratic limb darkening (PHOENIX via exotic-ld), ${uSpan}; ` +
+      `b = ${j.b.toFixed(2)}, a/R★ = ${j.a_over_rs.toFixed(1)} ` +
+      `(NEA PSCompPars).`;
+  } else {
+    $("sysparams").textContent =
+      "Trapezoid fallback: central transit (b = 0), no limb darkening " +
+      "(no registry entry or LD table for this planet).";
+  }
 }
 
 async function fetchJSON(url, signal) {

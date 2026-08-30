@@ -101,3 +101,79 @@ def test_convenience_method(obs):
     lc = obs.light_curves(n_groups=2, seed=3)
     direct = lightcurve.light_curves(obs, n_groups=2, seed=3)
     np.testing.assert_array_equal(lc.flux, direct.flux)
+
+
+# --- transit_flux: quadratic-LD occultation model ------------------------
+
+def _uniform_disk_analytic(z, k):
+    """Mandel & Agol (2002) lambda_e: occulted flux fraction, u1=u2=0."""
+    z = np.asarray(z, float)
+    out = np.zeros_like(z)
+    out[z <= 1.0 - k] = k**2
+    part = (z > 1.0 - k) & (z < 1.0 + k)
+    zp = z[part]
+    k0 = np.arccos((zp**2 + k**2 - 1.0) / (2.0 * k * zp))
+    k1 = np.arccos((zp**2 + 1.0 - k**2) / (2.0 * zp))
+    out[part] = (k**2 * k0 + k1
+                 - np.sqrt(np.maximum(
+                     zp**2 - (1.0 + zp**2 - k**2)**2 / 4.0, 0.0))) / np.pi
+    return out
+
+
+def test_transit_flux_uniform_disk_matches_analytic():
+    k = 0.1
+    z = np.linspace(0.0, 1.3, 400)
+    flux = lightcurve.transit_flux(z, k, 0.0, 0.0)
+    np.testing.assert_allclose(flux, 1.0 - _uniform_disk_analytic(z, k),
+                               atol=2e-6)
+
+
+def test_transit_flux_small_planet_ld():
+    """k -> 0: dF = k^2 I(z) / Ibar with quadratic I(mu)."""
+    k, u1, u2 = 0.01, 0.4, 0.2
+    z = np.array([0.0, 0.3, 0.6, 0.85])
+    mu = np.sqrt(1.0 - z**2)
+    inten = 1.0 - u1 * (1.0 - mu) - u2 * (1.0 - mu)**2
+    ibar = 1.0 - u1 / 3.0 - u2 / 6.0
+    expected = 1.0 - k**2 * inten / ibar
+    flux = lightcurve.transit_flux(z, k, u1, u2)
+    np.testing.assert_allclose(flux, expected, atol=3e-6)
+
+
+def test_transit_flux_limits():
+    flux = lightcurve.transit_flux(np.array([1.2, 5.0]), 0.1, 0.5, 0.1)
+    np.testing.assert_allclose(flux, 1.0)
+    # limb-darkened center-of-disk crossing is deeper than uniform
+    f_ld = lightcurve.transit_flux(np.array([0.0]), 0.1, 0.5, 0.1)
+    f_uni = lightcurve.transit_flux(np.array([0.0]), 0.1, 0.0, 0.0)
+    assert f_ld[0] < f_uni[0]
+
+
+# --- LD + orbital-geometry path (real repo tables + registry) -------------
+
+@pytest.fixture
+def obs_real():
+    return observe("WASP-39 b", scenario="clear", n_transits=1, R=100)
+
+
+def test_real_planet_uses_quadratic_ld(obs_real):
+    lc = lightcurve.light_curves(obs_real, n_groups=3, seed=0)
+    assert lc.meta["shape"] == "quadratic-ld"
+    assert 0.0 <= lc.meta["b"] < 1.0
+    assert lc.meta["a_over_rs"] > 1.0
+    assert lc.u1.shape == lc.u2.shape == (3,)
+    assert np.isfinite(lc.u1).all() and np.isfinite(lc.u2).all()
+    # limb darkening weakens toward the red
+    assert lc.u1[0] > lc.u1[-1]
+    # mid-transit is deeper than the box depth for u1 > 0
+    i_mid = np.argmin(np.abs(lc.time_hr))
+    assert lc.flux_model[0, i_mid] < 1.0 - lc.depth[0]
+    # out of transit is unity
+    assert lc.flux_model[0, 0] == pytest.approx(1.0)
+    assert lc.flux_model[0, -1] == pytest.approx(1.0)
+
+
+def test_fixture_planet_falls_back_to_trapezoid(obs):
+    lc = lightcurve.light_curves(obs, n_groups=1, seed=0)
+    assert lc.meta["shape"] == "trapezoid"
+    assert lc.u1 is None and lc.u2 is None

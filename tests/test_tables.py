@@ -84,3 +84,27 @@ def test_resolve_tables_dir_env(tdir, monkeypatch):
     _write_minimal(tdir)
     monkeypatch.setenv("TERMINATOR_TABLES", str(tdir))
     assert tables.resolve_tables_dir(None) == tdir
+
+
+def test_ld_roundtrip_and_index(tdir):
+    _write_minimal(tdir)
+    wl = np.geomspace(0.4, 1.7, 48)
+    u1 = np.linspace(0.6, 0.2, 48)
+    u2 = np.linspace(0.1, 0.25, 48)
+    tables.write_ld_table(tdir, "Testar-1 b", wl, u1, u2,
+                          meta={"ld_grid": "phoenix"})
+    tables.rebuild_index(tdir)
+    wl2, u1b, u2b, meta = tables.load_ld(tdir, "Testar-1 b")
+    np.testing.assert_allclose(wl2, wl)
+    np.testing.assert_allclose(u1b, u1)
+    np.testing.assert_allclose(u2b, u2)
+    assert meta["ld_grid"] == "phoenix"
+    assert meta["planet"] == "Testar-1 b"
+    idx = tables.load_index(tdir)
+    assert idx["planets"]["Testar-1 b"]["has_ld"] is True
+
+
+def test_ld_missing_raises(tdir):
+    _write_minimal(tdir)
+    with pytest.raises(FileNotFoundError, match="make_ld_tables"):
+        tables.load_ld(tdir, "Testar-1 b")

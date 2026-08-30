@@ -113,6 +113,12 @@ def test_lightcurve_matches_direct_call(client):
         assert g["label"] == lc.labels[i]
     assert j["t14_s"] == pytest.approx(lc.t14_s)
     assert j["cadence_s"] == pytest.approx(lc.cadence_s)
+    assert j["shape"] == lc.meta["shape"] == "quadratic-ld"
+    assert j["b"] == pytest.approx(lc.meta["b"])
+    assert j["a_over_rs"] == pytest.approx(lc.meta["a_over_rs"])
+    for i, g in enumerate(j["groups"]):
+        assert g["u1"] == pytest.approx(lc.u1[i])
+        assert g["u2"] == pytest.approx(lc.u2[i])
 
 
 @pytest.mark.parametrize("query", [
