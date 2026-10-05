@@ -44,3 +44,10 @@ def test_n_transits_scaling(sun):
     _, e1, _ = slicer.depth_error(*sun, mag=10.0, t14_s=7200.0, n_transits=1)
     _, e4, _ = slicer.depth_error(*sun, mag=10.0, t14_s=7200.0, n_transits=4)
     np.testing.assert_allclose(e1 / e4, 2.0)
+
+
+def test_unknown_instrument_is_a_valueerror(sun):
+    # slicersim raises assorted exceptions for a bad/broken config (KeyError for a
+    # toml missing a section); the web layers only translate ValueError into 400s
+    with pytest.raises(ValueError, match="instrument"):
+        slicer.depth_error(*sun, mag=10.0, t14_s=7200.0, instrument="lazuli_nonexistent")

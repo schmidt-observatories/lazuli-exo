@@ -1,0 +1,24 @@
+/* Minor tweaks on top of the Read the Docs theme. */
+.wy-nav-content { max-width: 960px; }
+.rst-content table.docutils td,
+.rst-content table.docutils th { white-space: normal; }
+
+/* Caveat callouts carry a lot of weight in these docs — make them readable. */
+.rst-content .admonition.warning,
+.rst-content .admonition.danger { margin-bottom: 20px; }
+
+/* nbsphinx maps only Bootstrap's alert-info / alert-warning onto Sphinx
+   admonitions; any other alert class from a notebook markdown cell passes
+   through as a bare div the RTD theme does not style. Give those a fallback
+   so a caveat can never render as unremarkable body text. */
+.rst-content .alert {
+  padding: 12px;
+  margin-bottom: 20px;
+  border-left: 3px solid #f0b37e;
+  background: #ffedcc;
+}
+.rst-content .alert.alert-danger {
+  border-left-color: #f29f97;
+  background: #fdf3f2;
+}
+.rst-content .alert > p:last-child { margin-bottom: 0; }

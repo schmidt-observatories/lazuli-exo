@@ -83,9 +83,13 @@ def depth_error(wl_A, f_lambda, *, mag, band="J", mag_system="vega", t14_s,
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         warnings.simplefilter("ignore", FutureWarning)
-        target = LazuliTarget(np.asarray(wl_A, float), np.asarray(f_lambda, float),
-                              mag=mag_ab, band=sn_band, instrument=instrument)
-        sim = target.simulation
+        try:
+            target = LazuliTarget(np.asarray(wl_A, float), np.asarray(f_lambda, float),
+                                  mag=mag_ab, band=sn_band, instrument=instrument)
+            sim = target.simulation
+        except Exception as e:      # missing/broken instrument config -> user-facing error
+            raise ValueError(f"slicersim could not build instrument {instrument!r}: "
+                             f"{type(e).__name__}: {e}") from e
         default_nmd = tuple(int(x) for x in sim.detector.nmd)
         snr, nmd_used, nsat = _desaturate(target)
         wl_um = np.asarray(sim.get_lbda(), float) / ANGSTROM_PER_UM

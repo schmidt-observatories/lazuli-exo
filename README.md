@@ -72,6 +72,9 @@ See the `notebooks/` directory:
 | `04_light_curves` | White-light and banded transits, limb darkening |
 | `05_tables_and_targets` | Table layout, the index, the frozen NEA registry, caveat flags |
 | `06_parametric_model` | The zeta grid, the parametric model, validation against POSEIDON |
+| `07_custom_planet` | A planet not in the registry from a dozen numbers; the forms/report web path |
+| `08_atmosphere_knobs` | Sweeps of mu, metallicity, deck, haze and T_eq; transits needed |
+| `09_stars_and_noise` | PHOENIX SEDs, Vega->AB, error bar vs magnitude/band, saturation floor |
 
 # Running the Flask applet
 
@@ -99,7 +102,9 @@ local exploration tool; the public page lives on the Lazuli simulators site.
 
 ```bash
 pip install -e ".[docs]"      # plus a pandoc binary, for nbsphinx
-cd docs/sphinx && make html
+./docs/rundocs.sh             # live-reloading server (sphinx-autobuild) or a one-shot build
 ```
 
-Then open `docs/sphinx/_build/html/index.html`.
+Then open `docs/sphinx/_build/html/index.html`. The tutorial notebooks are
+rendered into the docs with their saved outputs; `notebooks/build_0N.py`
+regenerates notebook N.
