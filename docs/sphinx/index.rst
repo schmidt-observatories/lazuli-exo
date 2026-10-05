@@ -6,8 +6,8 @@ lazuli-exo: exoplanet transmission spectroscopy with the Lazuli IFS
    :width: 320px
 
 **lazuli-exo** simulates exoplanet transmission spectroscopy with the
-**Integral Field Spectrograph (IFS)** on *Lazuli*, the flagship instrument of
-the Schmidt Observatory System. It returns the model transmission spectrum of
+**Integral Field Spectrograph (IFS)** on *Lazuli*, the Schmidt Observatory
+System's space telescope. It returns the model transmission spectrum of
 a transiting planet binned to the instrument, with photon/read-noise error
 bars for a chosen number of transits, a spectral-template S/N, and (for the
 showcase planets) simulated transit light curves.

@@ -86,4 +86,4 @@ Precompute
 Renamed
 ~~~~~~~
 
-- The package was renamed ``slixer`` → ``terminator`` early in development, and ``terminator`` → ``lazuli-exo`` on 2026-10-05.
+- The package carried two earlier working names before settling on ``lazuli-exo`` on 2026-10-05.
