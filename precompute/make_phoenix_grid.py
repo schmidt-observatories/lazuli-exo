@@ -31,10 +31,24 @@ FLOOR = 1e-30    # erg s-1 cm-2 A-1; keeps log10 finite in deep absorption
 # so the stored grid is defined the same way everywhere. The per-folder
 # native resolution is recorded in meta["native_R"].
 R_FINE = 20000
+# The low-resolution folders carry corrupt cool-star models (issue #16): their
+# box V-J scatters by 1-2 mag around the solar-metallicity node at the same
+# (T_eff, log g). A node whose V-J differs from the solar node by more than
+# VJ_TOL is replaced by that solar node and listed in meta["filled_from_solar_feh"].
+VJ_TOL = 0.3     # mag
+V_BAND, J_BAND = (0.50, 0.60), (1.17, 1.33)    # um, box filters
 
 
 def teff_of(path):
     return int(re.findall(r"_(\d+)\.fits$", path.name)[0])
+
+
+def box_vj(wl_um, log_flam):
+    """Box-filter V-J colour of log_flam[..., wavelength]."""
+    f = 10.0 ** log_flam
+    v = f[..., (wl_um >= V_BAND[0]) & (wl_um <= V_BAND[1])].mean(-1)
+    j = f[..., (wl_um >= J_BAND[0]) & (wl_um <= J_BAND[1])].mean(-1)
+    return -2.5 * np.log10(v / j)
 
 
 def main():
@@ -74,6 +88,13 @@ def main():
                     log_flam[i, j, k] = np.log10(np.maximum(binned, FLOOR))
         print(f"[Fe/H]={feh:+.1f}: {len(teffs)} T_eff files done", flush=True)
     assert np.isfinite(log_flam).all()
+    k0 = fehs.index(0.0)
+    dvj = box_vj(wl_store, log_flam)
+    dvj -= dvj[:, :, [k0]]
+    bad = np.abs(dvj) > VJ_TOL
+    filled_feh = {f"{FEH[fehs[k]]}_{teffs[i]}_{LOGG[j]}": round(float(dvj[i, j, k]), 2)
+                  for i, j, k in zip(*np.nonzero(bad))}
+    log_flam[bad] = np.broadcast_to(log_flam[:, :, [k0]], log_flam.shape)[bad]
     tables.write_phoenix_grid(
         TABLES, teff_K=teffs, logg=LOGG, feh=fehs, wavelength_um=wl_store,
         log_flam=log_flam,
@@ -84,9 +105,12 @@ def main():
               "R_store": R_STORE, "R_fine": R_FINE,
               "native_R": {k: round(v) for k, v in native_R.items()},
               "filled_from_nearest_logg": filled,
+              "vj_tol_mag": VJ_TOL, "v_band_um": V_BAND, "j_band_um": J_BAND,
+              "filled_from_solar_feh": filled_feh,
               "folders": {str(k): v for k, v in FEH.items()}})
     tables.rebuild_index(TABLES)
     print(f"filled {len(filled)} all-zero placeholder models from the nearest log g")
+    print(f"filled {len(filled_feh)} nodes with |d(V-J)| > {VJ_TOL} mag from the solar-[Fe/H] node")
     print("wrote", TABLES / tables.PHOENIX_GRID)
 
 
