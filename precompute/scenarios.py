@@ -68,4 +68,10 @@ ZETA_T_K = [300, 400, 500, 600, 700, 800, 900, 1000, 1200, 1400, 1600, 1800,
             2000, 2300, 2600, 3000]
 ZETA_LOG_MET = [-1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
 ZETA_C_TO_O = [0.3, 0.55, 0.8, 1.0]
-FIDUCIAL = dict(R_p_RJ=1.0, g_ms2=10.0, R_s_RSun=1.0)
+# Fiducial planets spanning the slant-column axis x = 0.5 ln[(R_p H)/(R_p H)_0]
+# (same g and T -> same H, so x = 0.5 ln(R_p/R_p0) = 0 and -1.151). Two nodes
+# capture the first-order pressure dependence of the line-core opacity that a
+# single fiducial misses for small planets (~0.15 H at band peaks).
+FIDUCIALS = [dict(R_p_RJ=1.0, g_ms2=10.0, R_s_RSun=1.0),
+             dict(R_p_RJ=0.1, g_ms2=10.0, R_s_RSun=1.0)]
+FIDUCIAL = FIDUCIALS[0]

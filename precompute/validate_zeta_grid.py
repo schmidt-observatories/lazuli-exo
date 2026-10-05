@@ -16,6 +16,8 @@ band-median transit radius with gravity evaluated there. These are different
 planets by ~10 scale heights, so the comparison passes the table's own
 band-median transit radius, R_p = sqrt(median depth) R_s, to the model. The
 reported "offset_ppm" is then a residual, not the P_ref convention.
+
+Deck convention: see DECK_REALIZED_LOG_OFFSET below.
 """
 import json
 import sys
@@ -31,6 +33,12 @@ from terminator.atmosphere import transmission_depth  # noqa: E402
 TOL = {"clear": 0.10, "high_metallicity": 0.10, "cloudy": 0.20, "hazy": 0.20}
 R_CMP, BAND = 100, (0.40, 1.70)
 R_J_M, R_SUN_M = 7.1492e7, 6.957e8
+# POSEIDON applies the MacMad17 deck to layers strictly deeper than P_cloud,
+# so on the tables' 100-layer grid the "1 mbar" deck's tau=1 surface sits at
+# 1.376 mbar (measured from a direct run with the atmosphere's own r(P)).
+# The parametric model takes P_cloud literally; the comparison uses the
+# pressure POSEIDON actually realized.
+DECK_REALIZED_LOG_OFFSET = float(np.log10(1.376))
 OUT = ROOT / "notebooks" / "figs" / "06_validation.json"
 ATMO_KEYS = ("T_eq_K", "R_p_RJ", "M_p_MJ", "R_s_RSun", "log_met", "c_to_o",
              "mu", "log_P_cloud_bar", "log_a_haze", "haze_slope")
@@ -44,6 +52,8 @@ def compare(planet, scen, tdir, edges, T_override=None):
         kw["T_eq_K"] = T_override
     band = (wl >= BAND[0]) & (wl <= BAND[1])
     kw["R_p_RJ"] = float(np.sqrt(np.median(d_tab[band])) * p["R_s_RSun"] * R_SUN_M / R_J_M)
+    if kw["log_P_cloud_bar"] is not None:
+        kw["log_P_cloud_bar"] += DECK_REALIZED_LOG_OFFSET
     d_mod, info = transmission_depth(wl, **kw, tables_dir=tdir)
     bt = binning.bin_model(wl, d_tab, edges)
     bm = binning.bin_model(wl, d_mod, edges)

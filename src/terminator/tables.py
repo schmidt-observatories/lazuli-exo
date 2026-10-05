@@ -6,7 +6,7 @@ Layout under a tables directory:
     star/<planet-slug>.npz                 (wavelength_um, f_lambda, meta)
     noise/<planet-slug>.npz                (wavelength_um, depth_err_1transit, meta)
     ld/<planet-slug>.npz                   (wavelength_um, u1, u2, meta)
-    atmo/zeta_grid.npz      (T_K, log_met, c_to_o, wavelength_um, zeta, mu, meta)
+    atmo/zeta_grid.npz      (T_K, log_met, c_to_o, wavelength_um, zeta[T,met,co,fid,wl], mu[T,met,co], meta)
     star/phoenix_grid.npz   (teff_K, logg, feh, wavelength_um, log_flam, meta)
 
 All wavelengths are in micron. `meta` is a JSON dict stored as a string array.

@@ -6,8 +6,8 @@ Run (poseidon env, ~1 h; resumable, memory-safe):
   nice ~/anaconda3/envs/poseidon/bin/python precompute/make_zeta_grid.py \
       [--smoke] [--resume]
 
-Output: zeta[T, met, co, wl] float16 at the native R=10,000 (~19 MB raw) and
-mu[T, met, co] float32.
+Output: zeta[T, met, co, fid, wl] float16 at the native R=10,000 (~38 MB raw
+for two fiducials along the slant-column axis) and mu[T, met, co] float32.
 
 Memory: opacities are loaded per temperature node with a 10-point T_fine
 window (the footprint that already worked for the per-planet tables) and
@@ -34,7 +34,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).parent))
 
 import scenarios  # noqa: E402
-from scenarios import (FIDUCIAL, P_GRID_ARGS, P_REF_BAR, PARAM_SPECIES,  # noqa: E402
+from scenarios import (FIDUCIALS, P_GRID_ARGS, P_REF_BAR, PARAM_SPECIES,  # noqa: E402
                        ZETA_C_TO_O, ZETA_LOG_MET, ZETA_T_K)
 from terminator import tables  # noqa: E402
 
@@ -93,7 +93,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     T_K = ZETA_T_K[7:8] if args.smoke else ZETA_T_K        # 1000 K
-    log_met = ZETA_LOG_MET[2:4] if args.smoke else ZETA_LOG_MET
+    log_met = ZETA_LOG_MET[2:3] if args.smoke else ZETA_LOG_MET
     c_to_o = ZETA_C_TO_O[1:2] if args.smoke else ZETA_C_TO_O
     WL = scenarios.make_wl_grid()
     # zeta is stored at the native model resolution (float16): a gray deck or
@@ -101,11 +101,16 @@ def main(argv=None):
     # bin would erase the line cores that poke above a deck (Jensen).
     wl_store = WL
 
-    R_p = FIDUCIAL["R_p_RJ"] * R_J
-    R_s = FIDUCIAL["R_s_RSun"] * R_Sun
-    M_p = FIDUCIAL["g_ms2"] * R_p ** 2 / G_SI
-    planet = create_planet("zeta_fiducial", R_p, mass=M_p)
-    star = create_star(R_s, 5500.0, 4.5, 0.0, stellar_grid="blackbody", wl=WL)
+    fids = []
+    for k, f in enumerate(FIDUCIALS):
+        R_p = f["R_p_RJ"] * R_J
+        R_s = f["R_s_RSun"] * R_Sun
+        M_p = f["g_ms2"] * R_p ** 2 / G_SI
+        fids.append(dict(R_p_m=float(R_p), M_p_kg=float(M_p), g_ms2=f["g_ms2"],
+                         R_s_m=float(R_s), P_ref_bar=P_REF_BAR,
+                         x_column=0.5 * float(np.log(R_p / (FIDUCIALS[0]["R_p_RJ"] * R_J))),
+                         planet=create_planet(f"zeta_fiducial_{k}", R_p, mass=M_p)))
+    star = create_star(fids[0]["R_s_m"], 5500.0, 4.5, 0.0, stellar_grid="blackbody", wl=WL)
     model = define_model("zeta_grid", bulk_species=["H2", "He"],
                          param_species=PARAM_SPECIES, PT_profile="isotherm",
                          X_profile="chem_eq", cloud_model="cloud-free")
@@ -114,7 +119,7 @@ def main(argv=None):
     P = np.logspace(hi, lo, n)            # descending: POSEIDON requires it
     log_P_fine = np.linspace(-6.0, 2.0, 40)
 
-    shape = (len(T_K), len(log_met), len(c_to_o), len(wl_store))
+    shape = (len(T_K), len(log_met), len(c_to_o), len(fids), len(wl_store))
     zeta = np.full(shape, np.nan, np.float16)
     mu = np.full(shape[:3], np.nan, np.float32)
     done = np.zeros(len(T_K), bool)
@@ -136,23 +141,25 @@ def main(argv=None):
         log(f"T={T} K: opacities loaded")
         for im, met in enumerate(log_met):
             for ic, co in enumerate(c_to_o):
-                atmo = make_atmosphere(planet, model, P, P_REF_BAR, R_p,
-                                       PT_params=[float(T)],
-                                       log_X_params=[float(co), float(met)],
-                                       cloud_params=[], chemistry_grid=chem)
-                spec = compute_spectrum(planet, star, model, atmo, opac, WL,
-                                        spectrum_type="transmission")
-                assert np.isfinite(spec).all(), (T, met, co)
-                z, n_below, n_above = zeta_from_spectrum(spec, atmo, R_s)
-                zeta[it, im, ic] = z
-                mu[it, im, ic] = mu_photosphere(atmo)
-                if args.smoke:
-                    log(f"  smoke T={T} met={met} co={co}: depth "
-                        f"{spec.min():.5f}..{spec.max():.5f}, zeta "
-                        f"{z.min():.2f}..{z.max():.2f}, mu {mu[it, im, ic]:.3f}, "
-                        f"out_of_column {n_below}/{n_above}")
-                if n_below or n_above:
-                    out_of_column[f"{T}_{met}_{co}"] = [n_below, n_above]
+                for k, f in enumerate(fids):
+                    atmo = make_atmosphere(f["planet"], model, P, P_REF_BAR,
+                                           f["R_p_m"], PT_params=[float(T)],
+                                           log_X_params=[float(co), float(met)],
+                                           cloud_params=[], chemistry_grid=chem)
+                    spec = compute_spectrum(f["planet"], star, model, atmo, opac,
+                                            WL, spectrum_type="transmission")
+                    assert np.isfinite(spec).all(), (T, met, co, k)
+                    z, n_below, n_above = zeta_from_spectrum(spec, atmo, f["R_s_m"])
+                    zeta[it, im, ic, k] = z
+                    if k == 0:
+                        mu[it, im, ic] = mu_photosphere(atmo)
+                    if args.smoke:
+                        log(f"  smoke T={T} met={met} co={co} fid={k}: depth "
+                            f"{spec.min():.5f}..{spec.max():.5f}, zeta "
+                            f"{z.min():.2f}..{z.max():.2f}, mu {mu[it, im, ic]:.3f}, "
+                            f"out_of_column {n_below}/{n_above}")
+                    if n_below or n_above:
+                        out_of_column[f"{T}_{met}_{co}_{k}"] = [n_below, n_above]
         done[it] = True
         del opac
         gc.collect()
@@ -164,10 +171,10 @@ def main(argv=None):
             f"zeta {np.nanmin(zeta[it]):.2f}..{np.nanmax(zeta[it]):.2f}, "
             f"mu {np.nanmin(mu[it]):.2f}..{np.nanmax(mu[it]):.2f}")
 
+    fid_meta = [{k: v for k, v in f.items() if k != "planet"} for f in fids]
     meta = {"generator": "make_zeta_grid.py", "created": str(date.today()),
-            "fiducial": {"R_p_m": float(R_p), "M_p_kg": float(M_p),
-                         "g_ms2": FIDUCIAL["g_ms2"], "R_s_m": float(R_s),
-                         "P_ref_bar": P_REF_BAR},
+            "fiducials": fid_meta, "fiducial": fid_meta[0],
+            "column_axis": "x = 0.5 ln[(R_p H)/(R_p H)_fid0]; zeta axis 3",
             "P_grid_log10bar": list(P_GRID_ARGS), "species": PARAM_SPECIES,
             "chemistry": "fastchem", "PT_profile": "isotherm",
             "poseidon_version": poseidon_version(),

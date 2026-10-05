@@ -1,9 +1,12 @@
 """Parametric isothermal transmission spectrum from the shared zeta grid.
 
-zeta(lambda) = -ln P_photo(lambda)/bar is tabulated for a fiducial planet on a
-(T, [M/H], C/O) grid (precompute/make_zeta_grid.py). For any other planet:
+zeta(lambda) = -ln P_photo(lambda)/bar is tabulated on a (T, [M/H], C/O) grid
+for fiducial planets at g = 10 m/s^2 and R_p = 1 and 0.1 R_J, i.e. at two
+nodes x = 0 and -1.15 of the slant-column axis x = 0.5 ln[(R_p H)/(R_p H)_0]
+(precompute/make_zeta_grid.py). For any other planet, with
+x_p = 0.5 ln[(R_p H)/(R_p,0 H_0)] - ln(T_eq/T_chem):
 
-    zeta_p = zeta_fid + 0.5 ln[(R_p H)/(R_p,fid H_fid)] - ln(T_eq/T_chem)
+    zeta_p = lerp_x( zeta_fid_k + (x_p - x_k) )     (clamped to the node range)
     zeta   = max(logaddexp(zeta_p, zeta_haze), -ln P_cloud)
     R(lam) = R_p / (1 - (H / R_p) (zeta - median_band(zeta))),  depth = (R / R_s)^2
 
@@ -103,11 +106,11 @@ def transmission_depth(wl_um, *, T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun,
     T_clamped = T_chem != float(T_eq_K)
     axes = (g["T_K"], g["log_met"], g["c_to_o"])
     point = (T_chem, log_met, c_to_o)
-    zeta_fid = _trilinear(g["zeta"], axes, point)
     mu_chem = float(_trilinear(g["mu"], axes, point))
     mu_used = mu_chem if mu is None else float(mu)
 
-    fid = g["meta"]["fiducial"]
+    fids = g["meta"]["fiducials"]
+    fid = fids[0]
     R_p = R_p_RJ * R_J
     R_s = R_s_RSun * R_SUN
     g_p = G * M_p_MJ * M_J / R_p ** 2
@@ -115,7 +118,16 @@ def transmission_depth(wl_um, *, T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun,
     H_fid = K_B * T_chem / (mu_chem * M_H * fid["g_ms2"])
     shift = (0.5 * np.log((R_p * H) / (fid["R_p_m"] * H_fid))
              - np.log(T_eq_K / T_chem))
-    zeta = zeta_fid + shift
+    # Each fiducial node predicts zeta_k + (x_p - x_k); blend linearly in x
+    # between the two nearest nodes, clamped to the node range outside it.
+    x_nodes = np.array([f["x_column"] for f in fids], float)
+    order = np.argsort(x_nodes)
+    x_p = float(np.clip(shift, x_nodes.min(), x_nodes.max()))
+    i0, t = _interp_weights(x_nodes[order], x_p)
+    k0, k1 = order[i0], order[min(i0 + 1, len(order) - 1)]
+    pred0 = _trilinear(g["zeta"][..., k0, :], axes, point) + (shift - x_nodes[k0])
+    pred1 = _trilinear(g["zeta"][..., k1, :], axes, point) + (shift - x_nodes[k1])
+    zeta = (1 - t) * pred0 + t * pred1
 
     if log_a_haze is not None:
         kappa = 10.0 ** log_a_haze * SIGMA_H2_RAYLEIGH_350NM * (
