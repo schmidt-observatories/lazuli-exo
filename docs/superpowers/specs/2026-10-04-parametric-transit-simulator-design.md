@@ -359,3 +359,10 @@ itself.
     Ein deck keeping partial absorption above the deck, a −6 deck left
     240–760 ppm pseudo-features on hot Jupiters. Validation now covers all
     5 scenarios: `flat` is gated absolutely (model residual < 10 ppm).
+12. **Tables are package data.** `data/tables` moved to
+    `src/terminator/data/tables` and is declared in `pyproject.toml`
+    (`[tool.setuptools.package-data]`), so a SHA-pinned VCS install on Heroku
+    ships them (verified: 50.7 MB wheel, 114 npz, `observe()` works from a
+    clean install). `TERMINATOR_TABLES` is an override, not a requirement.
+    The spec's dependency section assumed a VCS install would include a
+    top-level `data/` directory; it would not have.

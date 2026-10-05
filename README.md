@@ -40,8 +40,8 @@ obs.plot()          # requires the [plot] extra
 ## Parametric model (any planet)
 
 `terminator.simulate(params)` builds a spectrum for any transiting planet from a
-shared POSEIDON-derived opacity grid (`data/tables/atmo/zeta_grid.npz`) and a
-PHOENIX stellar grid (`data/tables/star/phoenix_grid.npz`), with slicersim
+shared POSEIDON-derived opacity grid (`src/terminator/data/tables/atmo/zeta_grid.npz`) and a
+PHOENIX stellar grid (`src/terminator/data/tables/star/phoenix_grid.npz`), with slicersim
 computing the noise live (needs `slicersim` and `sncosmo` at call time;
 `import terminator` itself stays numpy-only):
 
@@ -138,7 +138,7 @@ runtime (src/terminator/) = numpy + these tables, nothing heavier
 
 Model/star tables and noise tables are built in separate steps, in separate
 conda environments, because POSEIDON and slicersim never need to be
-installed together. `data/tables/` (a few MB) is committed to the repo and
+installed together. `src/terminator/data/tables/` (~50 MB) is committed to the repo, ships in the wheel as package data, and
 shipped with the package; the runtime only ever reads it.
 
 ## Regenerating the tables
@@ -176,7 +176,7 @@ noise/<planet-slug>.npz                 # wavelength_um, depth_err_1transit, met
 `index.json` carries a schema `version` integer; `terminator.tables` refuses to
 load a mismatched version with a clear error. `observe()` resolves the
 tables directory as: an explicit `tables_dir=` argument, else the
-`TERMINATOR_TABLES` environment variable, else the `data/tables/` shipped in the
+`TERMINATOR_TABLES` environment variable, else the `data/tables/` shipped inside the installed
 repo/package.
 
 ## Known approximations
@@ -190,7 +190,7 @@ repo/package.
   factor; z(t) along a local circular arc of radius a(1-e^2)/(1+e sin w),
   the conjunction star-planet distance, so z(0) = b, traversed at the
   Keplerian conjunction sky speed).
-  LD coefficients come from per-planet tables (`data/tables/ld/`) computed
+  LD coefficients come from per-planet tables (`src/terminator/data/tables/ld/`) computed
   by `precompute/make_ld_tables.py` with exotic-ld (PHOENIX grid, trilinear
   interpolation, 48 wavelength chunks). Planets without a registry entry or
   LD table fall back to a b = 0 trapezoid; `meta["shape"]` records which.
@@ -262,9 +262,8 @@ deployed on Heroku importing `terminator` directly — no POSEIDON, slicersim,
 jax, or opacity data needs to reach the web dyno. That app is a separate,
 not-yet-started follow-up project.
 
-The tables live at `<repo>/data/tables` and are found relative to the package
-source, which works for editable installs and repo checkouts (Heroku slugs
-built from this repo included), but a plain `pip install terminator` wheel would
-NOT include them — a non-repo deployment must set `TERMINATOR_TABLES` to a
-directory containing the tables. Packaging the tables inside the wheel
-(`src/terminator/data` + `importlib.resources`) is deferred to the Django project.
+The tables live at `src/terminator/data/tables` and are declared as package
+data in `pyproject.toml`, so an editable install, a repo checkout, a VCS pin
+(`pip install git+https://...@<sha>`) and a built wheel all ship them (~50 MB).
+`TERMINATOR_TABLES` overrides the location when a deployment wants the tables
+somewhere else.

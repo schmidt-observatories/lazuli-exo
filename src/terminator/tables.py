@@ -34,7 +34,7 @@ def resolve_tables_dir(tables_dir=None):
     env = os.environ.get("TERMINATOR_TABLES")
     if env:
         return Path(env)
-    default = Path(__file__).resolve().parents[2] / "data" / "tables"
+    default = Path(__file__).resolve().parent / "data" / "tables"
     if default.exists():
         return default
     raise FileNotFoundError(

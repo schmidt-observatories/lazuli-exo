@@ -12,7 +12,7 @@ from scenarios import make_wl_grid
 
 from terminator import tables, targets
 
-TABLES = Path(__file__).resolve().parents[1] / "data" / "tables"
+TABLES = tables.resolve_tables_dir(None)
 
 
 def main():

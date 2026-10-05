@@ -1,4 +1,4 @@
-"""Build data/tables/atmo/zeta_grid.npz: photospheric log-pressure zeta(lambda)
+"""Build <package>/data/tables/atmo/zeta_grid.npz: photospheric log-pressure zeta(lambda)
 for a fiducial planet on a (T, [M/H], C/O) grid.
 
 Run (poseidon env, ~1 h; resumable, memory-safe):
@@ -43,7 +43,7 @@ from POSEIDON.constants import R_J, R_Sun  # noqa: E402
 from POSEIDON.core import (compute_spectrum, create_planet, create_star,  # noqa: E402
                            define_model, make_atmosphere, read_opacities)
 
-TABLES = ROOT / "data" / "tables"
+TABLES = tables.resolve_tables_dir(None)
 PARTIAL = TABLES / "atmo" / "zeta_grid.partial.npz"
 LOG = Path(__file__).with_suffix(".log")
 G_SI = 6.674e-11

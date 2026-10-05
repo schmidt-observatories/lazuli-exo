@@ -25,3 +25,6 @@ docs = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+terminator = ["data/tables/index.json", "data/tables/*/*.npz"]

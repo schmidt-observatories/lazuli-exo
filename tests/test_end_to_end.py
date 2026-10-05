@@ -1,4 +1,4 @@
-"""End-to-end checks against the real committed tables in data/tables."""
+"""End-to-end checks against the real committed tables in src/terminator/data/tables."""
 import numpy as np
 import pytest
 

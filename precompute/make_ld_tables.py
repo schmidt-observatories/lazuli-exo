@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from terminator import tables                    # noqa: E402
 from terminator.targets import TARGETS           # noqa: E402
 
-TABLES = Path(__file__).resolve().parents[1] / "data" / "tables"
+TABLES = tables.resolve_tables_dir(None)
 LD_DATA = os.environ.get("EXOTIC_LD_DATA",
                          str(Path.home() / "inputs" / "exotic_ld_data"))
 

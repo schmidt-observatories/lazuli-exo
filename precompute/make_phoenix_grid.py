@@ -1,4 +1,4 @@
-"""Build data/tables/star/phoenix_grid.npz from the local pysynphot PHOENIX grid.
+"""Build <package>/data/tables/star/phoenix_grid.npz from the local pysynphot PHOENIX grid.
 
 Run: PYSYN_CDBS=$HOME/inputs/stellar_grids \
      ~/anaconda3/envs/poseidon/bin/python precompute/make_phoenix_grid.py
@@ -18,7 +18,7 @@ from terminator import binning, tables  # noqa: E402
 
 CDBS = Path(os.environ.get("PYSYN_CDBS", Path.home() / "inputs" / "stellar_grids"))
 GRID = CDBS / "grid" / "phoenix"
-TABLES = ROOT / "data" / "tables"
+TABLES = tables.resolve_tables_dir(None)
 FEH = {-1.0: "phoenixm10", -0.5: "phoenixm05", 0.0: "phoenixm00",
        0.3: "phoenixp03", 0.5: "phoenixp05"}
 LOGG = [3.5, 4.0, 4.5, 5.0]

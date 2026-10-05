@@ -1,3 +1,4 @@
+from pathlib import Path
 import json
 import numpy as np
 import pytest
@@ -151,3 +152,11 @@ def test_index_reports_grids(tmp_path):
 def test_missing_grid_message(tmp_path):
     with pytest.raises(FileNotFoundError, match="make_zeta_grid.py"):
         tables.load_zeta_grid(tmp_path)
+
+
+def test_default_tables_dir_is_inside_the_package():
+    """Tables must ship with a pip/VCS install, so they live under the package."""
+    import terminator
+    d = tables.resolve_tables_dir(None)
+    assert d == Path(terminator.__file__).resolve().parent / "data" / "tables"
+    assert (d / "index.json").exists() and (d / "atmo" / "zeta_grid.npz").exists()

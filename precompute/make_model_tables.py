@@ -35,7 +35,7 @@ from POSEIDON.constants import M_J, R_J, R_Sun
 from POSEIDON.core import (compute_spectrum, create_planet, create_star,
                            define_model, make_atmosphere, read_opacities)
 
-TABLES = ROOT / "data" / "tables"
+TABLES = tables.resolve_tables_dir(None)
 WL = make_wl_grid()
 
 # Loaded once at script start (chem_eq requires this be passed explicitly

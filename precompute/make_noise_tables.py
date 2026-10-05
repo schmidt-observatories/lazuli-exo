@@ -21,11 +21,12 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 ROOT = Path(__file__).resolve().parents[1]
-TABLES = ROOT / "data" / "tables"
 
 from terminator import tables  # noqa: E402
 from terminator.slicer import depth_error  # noqa: E402
 from terminator.targets import PLANET_NAMES, get_target  # noqa: E402
+
+TABLES = tables.resolve_tables_dir(None)
 
 INSTRUMENT = "lazuli_cbe"
 BAND = "J"            # 2MASS J; archive J magnitudes are Vega
