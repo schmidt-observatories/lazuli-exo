@@ -6,6 +6,8 @@ Layout under a tables directory:
     star/<planet-slug>.npz                 (wavelength_um, f_lambda, meta)
     noise/<planet-slug>.npz                (wavelength_um, depth_err_1transit, meta)
     ld/<planet-slug>.npz                   (wavelength_um, u1, u2, meta)
+    atmo/zeta_grid.npz      (T_K, log_met, c_to_o, wavelength_um, zeta, mu, meta)
+    star/phoenix_grid.npz   (teff_K, logg, feh, wavelength_um, log_flam, meta)
 
 All wavelengths are in micron. `meta` is a JSON dict stored as a string array.
 """
@@ -16,7 +18,10 @@ from pathlib import Path
 
 import numpy as np
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+ZETA_GRID = Path("atmo") / "zeta_grid.npz"
+PHOENIX_GRID = Path("star") / "phoenix_grid.npz"
+_GRID_CACHE = {}
 
 
 def slugify(name):
@@ -81,6 +86,54 @@ def write_ld_table(tables_dir, planet, wavelength_um, u1, u2, meta):
     meta = dict(meta or {}, planet=planet)
     return _write(Path(tables_dir) / "ld" / f"{slugify(planet)}.npz", meta,
                   wavelength_um=wavelength_um, u1=u1, u2=u2)
+
+
+def _write_grid(path, meta, float32_keys, **arrays):
+    arrays = {k: (np.asarray(v, dtype=np.float32) if k in float32_keys
+                  else np.asarray(v, dtype=float)) for k, v in arrays.items()}
+    return _write(path, meta, **arrays)
+
+
+def _load_grid(path, script):
+    path = Path(path)
+    key = str(path.resolve())
+    if key in _GRID_CACHE:
+        return _GRID_CACHE[key]
+    if not path.exists():
+        raise FileNotFoundError(f"{path} missing; run precompute/{script}")
+    with np.load(path) as f:
+        g = {k: np.asarray(f[k]) for k in f.files if k != "meta"}
+        g["meta"] = json.loads(str(f["meta"]))
+    _GRID_CACHE[key] = g
+    return g
+
+
+def write_zeta_grid(tables_dir, *, T_K, log_met, c_to_o, wavelength_um,
+                    zeta, mu, meta):
+    """Planet-independent photospheric log-pressure grid (float32 zeta, mu)."""
+    _GRID_CACHE.pop(str((Path(tables_dir) / ZETA_GRID).resolve()), None)
+    return _write_grid(Path(tables_dir) / ZETA_GRID, meta, {"zeta", "mu"},
+                       T_K=T_K, log_met=log_met, c_to_o=c_to_o,
+                       wavelength_um=wavelength_um, zeta=zeta, mu=mu)
+
+
+def load_zeta_grid(tables_dir=None):
+    return _load_grid(resolve_tables_dir(tables_dir) / ZETA_GRID,
+                      "make_zeta_grid.py")
+
+
+def write_phoenix_grid(tables_dir, *, teff_K, logg, feh, wavelength_um,
+                       log_flam, meta):
+    """PHOENIX SED mini-grid (float32 log10 F_lambda)."""
+    _GRID_CACHE.pop(str((Path(tables_dir) / PHOENIX_GRID).resolve()), None)
+    return _write_grid(Path(tables_dir) / PHOENIX_GRID, meta, {"log_flam"},
+                       teff_K=teff_K, logg=logg, feh=feh,
+                       wavelength_um=wavelength_um, log_flam=log_flam)
+
+
+def load_phoenix_grid(tables_dir=None):
+    return _load_grid(resolve_tables_dir(tables_dir) / PHOENIX_GRID,
+                      "make_phoenix_grid.py")
 
 
 def _planet_entry(index, planet):
@@ -149,7 +202,9 @@ def rebuild_index(tables_dir):
         entry["scenarios"] = sorted(entry["scenarios"])
         entry["has_noise"] = (tdir / "noise" / f"{entry['slug']}.npz").exists()
         entry["has_ld"] = (tdir / "ld" / f"{entry['slug']}.npz").exists()
-    index = {"version": SCHEMA_VERSION, "planets": planets}
+    index = {"version": SCHEMA_VERSION, "planets": planets,
+             "atmo": {"zeta_grid": (tdir / ZETA_GRID).exists()},
+             "star_grid": {"phoenix_grid": (tdir / PHOENIX_GRID).exists()}}
     tdir.mkdir(parents=True, exist_ok=True)
     (tdir / "index.json").write_text(json.dumps(index, indent=1, sort_keys=True))
     return index

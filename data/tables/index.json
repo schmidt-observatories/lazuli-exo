@@ -1,4 +1,7 @@
 {
+ "atmo": {
+  "zeta_grid": false
+ },
  "planets": {
   "GJ 1214 b": {
    "has_ld": true,
@@ -169,5 +172,8 @@
    "slug": "wasp-96-b"
   }
  },
- "version": 1
+ "star_grid": {
+  "phoenix_grid": false
+ },
+ "version": 2
 }
