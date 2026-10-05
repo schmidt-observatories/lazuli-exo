@@ -14,11 +14,17 @@ ANGSTROM_PER_UM = 1.0e4
 
 
 def _sncosmo_band(band):
-    try:
+    """sncosmo bandpass name for `band`: the J/H/Ks/V aliases, or any name sncosmo knows."""
+    if band in BANDS:
         return BANDS[band]
-    except KeyError:
+    import sncosmo
+    try:
+        sncosmo.get_bandpass(band)
+    except Exception:
         raise ValueError(
-            f"band must be one of {sorted(BANDS)}, got {band!r}") from None
+            f"band must be one of the aliases {sorted(BANDS)} or an sncosmo bandpass "
+            f"name (e.g. '2massj', 'sdssr'); got {band!r}") from None
+    return band
 
 
 def vega_to_ab_offset(band):
