@@ -3,8 +3,11 @@
 terminator simulates exoplanet transmission spectroscopy with the Lazuli IFS. For
 a showcase planet, an atmosphere scenario, and a number of transits, it
 returns the model transmission spectrum binned to the instrument with
-realistic error bars, plus detection significances for the atmosphere
-overall and for individual molecules. The science core is a numpy-only
+statistical (photon/read-noise-only) error bars, plus a spectral-template
+S/N for the atmosphere overall and per-band diagnostics. These are toy
+H2/He scenarios with idealized noise — qualitative comparison material, not
+calibrated detection significances or observing-time forecasts. The science
+core is a numpy-only
 runtime backed by precomputed lookup tables — no POSEIDON, slicersim, jax,
 or astropy at import time — so it can later sit behind a Django app on
 Heroku without shipping POSEIDON's opacity inputs (tens of GB).
@@ -29,9 +32,91 @@ obs = terminator.observe("WASP-39 b", scenario="cloudy", n_transits=5, R=100)
 obs.wavelength      # bin centers [um]
 obs.depth           # binned model transit depth
 obs.depth_err       # per-bin 1-sigma uncertainty (scaled by 1/sqrt(n_transits))
-obs.detect()        # {"atmosphere": 11.2, "H2O": 7.4, ...} in sigma
+obs.detect()        # {"template_snr_diagonal": 11.2, "band_snr": {"H2O": 7.4, ...}}
 obs.simulate_points(seed=0)  # one noisy realization, for plotting
 obs.plot()          # requires the [plot] extra
+```
+
+## Parametric model (any planet)
+
+`terminator.simulate(params)` builds a spectrum for any transiting planet from a
+shared POSEIDON-derived opacity grid (`data/tables/atmo/zeta_grid.npz`) and a
+PHOENIX stellar grid (`data/tables/star/phoenix_grid.npz`), with slicersim
+computing the noise live (needs `slicersim` and `sncosmo` at call time;
+`import terminator` itself stays numpy-only):
+
+```python
+import terminator
+p = terminator.presets.showcase("WASP-39 b", "cloudy")   # or build the dict by hand
+p.update(mu=None, log_P_cloud_bar=-2.0)
+obs = terminator.simulate(p, R=100, n_transits=5)
+obs.detect()
+```
+
+Knobs: `T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun, log_met (-1..3), c_to_o (0.3..1.0),
+mu (None = equilibrium-chemistry value), log_P_cloud_bar, log_a_haze,
+haze_slope, teff_K, logg, feh, mag, band (J/H/Ks/V), mag_system ("vega"
+default, or "ab"), t14_s`. `R_p` is the band-median (0.40-1.70 um) transit
+radius, which replaces the P_ref convention for this path. The physics is
+
+    zeta(lambda) = -ln P_photo / bar      (tabulated: T, [M/H], C/O; two fiducials)
+    zeta_p = zeta + 0.5 ln[(R_p H) / (R_p,fid H_fid)]   (blended between the fiducials)
+    zeta_eff = zeta_d + s Ein(exp((logaddexp(zeta_p, zeta_haze) - zeta_d)/s - gamma_E))
+    R(lambda) = R_p / (1 - (H / R_p) (zeta_eff - median zeta_eff)),   depth = (R / R_s)^2
+
+(the deck line is the exact effective radius of an exponential tau profile
+over an opaque deck at zeta_d = -ln P_cloud, with s the slant-column exponent
+read off the two fiducials; the last line is the exact isothermal hydrostatic
+solution with g ~ 1/r^2; H = k T_eq / (mu m_H g) with g at R_p). zeta is stored at the model's native
+R = 10,000 so that a cloud deck clips individual line cores, as in POSEIDON,
+and on two fiducial planets (1 R_J at g = 10 m/s^2; 0.3 R_J at g = 30 m/s^2) so that the
+pressure dependence of the line cores is captured to first order.
+
+Fidelity is unchanged from the showcase tables: isothermal, equilibrium
+chemistry, gray deck, power-law haze (POSEIDON MacMad17 form, anchored at
+0.35 um), photon + read noise only. Validation against the 14 POSEIDON
+planets is in `notebooks/06_parametric_model.ipynb`
+(`precompute/validate_zeta_grid.py`). Note the convention difference: the
+per-planet tables put the archive radius at 10 bar, the parametric path puts
+it at the transit photosphere, ~10 scale heights higher; the validation
+therefore feeds the model each table's own band-median radius.
+
+**Magnitudes.** slicersim normalizes in AB; archive J magnitudes are Vega.
+`terminator.slicer.depth_error` converts (J: +0.90 mag via sncosmo) and reports
+the offset in `info`. The committed noise tables were regenerated with this
+conversion on 2026-10-04 and are 1.4-1.5x more conservative than before.
+
+## Documentation
+
+Full docs (user guide, quick start, API reference, tutorials) are built with
+Sphinx under `docs/sphinx/`:
+
+```bash
+pip install -e ".[docs]"   # plus a pandoc binary, for nbsphinx
+cd docs/sphinx && make html
+```
+
+Then open `docs/sphinx/_build/html/index.html`.
+
+Five runnable tutorial notebooks live in `notebooks/` and are rendered into
+the docs with their committed outputs (they are not re-executed at build
+time):
+
+| Notebook | Covers |
+|---|---|
+| `01_getting_started` | `observe → detect → plot`, `SimulatedSpectrum` fields, reproducible noise |
+| `02_scenarios` | The five scenarios, and why `hazy` can out-score `clear` |
+| `03_transits_and_binning` | `n_transits` and `R`, the √N scaling, the resolution ceiling |
+| `04_light_curves` | White-light and banded transits, `transit_flux` validation, limb darkening |
+| `05_tables_and_targets` | Table layout, the index, the frozen NEA registry, caveat flags |
+
+`notebooks/verification.ipynb` is a separate developer artifact (physical
+sanity checks against the committed tables) and is not part of the docs.
+
+To refresh the rendered outputs:
+
+```bash
+jupyter nbconvert --to notebook --execute --inplace notebooks/0*.ipynb
 ```
 
 ## Two-stage precompute
@@ -99,7 +184,9 @@ repo/package.
   limb-darkened transit (numpy-only numerical disk integration, validated
   against the analytic uniform-disk and small-planet limits) with geometry
   from the frozen NEA registry (b from a/R*, cos i and the eccentricity
-  factor; z(t) along the circular-orbit arc at the conjunction speed).
+  factor; z(t) along a local circular arc of radius a(1-e^2)/(1+e sin w),
+  the conjunction star-planet distance, so z(0) = b, traversed at the
+  Keplerian conjunction sky speed).
   LD coefficients come from per-planet tables (`data/tables/ld/`) computed
   by `precompute/make_ld_tables.py` with exotic-ld (PHOENIX grid, trilinear
   interpolation, 48 wavelength chunks). Planets without a registry entry or
@@ -119,12 +206,17 @@ repo/package.
   deck's own opaque cloud pinned at the pressure grid floor (100 bar) so it
   never actually shadows the atmosphere — only the haze term contributes
   opacity.
-- **Band-mask molecule significances**: per-molecule detection significance
-  restricts the same chi-squared statistic to a fixed wavelength band mask
-  per molecule (`terminator.detect.BAND_MASKS`). Bands overlap (e.g. H2O and CH4
-  near 1.15 um), so these are approximate, not a joint fit. A rigorous
-  upgrade path is per-molecule leave-one-out model tables, which slots into
-  the existing table schema without API changes.
+- **Template S/N, not detection significance**: `detect()` returns a
+  matched-template amplitude S/N against the best-fit flat line under a
+  diagonal covariance (`template_snr_diagonal`) — there is no defined
+  null/alternative likelihood ratio, nuisance model, covariance, or
+  false-positive calibration. Per-band values (`band_snr`, masks in
+  `terminator.detect.BAND_MASKS`) restrict the same statistic to fixed
+  wavelength masks; they mix every species in the mask plus haze/cloud/
+  continuum structure, and bands overlap (e.g. H2O and CH4 near 1.15 um) —
+  they are not molecule detections. The rigorous upgrade path is a
+  likelihood ratio against per-molecule leave-one-out model tables, which
+  slots into the existing table schema without API changes.
 - **sqrt(N) SNR scaling**: `depth_err` scales as `1/sqrt(n_transits)` from a
   single precomputed single-transit uncertainty; there's no per-transit
   systematics or red-noise floor.
@@ -136,20 +228,23 @@ repo/package.
   HD 189733 b, and HD 209458 b, slicersim's detector ramp cannot be fully
   de-saturated even at the minimal MACC configuration (2 groups x 1 frame).
   The residual `nsaturated_detpx` is recorded in the noise table's `meta`
-  rather than silently ignored; `depth_err` for these three hosts is mildly
-  pessimistic relative to a hypothetical unsaturated readout.
+  rather than silently ignored, and `observe()` raises a `UserWarning` for
+  these hosts: their uncertainties are **unvalidated** (saturation can bias
+  extraction weights, nonlinearity, and wavelength dependence in either
+  direction), so treat their forecasts as indicative only until an
+  unsaturated readout strategy or an injection/recovery validation exists.
 
 ## Local web demo
 
 A single-page Flask + Plotly UI over the runtime (`webapp/`): pick planet,
 scenario, transits, R, and noise seed; get the interactive spectrum, the
-predicted detection significances, and simulated transit light curves
+spectral-template S/N diagnostics, and simulated transit light curves
 (white-light or split into wavelength bands). Local exploration tool only —
 not the deployable frontend.
 
 ```bash
 pip install -e ".[web]"
-flask --app webapp/app run   # then open http://127.0.0.1:5000
+./run.sh                     # then open http://127.0.0.1:5000
 ```
 
 Noise realizations happen server-side (`simulate_points(seed)`), so a given

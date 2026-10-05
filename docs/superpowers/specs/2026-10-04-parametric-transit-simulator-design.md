@@ -1,7 +1,7 @@
 # Parametric transit simulator on the Lazuli simulators site
 
 **Date:** 2026-10-04
-**Status:** Draft for review
+**Status:** Approved 2026-10-04 (terminator half implemented; see Amendments)
 **Scope:** Two repos. `terminator` gains a parametric atmosphere model and a
 stellar SED mini-grid (both numpy-only at runtime) plus the two precompute
 scripts that build them. `lazuli-etc-web2` (the Heroku app behind
@@ -292,3 +292,65 @@ lazuli-etc-web2 (`manage.py test ifs`):
 Light curves, non-isothermal P-T profiles, stellar activity, red noise,
 per-molecule detections, user-uploaded spectra, and the Heroku deploy
 itself.
+
+## Amendments 2026-10-04 (made during implementation of the terminator half)
+
+1. **Haze parametrization** follows POSEIDON's MacMad17 form exactly instead
+   of a (P_h, γ) pair: κ_haze = n · 10^{log_a} · 5.31e-31 m² · (λ/0.35 µm)^γ,
+   converted to a pressure analytically, P_haze(λ) = k T_eq / ((κ/n) √(2π R_p H)).
+   The `hazy` preset is log_a = 2.0, γ = −6.0 (what the committed tables used);
+   no fitting step. The web form's haze knob is therefore (log_a, γ).
+2. **ζ is put on the planet's absolute pressure scale** before clouds/haze:
+   ζ_planet = ζ_fid + ½ ln[(R_p H)/(R_p,fid H_fid)] − ln(T_eq/T_chem), from
+   τ_slant = (P/kT) σ √(2π R_p H). A user's cloud-top pressure in bar then
+   means what it means in POSEIDON. R_p stays the band-median radius.
+3. **PHOENIX grid floor is 2000 K** (the local grid has 2000 K files in all
+   five metallicity folders). Non-solar folders are natively R≈160; every
+   spectrum is interpolated to R = 20,000 and bin-averaged to R = 1000, with
+   the native resolution and 66 filled all-zero placeholder models recorded
+   in the grid's meta.
+4. The shared transit-duration formula lives in `terminator/orbit.py`, not
+   the generated `targets.py`.
+5. `depth_error`'s `info` uses the noise-table key names the webapp already
+   reads (`default_nmd`, `nramps`).
+6. **Radius mapping** is the exact isothermal hydrostatic solution,
+   R(λ) = R_p / (1 − (H/R_p)(ζ − ζ_ref)) (1/r linear in ln P for g ∝ r⁻²),
+   not the first-order R_p + H Δζ; POSEIDON integrates variable gravity and
+   the linear form under-predicts puffy atmospheres by ~2 H/R_p per Δζ.
+7. **ζ is stored at the native R = 10,000 as float16** rather than
+   bin-averaged to R = 2000, and **on two fiducial nodes of the slant-column
+   axis x = ½ ln[(R_p H)/(R_p H)₀]** (1 R_J at g = 10 m s⁻² and 0.3 R_J at
+   g = 30 m s⁻²; a 0.1 R_J, g = 10 planet is unbound above ~1200 K),
+   blended linearly in x. This is the spec's fourth-axis escape hatch on the
+   variable that actually matters (line-core opacity depends on the
+   photospheric pressure, ~0.15 H at band peaks between the nodes). A gray deck acts per wavelength:
+   max(⟨ζ⟩_bin, ζ_deck) erases the line cores that poke above a deck
+   (direct POSEIDON check: 14 ppm vs 1 ppm for a 1 mbar deck on K2-18 b).
+   Slug budget rises from ~15 to ~35 MB for the two grids (ζ ≈ 25 MB).
+8. **Validation convention.** The committed tables place the archive R_p at
+   P_ref = 10 bar with gravity evaluated there; the parametric R_p is the
+   band-median transit radius with gravity there. The two differ by ~10 H
+   and the local H by ~20 H/R_p (predicts and matches amplitude ratios
+   0.95 / 0.89 / 0.83 / 0.68 for HD 189733 b / HD 209458 b / GJ 1214 b /
+   TRAPPIST-1 e). The validation therefore passes each table's own
+   band-median radius; a direct POSEIDON run of a K2-18 b-like planet agrees
+   with the scaled 1 R_J fiducial ζ to +0.06 (median) / +0.14 (band peaks),
+   which the second node removes. POSEIDON also realizes a nominal 1 mbar
+   deck at 1.376 mbar on the tables' 100-layer grid (deck applies strictly
+   below P_cloud); the model keeps P_cloud literal and the validation uses
+   the realized value.
+9. **Cloud deck operator.** POSEIDON integrates 1 − e^(−τ) over impact
+   parameter, so gas whose τ = 1 level lies just below an opaque deck still
+   absorbs. The model therefore uses the exact effective radius of an
+   exponential τ profile above a deck, ζ = ζ_d + s·Ein(exp((ζ_g − ζ_d)/s − γ_E)),
+   rather than max(ζ_g, ζ_d); the two agree in both limits and differ by up to
+   ~0.5 H in the transition. s(λ) is the slant-column exponent measured
+   between the two fiducial nodes (τ ∝ P^(1+a) ⇒ s ≈ 1/(1+a)), which also
+   makes ζ linear-in-x extrapolation valid for hot Jupiters at x > 0.
+10. **Validation outcome (2026-10-04):** 55/56 gated comparisons within the
+    stated tolerances; WASP-12 b cloudy (73 ppm feature, 19 ppm absolute
+    error, ratio 1.26) is a documented waiver in `validate_zeta_grid.py`,
+    attributable to the 0.14 dex ambiguity in POSEIDON's discretized deck
+    and a +0.09 ζ extrapolation at 2600 K. Direct POSEIDON runs of K2-18 b-
+    and WASP-12 b-like planets match the parametric clear spectra to 0.99
+    and 1.00.
