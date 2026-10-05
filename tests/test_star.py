@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from lazuli_exo import star
+from lazuli_exo import star, tables
 
 
 def test_node_recovery(phoenix_fixture):
@@ -40,3 +40,14 @@ def test_nonpositive_teff_raises(phoenix_fixture):
     for bad in (0.0, -5.0, float("nan")):
         with pytest.raises(ValueError, match="T_eff"):
             star.phoenix_sed(bad, 4.5, 0.0, tables_dir=phoenix_fixture)
+
+
+def test_shipped_grid_is_smooth_along_feh():
+    """Issue #16: corrupt cool-star nodes at non-solar [Fe/H] in the shipped grid."""
+    g = tables.load_phoenix_grid()
+    wl, f = g["wavelength_um"], 10.0 ** g["log_flam"]
+    v = f[..., (wl >= 0.50) & (wl <= 0.60)].mean(-1)
+    j = f[..., (wl >= 1.17) & (wl <= 1.33)].mean(-1)
+    vj = -2.5 * np.log10(v / j)
+    dvj = vj - vj[:, :, [list(g["feh"]).index(0.0)]]
+    assert np.abs(dvj).max() < 0.5, f"max |d(V-J)| vs solar node = {np.abs(dvj).max():.2f} mag"
