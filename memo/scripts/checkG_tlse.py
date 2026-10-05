@@ -9,7 +9,7 @@ and single-transit errors over the same wavelengths.
 """
 import numpy as np
 
-from common import RESULTS, TDIR, gks_style, savefig, tables, write_csv
+from common import RESULTS, TDIR, tables, write_csv
 from checkD_spectra import trappist1e_datasets, models
 
 PLANET = "TRAPPIST-1 e"
@@ -45,19 +45,6 @@ def main():
     write_csv(RESULTS / "checkG_tlse.csv", rows)
     for r in rows:
         print(r)
-    plt = gks_style()
-    fig, ax = plt.subplots(figsize=(9, 4.5))
-    for (name, wl, d, s) in visits:
-        ax.errorbar(wl, d * 1e6, yerr=s * 1e6, fmt="o-", ms=3, lw=0.8, alpha=0.8, label=name.split(", ")[-1])
-    wl_m, dt, dp = models(PLANET, "clear")
-    mm = (wl_m >= 0.6) & (wl_m <= 1.7)
-    c = float(mean.mean()) - float(dp[mm].mean())
-    ax.plot(wl_m[mm][::10], (dp[mm][::10] + c) * 1e6, "k--", lw=1, label="clear H2/He (parametric), offset-fitted")
-    ax.set_xlabel("Wavelength (µm)"); ax.set_ylabel("Transit depth (ppm)")
-    ax.set_title("Check G: TRAPPIST-1 e, four JWST/PRISM visits (Espinoza et al. 2025)")
-    ax.legend(fontsize=8, ncol=2)
-    savefig(fig, "checkG_trappist1e_visits")
-
 
 if __name__ == "__main__":
     main()

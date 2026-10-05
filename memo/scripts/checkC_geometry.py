@@ -95,17 +95,22 @@ def part2():
         dur = (intr.max() - intr.min()) * 3600 if intr.size else 0.0
         mu = np.linspace(0, 1, 201)
         I = 1 - u1[:, None] * (1 - mu) - u2[:, None] * (1 - mu) ** 2
+        bad = (I < 0).any(1)
+        sigma_white = float(1.0 / np.sqrt(np.sum(1.0 / o.depth_err ** 2)))   # one-transit white-light depth error
         rows.append(dict(planet=n, solver_vs_batman_max_ppm=worst * 1e6,
                          local_arc_vs_kepler_max_ppm=float(np.max(np.abs(lc.flux_model[0] - fb))) * 1e6,
                          white_depth_ppm=float(lc.depth[0]) * 1e6, sigma_point_ppm=float(lc.sigma_point[0]) * 1e6,
+                         sigma_white_depth_1transit_ppm=sigma_white * 1e6,
+                         arc_over_sigma_point=float(np.max(np.abs(lc.flux_model[0] - fb))) / float(lc.sigma_point[0]),
+                         ld_negative_wl_range_um=(f"{wl[bad].min():.2f}-{wl[bad].max():.2f}" if bad.any() else ""),
                          batman_t14_over_registry=dur / t["t14_s"],
                          ld_chunks_negative_intensity=int(np.sum((I < 0).any(1))),
                          ld_u1_plus_u2_max=float(np.max(u1 + u2))))
     write_csv(RESULTS / "checkC_lightcurve.csv", rows)
-    print(f"\n{'planet':13s} {'solver ppm':>10s} {'arc ppm':>8s} {'sigma_pt ppm':>12s} {'t14 bat/reg':>11s} {'LD I<0':>6s}")
+    print(f"\n{'planet':13s} {'solver ppm':>10s} {'arc ppm':>8s} {'arc/sig_pt':>10s} {'sig_pt ppm':>10s} {'sig_white ppm':>13s} {'t14 bat/reg':>11s} {'LD I<0':>6s} range")
     for r in rows:
-        print(f"{r['planet']:13s} {r['solver_vs_batman_max_ppm']:10.2f} {r['local_arc_vs_kepler_max_ppm']:8.1f} "
-              f"{r['sigma_point_ppm']:12.0f} {r['batman_t14_over_registry']:11.3f} {r['ld_chunks_negative_intensity']:6d}")
+        print(f"{r['planet']:13s} {r['solver_vs_batman_max_ppm']:10.2f} {r['local_arc_vs_kepler_max_ppm']:8.1f} {r['arc_over_sigma_point']:10.2f} "
+              f"{r['sigma_point_ppm']:10.0f} {r['sigma_white_depth_1transit_ppm']:13.1f} {r['batman_t14_over_registry']:11.3f} {r['ld_chunks_negative_intensity']:6d} {r['ld_negative_wl_range_um']}")
 
 
 if __name__ == "__main__":

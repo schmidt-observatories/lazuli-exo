@@ -22,7 +22,7 @@ TDIR = tables.resolve_tables_dir(None)
 BAND_UM = (0.40, 1.70)
 HC_ERG_A = 6.62607015e-27 * 2.99792458e10 * 1e8      # h c [erg Angstrom]
 A_LAZULI_M2 = np.pi / 4 * 3.0 ** 2                      # slicersim lazuli_cbe: 3.0 m, unobstructed
-A_HST_M2, A_JWST_M2 = 4.0, 25.4                         # see memo appendix for the sources
+A_HST_M2, A_JWST_M2 = 4.52, 25.4                        # HST: pi (1.2 m)^2 geometric; JWST: JDox 25.4 m^2
 
 
 def host(planet):

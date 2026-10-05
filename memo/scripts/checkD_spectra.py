@@ -13,8 +13,7 @@ scenarios; the question is representativeness, not goodness of fit.
 """
 import numpy as np
 
-from common import (BAND_UM, DATA, PLANET_NAMES, RESULTS, TDIR, fnum, gks_style, read_csv, savefig,
-                    strip_html, tables, write_csv)
+from common import BAND_UM, DATA, RESULTS, TDIR, fnum, read_csv, tables, write_csv
 from lazuli_exo import presets
 from lazuli_exo.atmosphere import transmission_depth
 from checkB_photon import _bin_edges, datasets
@@ -111,43 +110,6 @@ def main():
         print(f"{r['planet']:12s} {(r['reference'][:18] + ' ' + r['instrument'][:10]):30s} {r['facility']:6s} {r['n_bins']:3d} {r['data_amp_ppm']:5.0f} {r['median_sigma_ppm']:5.0f} | "
               f"{r['table_best']:8s} {r['table_chi2_best']:5.1f} {r['table_chi2_flat']:5.1f} {r['table_b_clear']:5.2f} {r['table_b_cloudy']:5.2f} {'Y' if r['table_bracketed'] else 'n'} | "
               f"{r['parametric_best']:8s} {r['parametric_chi2_best']:5.1f} {r['parametric_b_clear']:5.2f} {r['parametric_b_cloudy']:5.2f} {'Y' if r['parametric_bracketed'] else 'n'}")
-    figure()
-
-
-PANELS = [("WASP-39 b", "Feinstein", "Near Infrared Imager"), ("WASP-39 b", "Rustamkulov", "Near Infrared Spectrog"),
-          ("HD 209458 b", "Sing et al. 2016", "Space Telescope"), ("HD 189733 b", "McCullough", "Wide Field"),
-          ("WASP-107 b", "Spake", "Wide Field"), ("GJ 1214 b", "Kreidberg", "Wide Field"),
-          ("K2-18 b", "Benneke", "Wide Field"), ("HAT-P-11 b", "Fraine", "Wide Field"),
-          ("TRAPPIST-1 e", "visit 001", "JWST_PRISM")]
-
-
-def figure():
-    plt = gks_style()
-    data = {(p, r, i): (wl, bw, d, s) for (p, r, i, k), wl, bw, d, s in all_datasets()}
-    fig, axes = plt.subplots(3, 3, figsize=(13, 10))
-    for ax, (planet, ref_sub, inst_sub) in zip(axes.flat, PANELS):
-        key = next((k for k in data if k[0] == planet and ref_sub in k[1] and inst_sub in k[2]), None)
-        if key is None:
-            ax.set_title(f"{planet}: dataset not found"); continue
-        wl, bw, d, s = data[key]
-        lo, hi = _bin_edges(wl, bw)
-        ax.errorbar(wl, d * 1e6, yerr=s * 1e6, xerr=(hi - lo) / 2, fmt="o", ms=3, lw=0.8, color="0.25", zorder=5, label="data")
-        for scen in ATMO:
-            wl_m, dt, dp = models(planet, scen)
-            m = bin_to(wl_m, dt, lo, hi)
-            c, *_ = fits(d, s, m)
-            band = (wl_m >= lo.min()) & (wl_m <= hi.max())
-            ax.plot(wl_m[band][::8], (dt[band][::8] + c) * 1e6, lw=1.0, alpha=0.9, label=scen.replace("_", " "))
-        wl_m, dt, dp = models(planet, "clear")
-        m = bin_to(wl_m, dp, lo, hi)
-        c, *_ = fits(d, s, m)
-        ax.plot(wl_m[band][::8], (dp[band][::8] + c) * 1e6, lw=1.0, ls="--", color="k", alpha=0.7, label="clear (parametric)")
-        ax.set_title(f"{planet}: {key[1][:22]}, {key[2][:18]}", fontsize=9)
-        ax.set_xlabel("Wavelength (µm)"); ax.set_ylabel("Transit depth (ppm)")
-    axes.flat[0].legend(fontsize=7, ncol=2)
-    fig.suptitle("Check D: published spectra with the offset-fitted scenario spectra (table path; dashed = parametric clear)", y=0.995)
-    fig.tight_layout()
-    savefig(fig, "checkD_spectra")
 
 
 if __name__ == "__main__":

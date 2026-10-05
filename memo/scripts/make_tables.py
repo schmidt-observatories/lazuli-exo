@@ -13,10 +13,16 @@ def f(x, nd=2, dash="--"):
     return dash if not np.isfinite(x) else f"{x:.{nd}f}"
 
 
-def table(cols, rows, caption, label, align=None, size=r"\small"):
+def table(cols, rows, caption, label, align=None, size=r"\small", span=None):
     align = align or "l" + "r" * (len(cols) - 1)
-    out = [r"\begin{table}[H]", r"\centering" + size, r"\begin{tabular}{@{}" + align + "@{}}", r"\toprule",
-           " & ".join(r"\textbf{" + c + "}" for c in cols) + r" \\", r"\midrule"]
+    out = [r"\begin{table}[H]", r"\centering" + size, r"\begin{tabular}{@{}" + align + "@{}}", r"\toprule"]
+    if span:                                   # list of (text, first_col, last_col) 1-based spanning headers
+        cells, i = [], 1
+        for text, a, b in span:
+            cells += [""] * (a - i) + [r"\multicolumn{" + str(b - a + 1) + "}{c}{\\textbf{" + text + "}}"]
+            i = b + 1
+        out += [" & ".join(cells) + r" \\"] + [r"\cmidrule(lr){" + f"{a}-{b}" + "}" for _, a, b in span]
+    out += [" & ".join(r"\textbf{" + c + "}" for c in cols) + r" \\", r"\midrule"]
     out += [" & ".join(r) + r" \\" for r in rows]
     out += [r"\bottomrule", r"\end{tabular}", r"\caption*{\footnotesize\textbf{" + label + ".} " + caption + "}", r"\end{table}", ""]
     return "\n".join(out)
@@ -37,7 +43,8 @@ def table_a():
                  r"Check A. Columns 4--7: the committed star table (POSEIDON PHOENIX, or blackbody); columns 8--10: the parametric path's PHOENIX mini-grid. "
                  r"$\Delta$ = synthetic minus SIMBAD colour (Vega). ``blue'' and ``red'' are the $J$-normalized model photon flux over the Gaia DR3 XP flux "
                  r"integrated over 0.40--0.70 and 0.70--1.02\,$\mu$m (1.00 = perfect). K2-18 and TRAPPIST-1 have no XP spectrum; GJ~3470 and HAT-P-11 have no SIMBAD $V$. Derived here.",
-                 "Table A", align="lll" + "r" * 7, size=r"\footnotesize")
+                 "Table A", align="lll" + "r" * 7, size=r"\footnotesize",
+                 span=[("star table (noise tables)", 4, 7), ("PHOENIX mini-grid (parametric)", 8, 10)])
 
 
 def table_b1():
@@ -45,10 +52,10 @@ def table_b1():
     for r in read_csv(RESULTS / "checkB_photon_budget.csv"):
         out.append([tex(r["planet"]), f(r["J_vega"]), f(r["J_ab"]), r["nmd"], f"{fnum(r['t_int_s']):.1f}",
                     f(r["ratio_median"], 3), f(r["ratio_p16"], 3) + "--" + f(r["ratio_p84"], 3), f(r["var_over_signal_median"])])
-    return table(["Planet", r"$J_{\rm Vega}$", r"$J_{\rm AB}$", "MACC", r"$t_{\rm int}$ (s)", "slicersim / hand", "16--84\\%", r"var / signal"], out,
+    return table(["Planet", r"$J_{\rm Vega}$", r"$J_{\rm AB}$", "MACC", r"$t_{\rm int}$ (s)", "slicersim / hand", "16th--84th pct.", r"var / signal"], out,
                  r"Check B(i). Extracted slicersim signal over the hand photon budget $F_\lambda\,\lambda/(hc)\,A\,\eta\,{\rm QE}\,\Delta\lambda\,t_{\rm int}$ "
                  r"(median over 0.40--1.70\,$\mu$m, with the 16--84\% range), where $F_\lambda$ is the star table normalized here to the catalog $J$ with sncosmo "
-                 r"and $A=7.07$\,m$^2$, $\eta$ and QE are read from the \texttt{lazuli\_cbe} configuration. The last column is the Rauscher (2007) up-the-ramp "
+                 r"and $A=7.07$\,m$^2$, $\eta$ and QE are read from the \texttt{lazuli\_cbe} configuration. MACC $n{:}m{:}d$ is the readout pattern (groups : frames averaged per group : dropped frames). The last column is the Rauscher et al.\ (2007) up-the-ramp "
                  r"variance over the Poisson variance of the accumulated signal. Derived here.", "Table B1", align="l" + "r" * 7)
 
 
@@ -59,11 +66,11 @@ def table_b2():
         out.append([tex(r["planet"]), tex(r["reference"][:26]), r["facility"], r["n_bins"], f(r["median_bin_width_um"], 3),
                     f"{fnum(r['achieved_sigma_ppm']):.0f}", f"{fnum(r['lazuli_1transit_sigma_ppm']):.0f}", f(r["ratio_lazuli_over_achieved"]) + flag,
                     f(r["area_only_expectation"])])
-    return table(["Planet", "Dataset", "Fac.", r"$n$", r"bin ($\mu$m)", r"achieved $\sigma$", r"Lazuli $\sigma_1$", "ratio", "area-only"], out,
+    return table(["Planet", "Dataset", "Fac.", r"$n$", r"bin ($\mu$m)", r"published $\sigma$", r"Lazuli $\sigma$ (1 transit)", "ratio", "area-only"], out,
                  r"Check B(ii). Published per-bin depth precision inside 0.40--1.70\,$\mu$m (median, ppm, as tabulated in the NASA Exoplanet Archive) against "
                  r"lazuli-exo's predicted single-transit precision for the same bins (committed noise tables; statistical noise only). ``area-only'' is "
-                 r"$\sqrt{A_{\rm other}/A_{\rm Lazuli}}$ with $A_{\rm HST}=4.0$, $A_{\rm JWST}=25.4$, $A_{\rm Lazuli}=7.07$\,m$^2$; $\downarrow$ marks datasets where "
-                 r"Lazuli's predicted error is smaller than that scaling. The archive does not record the number of visits combined, so ratios are indicative. Derived here.",
+                 r"$\sqrt{A_{\rm other}/A_{\rm Lazuli}}$ with $A_{\rm HST}=4.52$, $A_{\rm JWST}=25.4$, $A_{\rm Lazuli}=7.07$\,m$^2$; $\downarrow$ marks datasets where "
+                 r"Lazuli's predicted error is smaller than that scaling, which can mean that the published dataset did not reach its photon limit, that it combined several transits, or that Lazuli's statistical-only error is too small. The archive does not record the number of transits combined. Derived here.",
                  "Table B2", align="lllr" + "r" * 5, size=r"\scriptsize")
 
 
@@ -84,34 +91,48 @@ def table_c():
                "Table C1", align="l" + "r" * 5 + "l" + "r" * 3, size=r"\footnotesize")
     out = []
     for r in read_csv(RESULTS / "checkC_lightcurve.csv"):
-        out.append([tex(r["planet"]), f(r["solver_vs_batman_max_ppm"]), f"{fnum(r['local_arc_vs_kepler_max_ppm']):.1f}",
-                    f"{fnum(r['sigma_point_ppm']):.0f}", f(r["batman_t14_over_registry"], 3), r["ld_chunks_negative_intensity"], f(r["ld_u1_plus_u2_max"], 3)])
-    t2 = table(["Planet", "solver (ppm)", "local arc (ppm)", r"$\sigma_{\rm pt}$ (ppm)", r"$t_{14}^{\rm batman}/t_{14}^{\rm reg}$", r"LD $I<0$", r"max $u_1{+}u_2$"], out,
+        out.append([tex(r["planet"]), f(r["solver_vs_batman_max_ppm"]), f"{fnum(r['local_arc_vs_kepler_max_ppm']):.1f}", f(r["arc_over_sigma_point"]),
+                    f"{fnum(r['sigma_point_ppm']):.0f}", f"{fnum(r['sigma_white_depth_1transit_ppm']):.1f}", f(r["batman_t14_over_registry"], 3),
+                    r["ld_chunks_negative_intensity"]])
+    t2 = table(["Planet", "solver (ppm)", "arc (ppm)", r"arc/$\sigma_{\rm pt}$", r"$\sigma_{\rm pt}$ (ppm)", r"$\sigma_\delta$ (ppm)", r"$t_{14}^{\rm bat}/t_{14}^{\rm reg}$", r"LD $I<0$"], out,
                r"Check C, part 2. Numpy transit solver vs batman at identical separations (max $|\Delta F|$); lazuli-exo's local-arc $z(t)$ vs batman's Keplerian $z(t)$ "
-               r"for the white-light curve; the per-sample noise at native cadence for one transit; batman's $t_{14}$ from the registry geometry over the registry $t_{14}$; "
-               r"number of LD chunks with negative limb intensity. Derived here.", "Table C2")
+               r"for the white-light curve, in ppm and in units of the per-sample noise; $\sigma_{\rm pt}$ is the per-sample flux noise at the native cadence for one transit and "
+               r"$\sigma_\delta$ the resulting single-transit white-light depth uncertainty (inverse-variance sum of the noise table over 0.40--1.70\,$\mu$m); batman's $t_{14}$ "
+               r"from the registry geometry over the registry $t_{14}$; number of limb-darkening chunks with negative limb intensity (TRAPPIST-1\\,e: 0.41--0.74\\,$\\mu$m). Derived here.", "Table C2",
+               align="l" + "r" * 6 + "l", size=r"\footnotesize")
     return t1 + t2
 
 
 def table_d():
     rows = read_csv(RESULTS / "checkD_spectra_summary.csv")
     cap = (r"Check D. Every dataset with $\ge 5$ points and errors inside 0.40--1.70\,$\mu$m (NASA Exoplanet Archive; TRAPPIST-1\,e from Espinoza et al.\ 2025). "
-           r"``amp'' and $\sigma$: measured peak-to-peak depth and median error (ppm). ``best'' is the scenario with the lowest offset-fit $\chi^2_\nu$ "
-           r"(also given for the flat scenario); $b$ is the fitted data/model amplitude ratio (1 = the scenario has the measured amplitude); "
-           r"``brk.'' = the four atmospheric scenarios' $b$ values (hazy and high-metallicity in \texttt{checkD\_spectra\_summary.csv}) straddle 1. Derived here.")
+           r"``amp'' and $\sigma$: measured peak-to-peak depth and median error (ppm). ``nearest toy'' is the scenario with the lowest offset-fit $\chi^2_\nu$ (also given for the flat scenario); with a free offset and five candidates a nearest label is "
+           r"expected even for a wrong model family, so it is not a detection of that scenario. $b$ is the fitted data/model amplitude ratio (1 = the scenario has the measured amplitude); "
+           r"``bracketed'' = the four atmospheric scenarios' $b$ values (hazy and high-metallicity in \texttt{checkD\_spectra\_summary.csv}) straddle 1. Derived here.")
     out = {"table": [], "parametric": []}
     for r in rows:
-        ds = tex(r["reference"][:18].replace("Espinoza et al. 20", "Espinoza+25") + ", " + r["instrument"][:11].replace("Wide Field ", "WFC3").replace("Space Teles", "STIS").replace("Near Infrar", "NIR").replace("HST_WFC3IR_", "WFC3 ").replace("JWST_PRISM_", "PRISM "))
+        inst = r["instrument"]
+        for k, v in (("Wide Field", "WFC3"), ("Space Tele", "STIS"), ("Near Infrared Imager", "NIRISS"), ("Near Infrared Spectrog", "PRISM"),
+                     ("Advanced C", "ACS"), ("Near Infrared Camera", "NICMOS"), ("HST_WFC3IR_visit", "WFC3 visit "), ("JWST_PRISM_Espinoza", "PRISM visit "),
+                     ("HARPS Echelle Spectrog", "HARPS"), ("IMACS spectrograph", "IMACS"), ("SBIG imager", "SBIG")):
+            if inst.startswith(k):
+                inst = v + inst[len(k):] if k.endswith("visit") or k.endswith("Espinoza") else v
+        ref = r["reference"]
+        if ref.startswith("Espinoza"):
+            ref = "Espinoza et al. 2025"
+        ds = tex(ref[:26] + ", " + inst[:17])
         for path in out:
-            out[path].append([tex(r["planet"]), ds, r["facility"][:4], r["n_bins"], f"{fnum(r['data_amp_ppm']):.0f}", f"{fnum(r['median_sigma_ppm']):.0f}",
-                              tex(r[f"{path}_best"].replace("high_metallicity", "high-met")), f(r[f"{path}_chi2_best"], 1), f(r[f"{path}_chi2_flat"], 1),
+            out[path].append([tex(r["planet"]), ds, r["facility"], r["n_bins"], f"{fnum(r['data_amp_ppm']):.0f}", f"{fnum(r['median_sigma_ppm']):.0f}",
+                              ("--" if not np.isfinite(fnum(r[f"{path}_b_clear"])) else tex(r[f"{path}_best"].replace("high_metallicity", "high-met"))),
+                              f(r[f"{path}_chi2_best"], 1), f(r[f"{path}_chi2_flat"], 1),
                               f(r[f"{path}_b_clear"]), f(r[f"{path}_b_cloudy"]),
-                              "yes" if r[f"{path}_bracketed"] == "True" else "no"])
-    cols = ["Planet", "Dataset", "Fac.", r"$n$", "amp", r"$\sigma$", "best", r"$\chi^2_\nu$", r"$\chi^2_{\nu,\rm flat}$",
-            r"$b_{\rm clear}$", r"$b_{\rm cloudy}$", "brk."]
+                              ("--" if not np.isfinite(fnum(r[f"{path}_b_clear"])) else "yes" if r[f"{path}_bracketed"] == "True" else "no")])
+    cols = ["Planet", "Dataset", "Facility", r"$n$", "amp", r"$\sigma$", "nearest toy", r"$\chi^2_\nu$", r"$\chi^2_{\nu,\rm flat}$",
+            r"$b_{\rm clear}$", r"$b_{\rm cloudy}$", "bracketed"]
     t1 = table(cols, out["table"], "Committed POSEIDON tables. " + cap, "Table D1", align="lllrrr" + "lrr" + "rr" + "l", size=r"\scriptsize")
-    t2 = table(cols, out["parametric"], "Parametric model with the same showcase presets. " + cap, "Table D2", align="lllrrr" + "lrr" + "rr" + "l", size=r"\scriptsize")
-    return t1 + t2
+    t2 = table(cols, out["parametric"], "Parametric model with the same showcase presets (appendix; same datasets as Table D1). " + cap, "Table D2", align="lllrrr" + "lrr" + "rr" + "l", size=r"\scriptsize")
+    (RESULTS / "table_D2.tex").write_text(t2)
+    return t1
 
 
 def table_g():
@@ -121,7 +142,7 @@ def table_g():
                     f"{fnum(r['median_excess_scatter_ppm']):.0f}", f"{fnum(r['p84_excess_scatter_ppm']):.0f}", f"{fnum(r['visit_offset_spread_ppm']):.0f}",
                     f"{fnum(r['lazuli_1transit_sigma_ppm_median_channel']):.0f}", f"{fnum(r['param_clear_amp_ppm']):.0f}", f"{fnum(r['param_cloudy_amp_ppm']):.0f}"])
     return table([r"band ($\mu$m)", r"$n_\lambda$", r"$\sigma_{\rm visit}$", "std", "excess", "excess$_{84}$", "offsets",
-                  r"Lazuli $\sigma_1$", r"clear", r"cloudy"], out,
+                  r"Lazuli $\sigma$ / channel", r"clear", r"cloudy"], out,
                  r"Check G, TRAPPIST-1\,e (Espinoza et al.\ 2025, four JWST/NIRSpec PRISM visits, `Espinoza' reduction). All in ppm: median per-visit error; "
                  r"visit-to-visit standard deviation of the depth at each wavelength; the part of it in excess of the per-visit errors (median and 84th percentile); "
                  r"spread of the four visits' weighted-mean depths; lazuli-exo's single-transit error per native channel; and the parametric clear and cloudy H$_2$/He feature amplitudes "
