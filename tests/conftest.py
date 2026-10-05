@@ -35,7 +35,7 @@ FIDS = [{"R_p_m": 7.1492e7, "g_ms2": 10.0, "R_s_m": 6.957e8, "P_ref_bar": 10.0, 
         {"R_p_m": 0.3 * 7.1492e7, "g_ms2": 30.0, "R_s_m": 6.957e8, "P_ref_bar": 10.0,
          "x_column": 0.5 * np.log(0.3 * 10.0 / 30.0)}]
 FID = FIDS[0]
-ZETA_NODE1_OFFSET = 0.2     # small-planet node sits 0.2 higher (pressure dependence)
+ZETA_X_SLOPE = 0.8          # d zeta / d x between the two nodes (1 = pure column scaling)
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ def zeta_fixture(tmp_path):
     base = ZETA0 + ZETA_AMP * np.sin(2 * np.pi * wl / 0.5)
     zeta0 = (base[None, None, None, :] + 0.1 * met[None, :, None, None]
              + 0.0 * T[:, None, None, None] + 0.0 * co[None, None, :, None])
-    zeta = np.stack([zeta0, zeta0 + ZETA_NODE1_OFFSET], axis=3)
+    zeta = np.stack([zeta0, zeta0 + ZETA_X_SLOPE * FIDS[1]["x_column"]], axis=3)
     mu = (2.3 + 0.5 * met[None, :, None] + 0.0 * T[:, None, None]
           + 0.0 * co[None, None, :])
     tables.write_zeta_grid(tdir, T_K=T, log_met=met, c_to_o=co,

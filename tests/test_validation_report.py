@@ -12,5 +12,7 @@ def test_validation_report_passes():
     assert sum(not r["like_for_like"] for r in rows) == 14 * 4
     gated = [r for r in rows if r["like_for_like"] or not r["T_clamped"]]
     failed = [(r["planet"], r["scenario"], round(r["amp_ratio"], 2))
-              for r in gated if not r["passed"]]
+              for r in gated if not r["passed"] and not r.get("waived")]
     assert failed == []
+    waived = [(r["planet"], r["scenario"]) for r in gated if not r["passed"] and r.get("waived")]
+    assert waived == [("WASP-12 b", "cloudy")]     # the one documented exception

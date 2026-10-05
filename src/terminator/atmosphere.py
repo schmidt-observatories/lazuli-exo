@@ -6,9 +6,19 @@ i.e. at two nodes x = 0 and -1.15 of the slant-column axis x = 0.5 ln[(R_p H)/(R
 (precompute/make_zeta_grid.py). For any other planet, with
 x_p = 0.5 ln[(R_p H)/(R_p,0 H_0)] - ln(T_eq/T_chem):
 
-    zeta_p = lerp_x( zeta_fid_k + (x_p - x_k) )     (clamped to the node range)
-    zeta   = max(logaddexp(zeta_p, zeta_haze), -ln P_cloud)
-    R(lam) = R_p / (1 - (H / R_p) (zeta - median_band(zeta))),  depth = (R / R_s)^2
+    s(lam)  = (zeta_1 - zeta_0) / (x_1 - x_0)        slant-column exponent, ~1/(1+a)
+    zeta_p  = zeta_0 + s (x_p - x_0)                  linear in x, extrapolated
+    zeta_g  = logaddexp(zeta_p, zeta_haze)
+    zeta    = zeta_d + s Ein(exp((zeta_g - zeta_d)/s - gamma_E))
+    R(lam)  = R_p / (1 - (H / R_p) (zeta - median_band(zeta))),  depth = (R / R_s)^2
+
+s < 1 where the opacity grows with pressure (tau ~ P^(1+a): CIA, Lorentz
+wings), so both the column scaling and the vertical tau scale height (s H)
+shrink. The deck term is the exact effective radius of an exponential tau
+profile above an opaque deck at zeta_d = -ln P_cloud (integral of 1 - e^-tau
+over impact parameter; Ein is the entire exponential integral): it tends to
+max(zeta, zeta_d) in both limits but keeps the partial absorption of gas
+whose tau = 1 level lies just below the deck, which a hard max() drops.
 
 so R_p is the band-median transit radius and H = k T_eq / (mu m_H g(R_p)).
 The radius mapping is the exact isothermal hydrostatic solution with
@@ -30,6 +40,25 @@ R_SUN = 6.957e8
 SIGMA_H2_RAYLEIGH_350NM = 5.31e-31   # m^2, POSEIDON MacMad17 haze anchor
 HAZE_LAMBDA0_UM = 0.35
 BAND_UM = (0.40, 1.70)
+EULER_GAMMA = 0.5772156649015329
+
+S_RANGE = (0.25, 1.5)            # physical range of the slant-column exponent
+
+# Ein(a) = int_0^a (1 - e^-s)/s ds, tabulated once on a log grid (numpy only);
+# Ein(a) = gamma + ln a + E1(a) with E1(50) ~ 5e-24, so a > 50 is analytic.
+_EIN_LOG_A = np.linspace(np.log(1e-8), np.log(50.0), 6001)
+_EIN_A = np.exp(_EIN_LOG_A)
+_EIN_TABLE = np.concatenate([[_EIN_A[0]], _EIN_A[0] + np.cumsum(
+    0.5 * (-np.expm1(-_EIN_A[1:]) / _EIN_A[1:] + -np.expm1(-_EIN_A[:-1]) / _EIN_A[:-1])
+    * np.diff(_EIN_A))])
+
+
+def _ein(a):
+    """Entire exponential integral Ein(a) for a >= 0 (vectorised)."""
+    a = np.asarray(a, float)
+    out = np.interp(np.log(np.clip(a, 1e-300, None)), _EIN_LOG_A, _EIN_TABLE)
+    out = np.where(a < _EIN_A[0], a, out)
+    return np.where(a > _EIN_A[-1], EULER_GAMMA + np.log(np.clip(a, 1e-300, None)), out)
 
 
 def grid_wavelengths(tables_dir=None):
@@ -118,16 +147,13 @@ def transmission_depth(wl_um, *, T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun,
     H_fid = K_B * T_chem / (mu_chem * M_H * fid["g_ms2"])
     shift = (0.5 * np.log((R_p * H) / (fid["R_p_m"] * H_fid))
              - np.log(T_eq_K / T_chem))
-    # Each fiducial node predicts zeta_k + (x_p - x_k); blend linearly in x
-    # between the two nearest nodes, clamped to the node range outside it.
+    # Linear in x through the two fiducial nodes (extrapolated outside them);
+    # the slope is the slant-column exponent, also used for the deck tail.
     x_nodes = np.array([f["x_column"] for f in fids], float)
-    order = np.argsort(x_nodes)
-    x_p = float(np.clip(shift, x_nodes.min(), x_nodes.max()))
-    i0, t = _interp_weights(x_nodes[order], x_p)
-    k0, k1 = order[i0], order[min(i0 + 1, len(order) - 1)]
-    pred0 = _trilinear(g["zeta"][..., k0, :], axes, point) + (shift - x_nodes[k0])
-    pred1 = _trilinear(g["zeta"][..., k1, :], axes, point) + (shift - x_nodes[k1])
-    zeta = (1 - t) * pred0 + t * pred1
+    zeta_0 = _trilinear(g["zeta"][..., 0, :], axes, point)
+    zeta_1 = _trilinear(g["zeta"][..., 1, :], axes, point)
+    slope = np.clip((zeta_1 - zeta_0) / (x_nodes[1] - x_nodes[0]), *S_RANGE)
+    zeta = zeta_0 + slope * (shift - x_nodes[0])
 
     if log_a_haze is not None:
         kappa = 10.0 ** log_a_haze * SIGMA_H2_RAYLEIGH_350NM * (
@@ -135,7 +161,9 @@ def transmission_depth(wl_um, *, T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun,
         P_haze_bar = K_B * T_eq_K / (kappa * np.sqrt(2 * np.pi * R_p * H)) / 1e5
         zeta = np.logaddexp(zeta, -np.log(P_haze_bar))
     if log_P_cloud_bar is not None:
-        zeta = np.maximum(zeta, -log_P_cloud_bar * np.log(10.0))
+        zeta_d = -log_P_cloud_bar * np.log(10.0)
+        with np.errstate(over="ignore"):      # _ein is analytic for large a
+            zeta = zeta_d + slope * _ein(np.exp((zeta - zeta_d) / slope - EULER_GAMMA))
 
     band = (wl_grid >= BAND_UM[0]) & (wl_grid <= BAND_UM[1])
     zeta_ref = float(np.median(zeta[band]))
@@ -154,6 +182,7 @@ def transmission_depth(wl_um, *, T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun,
             "mu_source": "chemistry" if mu is None else "user",
             "T_chem_K": T_chem, "T_clamped": bool(T_clamped),
             "zeta_ref": zeta_ref, "zeta_shift": float(shift),
+            "column_slope_median": float(np.median(slope[band])),
             "feature_amplitude_ppm": float(np.ptp(depth_grid[band]) * 1e6),
             "band_um": list(BAND_UM)}
     return depth, info

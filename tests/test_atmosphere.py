@@ -58,9 +58,9 @@ def test_cloud_deck_monotonic_and_deep_deck_is_clear(zeta_fixture):
     for logp in (1.0, -3.0, -4.0, -5.0, -8.0):
         d, _ = atm.transmission_depth(wl, **HJ, log_P_cloud_bar=logp, tables_dir=zeta_fixture)
         amps.append(np.ptp(d))
-    np.testing.assert_allclose(amps[0], np.ptp(clear))     # deck below photosphere -> clear
+    np.testing.assert_allclose(amps[0], np.ptp(clear), rtol=1e-6)   # deck far below -> clear
     assert all(a >= b for a, b in zip(amps, amps[1:]))      # higher deck -> flatter
-    assert amps[-1] < 1e-12                                 # deck above everything -> flat
+    assert amps[-1] < 1e-3 * np.ptp(clear)                  # deck far above -> flat (e^-8 tail)
 
 
 def test_haze_steepens_blue_end(zeta_fixture):
@@ -104,8 +104,7 @@ def test_puffy_atmosphere_uses_exact_hydrostatic_mapping(zeta_fixture):
     puffy = dict(T_eq_K=1500.0, R_p_RJ=1.0, M_p_MJ=0.05, R_s_RSun=1.0)   # g ~ 1.2, H/R_p ~ 0.06
     d, info = atm.transmission_depth(wl, **puffy, tables_dir=zeta_fixture)
     assert info["H_over_Rp"] > 0.05
-    node = tables.load_zeta_grid(zeta_fixture)["zeta"][3, 1, 1, 0].astype(float)   # T=2000 node, x=0
-    dz = node + info["zeta_shift"] - info["zeta_ref"]
+    dz = expected_zeta(zeta_fixture, (3, 1, 1), info) - info["zeta_ref"]    # T=2000 node
     h = info["H_over_Rp"]
     r = radius_m(d, 1.0)
     np.testing.assert_allclose(r, R_J / (1 - h * dz), rtol=1e-6)
@@ -121,29 +120,54 @@ def test_unbound_atmosphere_raises(zeta_fixture):
                                tables_dir=zeta_fixture)
 
 
-def test_column_axis_interpolation(zeta_fixture):
-    """A small planet between the two fiducial nodes blends their predictions."""
-    from conftest import ZETA_NODE1_OFFSET
+def expected_zeta(tdir, idx, info):
+    """zeta linear in x through the stored nodes at grid index idx = (iT, imet, ico)."""
     from terminator import tables
-    wl = atm.grid_wavelengths(zeta_fixture)
-    g = tables.load_zeta_grid(zeta_fixture)
+    g = tables.load_zeta_grid(tdir)
     x1 = g["meta"]["fiducials"][1]["x_column"]
-    # choose M_p so that g = 10 (same as the fiducials) at R_p = 0.3 R_J -> shift = 0.5 ln 0.3
-    R_p = 0.3 * R_J
-    M_p_MJ = 10.0 * R_p ** 2 / G / M_J
-    d, info = atm.transmission_depth(wl, T_eq_K=1000.0, R_p_RJ=0.3, M_p_MJ=M_p_MJ, R_s_RSun=0.5,
-                                     tables_dir=zeta_fixture)
-    np.testing.assert_allclose(info["zeta_shift"], 0.5 * np.log(0.3), rtol=1e-6)
-    t = info["zeta_shift"] / x1                     # fraction of the way to node 1
-    node0 = g["zeta"][2, 1, 1, 0].astype(float)
-    node1 = g["zeta"][2, 1, 1, 1].astype(float)
-    np.testing.assert_allclose(node1 - node0, ZETA_NODE1_OFFSET, atol=0.02)   # float16
-    expect_zeta = (1 - t) * (node0 + info["zeta_shift"]) + t * (node1 + info["zeta_shift"] - x1)
-    zeta_ref = np.median(expect_zeta[(wl >= 0.4) & (wl <= 1.7)])
-    expect_r = R_p / (1 - (info["H_m"] / R_p) * (expect_zeta - zeta_ref))
-    np.testing.assert_allclose(radius_m(d, 0.5), expect_r, rtol=1e-6)
+    node0 = g["zeta"][idx + (0,)].astype(float)
+    node1 = g["zeta"][idx + (1,)].astype(float)
+    return node0 + (node1 - node0) * (info["zeta_shift"] / x1)
+
+
+def test_column_axis_interpolation_and_extrapolation(zeta_fixture):
+    """zeta is linear in the slant-column variable through the two nodes."""
+    from conftest import ZETA_X_SLOPE
+    wl = atm.grid_wavelengths(zeta_fixture)
+    band = (wl >= 0.4) & (wl <= 1.7)
+    for R_p_RJ in (0.3, 3.0):            # inside (x = -0.60) and beyond (x = +0.55) the nodes
+        R_p = R_p_RJ * R_J
+        M_p_MJ = 10.0 * R_p ** 2 / G / M_J           # g = 10 -> x = 0.5 ln R_p
+        d, info = atm.transmission_depth(wl, T_eq_K=1000.0, R_p_RJ=R_p_RJ, M_p_MJ=M_p_MJ,
+                                         R_s_RSun=1.0, tables_dir=zeta_fixture)
+        np.testing.assert_allclose(info["zeta_shift"], 0.5 * np.log(R_p_RJ), rtol=1e-6)
+        np.testing.assert_allclose(info["column_slope_median"], ZETA_X_SLOPE, atol=0.03)
+        z = expected_zeta(zeta_fixture, (2, 1, 1), info)
+        expect_r = R_p / (1 - (info["H_m"] / R_p) * (z - np.median(z[band])))
+        np.testing.assert_allclose(radius_m(d, 1.0), expect_r, rtol=1e-6)
     # a 1 R_J planet at g=10 sits on node 0 exactly and ignores node 1
     d0, i0 = atm.transmission_depth(wl, T_eq_K=1000.0, R_p_RJ=1.0,
                                     M_p_MJ=10.0 * R_J ** 2 / G / M_J, R_s_RSun=1.0,
                                     tables_dir=zeta_fixture)
     assert abs(i0["zeta_shift"]) < 1e-9
+
+
+def test_ein_limits_and_deck_transition(zeta_fixture):
+    from terminator.atmosphere import EULER_GAMMA, _ein
+    np.testing.assert_allclose(_ein(1e-9), 1e-9, rtol=1e-6)
+    np.testing.assert_allclose(_ein(1.0), 0.7965995992970531, rtol=1e-4)        # Ein(1)
+    np.testing.assert_allclose(_ein(50.0), EULER_GAMMA + np.log(50.0), rtol=1e-4)
+    np.testing.assert_allclose(_ein(1e9), EULER_GAMMA + np.log(1e9), rtol=1e-9)
+    # a deck exactly at the clear band-median pressure: amplitude is reduced but the
+    # partially transparent gas above the deck keeps ~half of the high side
+    wl = atm.grid_wavelengths(zeta_fixture)
+    clear, info = atm.transmission_depth(wl, **HJ, tables_dir=zeta_fixture)
+    logp = -info["zeta_ref"] / np.log(10.0)
+    decked, info_d = atm.transmission_depth(wl, **HJ, log_P_cloud_bar=logp, tables_dir=zeta_fixture)
+    r_c, r_d = radius_m(clear, 1.0), radius_m(decked, 1.0)
+    # zeta_eff >= zeta_deck everywhere: the deck radius is the floor (R_p is the
+    # band-median radius, so it sits *above* the deck by (zeta_ref - zeta_d) H)
+    h = info_d["H_m"] / R_J
+    r_deck = R_J / (1 - h * (-logp * np.log(10.0) - info_d["zeta_ref"]))
+    assert np.all(r_d >= r_deck * (1 - 1e-12))
+    assert 0.3 < np.ptp(r_d) / np.ptp(r_c) < 0.7            # ~0.5 H of the 2 H survives
