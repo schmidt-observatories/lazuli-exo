@@ -13,3 +13,5 @@ precompute/*.stdout
 precompute/*.pid
 src/lazuli_exo/data/tables/atmo/*.partial.npz
 src/lazuli_exo/data/tables/atmo/*.smoke.npz
+build/
+*.egg-info/
