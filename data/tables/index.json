@@ -173,7 +173,7 @@
   }
  },
  "star_grid": {
-  "phoenix_grid": false
+  "phoenix_grid": true
  },
  "version": 2
 }

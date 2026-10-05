@@ -50,3 +50,18 @@ def zeta_fixture(tmp_path):
                            wavelength_um=wl, zeta=zeta, mu=mu,
                            meta={"fiducial": FID})
     return tdir
+
+
+@pytest.fixture
+def phoenix_fixture(tmp_path):
+    """Analytic 'PHOENIX' grid: log_flam = log10(teff) + 0.1*logg + 0.01*feh - 2*log10(wl)."""
+    tdir = tmp_path / "tables"
+    teff = np.array([2000.0, 3000.0, 4000.0, 6000.0, 8000.0])
+    logg = np.array([3.5, 4.0, 4.5, 5.0])
+    feh = np.array([-1.0, -0.5, 0.0, 0.3, 0.5])
+    wl = np.geomspace(0.3, 2.5, 300)
+    lf = (np.log10(teff)[:, None, None, None] + 0.1 * logg[None, :, None, None]
+          + 0.01 * feh[None, None, :, None] - 2 * np.log10(wl)[None, None, None, :])
+    tables.write_phoenix_grid(tdir, teff_K=teff, logg=logg, feh=feh,
+                              wavelength_um=wl, log_flam=lf, meta={"src": "test"})
+    return tdir
