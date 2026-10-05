@@ -3,3 +3,13 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 .DS_Store
+
+# Sphinx: build output, and the notebook copies conf.py syncs in from
+# notebooks/ (the originals are the source of truth and are committed).
+docs/sphinx/_build/
+docs/sphinx/notebooks/
+precompute/*.log
+precompute/*.stdout
+precompute/*.pid
+data/tables/atmo/*.partial.npz
+data/tables/atmo/*.smoke.npz
