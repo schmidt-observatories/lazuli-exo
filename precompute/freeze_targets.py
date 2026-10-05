@@ -4,7 +4,11 @@ Run (needs astroquery, network):
     ~/anaconda3/envs/py313/bin/python precompute/freeze_targets.py
 """
 import math
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from terminator.orbit import transit_duration_s  # noqa: E402
 
 PLANETS = [
     "HD 209458 b", "HD 189733 b", "WASP-39 b", "WASP-96 b", "WASP-107 b",
@@ -60,15 +64,23 @@ def val(row, col):
     return None if math.isnan(v) else v
 
 
+def _default(v, fallback):
+    """Explicit missing-value default: only None (not a valid 0.0) falls
+    back."""
+    return fallback if v is None else v
+
+
 def build_entry(row, name):
     ov = OVERRIDES.get(name, {})
     g = lambda field, raw: ov.get(field, raw)
 
     rp_ratio = val(row, "pl_ratror")
     a_rs = val(row, "pl_ratdor")
-    inc = g("inc_deg", val(row, "pl_orbincl") or 90.0)
+    inc = g("inc_deg", _default(val(row, "pl_orbincl"), 90.0))
     teff = g("T_eff_K", val(row, "st_teff"))
     per = g("period_d", val(row, "pl_orbper"))
+    ecc = g("ecc", _default(val(row, "pl_orbeccen"), 0.0))
+    w_deg = g("w_deg", _default(val(row, "pl_orblper"), 90.0))
 
     t_eq = val(row, "pl_eqt")
     if t_eq is None and teff and a_rs:
@@ -77,10 +89,8 @@ def build_entry(row, name):
     t14 = val(row, "pl_trandur")          # hours in the archive
     t14_s = t14 * 3600.0 if t14 is not None else None
     if t14_s is None and per and a_rs and rp_ratio:
-        b = a_rs * math.cos(math.radians(inc))
-        arg = math.sqrt(max((1 + rp_ratio) ** 2 - b ** 2, 0.0)) / (
-            a_rs * math.sin(math.radians(inc)))
-        t14_s = per * 86400.0 / math.pi * math.asin(min(arg, 1.0))
+        t14_s = transit_duration_s(per, a_rs, rp_ratio, inc_deg=inc,
+                                   ecc=ecc, w_deg=w_deg)
 
     entry = {
         "name": name,
@@ -90,15 +100,15 @@ def build_entry(row, name):
         "R_s_RSun": g("R_s_RSun", val(row, "st_rad")),
         "T_eff_K": teff,
         "log_g_star": g("log_g_star", val(row, "st_logg")),
-        "Met_star": g("Met_star", val(row, "st_met") or 0.0),
+        "Met_star": g("Met_star", _default(val(row, "st_met"), 0.0)),
         "T_eq_K": g("T_eq_K", t_eq),
         "period_d": per,
         "t14_s": g("t14_s", t14_s),
         "depth": g("depth", rp_ratio ** 2 if rp_ratio else None),
         "a_over_rs": g("a_over_rs", a_rs),
         "inc_deg": inc,
-        "ecc": g("ecc", val(row, "pl_orbeccen") or 0.0),
-        "w_deg": g("w_deg", val(row, "pl_orblper") or 90.0),
+        "ecc": ecc,
+        "w_deg": w_deg,
         "J_mag": g("J_mag", val(row, "sy_jmag")),
         "provenance": "NEA PSCompPars"
                       + (" + overrides" if name in OVERRIDES else ""),
