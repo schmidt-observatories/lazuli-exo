@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from conftest import ZETA_AMP
+from conftest import ZETA0, ZETA_AMP
 from terminator import atmosphere as atm
 
 HJ = dict(T_eq_K=1000.0, R_p_RJ=1.0, M_p_MJ=0.6, R_s_RSun=1.0)
@@ -23,9 +23,13 @@ def test_node_recovery_shape_and_median_radius(zeta_fixture):
     band = (wl >= 0.40) & (wl <= 1.70)
     # R_p is the band-median transit radius (fixture: float32 zeta -> ~1e-7 rel)
     np.testing.assert_allclose(np.median(radius_m(depth[band], 1.0)), R_J, rtol=1e-6)
-    # amplitude in radius = H * (max - min of the analytic zeta) = 2 H
-    r = radius_m(depth, 1.0)
-    np.testing.assert_allclose(r.max() - r.min(), 2 * ZETA_AMP * H, rtol=1e-4)
+    # exact hydrostatic mapping: 1/r linear in zeta, R = R_p / (1 - h (zeta - zeta_ref)),
+    # evaluated on the stored (float16) node values
+    from terminator import tables
+    node = tables.load_zeta_grid(zeta_fixture)["zeta"][2, 1, 1].astype(float)   # T=1000, met=0, co=0.55
+    zeta_eff = node + info["zeta_shift"]
+    expect = R_J / (1 - (H / R_J) * (zeta_eff - info["zeta_ref"]))
+    np.testing.assert_allclose(radius_m(depth, 1.0), expect, rtol=1e-6)
 
 
 def test_doubling_teq_doubles_amplitude(zeta_fixture):
@@ -33,7 +37,7 @@ def test_doubling_teq_doubles_amplitude(zeta_fixture):
     d1, _ = atm.transmission_depth(wl, **{**HJ, "T_eq_K": 600.0}, tables_dir=zeta_fixture)
     d2, _ = atm.transmission_depth(wl, **{**HJ, "T_eq_K": 1200.0}, tables_dir=zeta_fixture)
     a1 = np.ptp(radius_m(d1, 1.0)); a2 = np.ptp(radius_m(d2, 1.0))
-    np.testing.assert_allclose(a2 / a1, 2.0, rtol=1e-5)
+    np.testing.assert_allclose(a2 / a1, 2.0, rtol=2e-3)   # exact mapping: O(h) correction, h ~ 2e-3
 
 
 def test_mu_default_and_override(zeta_fixture):
@@ -82,5 +86,34 @@ def test_ranges_raise(zeta_fixture):
         atm.transmission_depth(wl, **HJ, c_to_o=2.0, tables_dir=zeta_fixture)
     with pytest.raises(ValueError, match=r"wavelength"):
         atm.transmission_depth(np.array([0.30, 1.0]), **HJ, tables_dir=zeta_fixture)
+    with pytest.raises(ValueError, match=r"wavelength"):
+        atm.transmission_depth(np.array([1.0, 1.86]), **HJ, tables_dir=zeta_fixture)
+    # the grid's nominal edge (one bin beyond the last bin centre) is accepted
+    d, _ = atm.transmission_depth(np.array([0.35, 1.8505]), **HJ, tables_dir=zeta_fixture)
+    assert np.isfinite(d).all()
     with pytest.raises(ValueError, match=r"T_eq_K"):
         atm.transmission_depth(wl, **{**HJ, "T_eq_K": 0.0}, tables_dir=zeta_fixture)
+
+
+def test_puffy_atmosphere_uses_exact_hydrostatic_mapping(zeta_fixture):
+    """g ~ 1/r^2: the high-zeta side extends more than H*dzeta, the low side less."""
+    from terminator import tables
+    wl = atm.grid_wavelengths(zeta_fixture)
+    puffy = dict(T_eq_K=1500.0, R_p_RJ=1.0, M_p_MJ=0.05, R_s_RSun=1.0)   # g ~ 1.2, H/R_p ~ 0.06
+    d, info = atm.transmission_depth(wl, **puffy, tables_dir=zeta_fixture)
+    assert info["H_over_Rp"] > 0.05
+    node = tables.load_zeta_grid(zeta_fixture)["zeta"][3, 1, 1].astype(float)   # T=2000 node (T-independent fixture)
+    dz = node + info["zeta_shift"] - info["zeta_ref"]
+    h = info["H_over_Rp"]
+    r = radius_m(d, 1.0)
+    np.testing.assert_allclose(r, R_J / (1 - h * dz), rtol=1e-6)
+    linear = R_J * (1 + h * dz)
+    assert (r[dz > 0.5] > linear[dz > 0.5]).all() and (r[dz < -0.5] > linear[dz < -0.5]).all()
+    assert (r.max() - R_J) / (R_J - r.min()) > (dz.max() / -dz.min()) * 1.05
+
+
+def test_unbound_atmosphere_raises(zeta_fixture):
+    wl = atm.grid_wavelengths(zeta_fixture)
+    with pytest.raises(ValueError, match="unbound"):
+        atm.transmission_depth(wl, T_eq_K=3000.0, R_p_RJ=1.5, M_p_MJ=0.005, R_s_RSun=1.0,
+                               tables_dir=zeta_fixture)

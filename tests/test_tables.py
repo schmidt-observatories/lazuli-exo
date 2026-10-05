@@ -123,8 +123,8 @@ def _tiny_zeta(tdir):
 def test_zeta_grid_roundtrip_and_dtypes(tmp_path):
     _tiny_zeta(tmp_path)
     g = tables.load_zeta_grid(tmp_path)
-    assert g["zeta"].dtype == np.float32 and g["zeta"].shape == (2, 2, 1, 50)
-    assert g["mu"].shape == (2, 2, 1)
+    assert g["zeta"].dtype == np.float16 and g["zeta"].shape == (2, 2, 1, 50)
+    assert g["mu"].dtype == np.float32 and g["mu"].shape == (2, 2, 1)
     assert g["meta"]["fiducial"]["g_ms2"] == 10.0
     assert tables.load_zeta_grid(tmp_path) is g        # cached
 

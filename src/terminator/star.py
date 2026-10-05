@@ -43,5 +43,5 @@ def phoenix_sed(teff_K, logg, feh, tables_dir=None):
             info[f"{name}_used"] = xc
     axes = (np.log10(teff_axis), g["logg"], g["feh"])
     point = (np.log10(teff_K), info["logg_used"], info["feh_used"])
-    log_flam = _trilinear(g["log_flam"].astype(float), axes, point)
+    log_flam = _trilinear(g["log_flam"], axes, point)
     return wl_um * 1e4, 10.0 ** log_flam, info

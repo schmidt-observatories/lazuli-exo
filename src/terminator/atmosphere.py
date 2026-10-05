@@ -5,10 +5,14 @@ zeta(lambda) = -ln P_photo(lambda)/bar is tabulated for a fiducial planet on a
 
     zeta_p = zeta_fid + 0.5 ln[(R_p H)/(R_p,fid H_fid)] - ln(T_eq/T_chem)
     zeta   = max(logaddexp(zeta_p, zeta_haze), -ln P_cloud)
-    R(lam) = R_p + H (zeta - median_band(zeta)),   depth = (R / R_s)^2
+    R(lam) = R_p / (1 - (H / R_p) (zeta - median_band(zeta))),  depth = (R / R_s)^2
 
-so R_p is the band-median transit radius. Fidelity: isothermal, equilibrium
-chemistry, gray deck, power-law haze; no pressure-broadening correction.
+so R_p is the band-median transit radius and H = k T_eq / (mu m_H g(R_p)).
+The radius mapping is the exact isothermal hydrostatic solution with
+g ~ 1/r^2 (1/r is linear in ln P), which POSEIDON also integrates; its first-
+order form R_p + H dzeta under-predicts puffy atmospheres (H/R_p ~ 0.03 gives
+~30 % too little amplitude). Fidelity: isothermal, equilibrium chemistry,
+gray deck, power-law haze; no pressure-broadening correction.
 """
 import numpy as np
 
@@ -48,9 +52,10 @@ def _trilinear(values, axes, point):
             for dk, w2 in ((0, 1 - t2), (1, t2)):
                 w = w0 * w1 * w2
                 if w:
-                    out = out + w * values[min(i0 + di, values.shape[0] - 1),
-                                           min(i1 + dj, values.shape[1] - 1),
-                                           min(i2 + dk, values.shape[2] - 1)]
+                    corner = values[min(i0 + di, values.shape[0] - 1),
+                                    min(i1 + dj, values.shape[1] - 1),
+                                    min(i2 + dk, values.shape[2] - 1)]
+                    out = out + w * np.asarray(corner, dtype=float)
     return out
 
 
@@ -80,7 +85,14 @@ def transmission_depth(wl_um, *, T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun,
             raise ValueError(f"{name} must be > 0, got {x}")
     if mu is not None and not (np.isfinite(mu) and mu > 0):
         raise ValueError(f"mu must be > 0, got {mu}")
-    if wl_um.min() < wl_grid.min() or wl_um.max() > wl_grid.max():
+    # Stored zeta are bin averages at bin centres and the last partial bin of
+    # the nominal span is dropped by the binning, so accept requests up to
+    # 1.5 bin widths beyond the outer centres (half a bin past the outer bin
+    # edges, which covers the nominal 0.35-1.85 um span); np.interp holds the
+    # edge value there.
+    lo = wl_grid[0] - 1.5 * (wl_grid[1] - wl_grid[0])
+    hi = wl_grid[-1] + 1.5 * (wl_grid[-1] - wl_grid[-2])
+    if wl_um.min() < lo or wl_um.max() > hi:
         raise ValueError(
             f"wavelength range [{wl_um.min():.3f}, {wl_um.max():.3f}] um "
             f"outside the grid [{wl_grid.min():.3f}, {wl_grid.max():.3f}] um")
@@ -91,8 +103,8 @@ def transmission_depth(wl_um, *, T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun,
     T_clamped = T_chem != float(T_eq_K)
     axes = (g["T_K"], g["log_met"], g["c_to_o"])
     point = (T_chem, log_met, c_to_o)
-    zeta_fid = _trilinear(g["zeta"].astype(float), axes, point)
-    mu_chem = float(_trilinear(g["mu"].astype(float), axes, point))
+    zeta_fid = _trilinear(g["zeta"], axes, point)
+    mu_chem = float(_trilinear(g["mu"], axes, point))
     mu_used = mu_chem if mu is None else float(mu)
 
     fid = g["meta"]["fiducial"]
@@ -115,7 +127,13 @@ def transmission_depth(wl_um, *, T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun,
 
     band = (wl_grid >= BAND_UM[0]) & (wl_grid <= BAND_UM[1])
     zeta_ref = float(np.median(zeta[band]))
-    radius = R_p + H * (zeta - zeta_ref)
+    # 1/r linear in ln P (isothermal, g ~ r^-2); the denominator only
+    # approaches 0 for an unbound atmosphere (H/R_p * dzeta -> 1).
+    denom = 1.0 - (H / R_p) * (zeta - zeta_ref)
+    if denom.min() <= 0.1:
+        raise ValueError(
+            f"atmosphere is unbound for this (T_eq, mu, g): H/R_p = {H / R_p:.3f}")
+    radius = R_p / denom
     depth_grid = (radius / R_s) ** 2
     depth = np.interp(wl_um, wl_grid, depth_grid)
 

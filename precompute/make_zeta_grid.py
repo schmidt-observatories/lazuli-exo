@@ -6,6 +6,9 @@ Run (poseidon env, ~1 h; resumable, memory-safe):
   nice ~/anaconda3/envs/poseidon/bin/python precompute/make_zeta_grid.py \
       [--smoke] [--resume]
 
+Output: zeta[T, met, co, wl] float16 at the native R=10,000 (~19 MB raw) and
+mu[T, met, co] float32.
+
 Memory: opacities are loaded per temperature node with a 10-point T_fine
 window (the footprint that already worked for the per-planet tables) and
 freed before the next node; results are flushed to a .partial.npz after every
@@ -32,9 +35,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import scenarios  # noqa: E402
 from scenarios import (FIDUCIAL, P_GRID_ARGS, P_REF_BAR, PARAM_SPECIES,  # noqa: E402
-                       WL_MAX_UM, WL_MIN_UM, ZETA_C_TO_O, ZETA_LOG_MET,
-                       ZETA_R_STORE, ZETA_T_K)
-from terminator import binning, tables  # noqa: E402
+                       ZETA_C_TO_O, ZETA_LOG_MET, ZETA_T_K)
+from terminator import tables  # noqa: E402
 
 from POSEIDON.chemistry import load_chemistry_grid  # noqa: E402
 from POSEIDON.constants import R_J, R_Sun  # noqa: E402
@@ -94,8 +96,10 @@ def main(argv=None):
     log_met = ZETA_LOG_MET[2:4] if args.smoke else ZETA_LOG_MET
     c_to_o = ZETA_C_TO_O[1:2] if args.smoke else ZETA_C_TO_O
     WL = scenarios.make_wl_grid()
-    edges = binning.constant_R_edges(WL_MIN_UM, WL_MAX_UM, ZETA_R_STORE)
-    wl_store = binning.bin_centers(edges)
+    # zeta is stored at the native model resolution (float16): a gray deck or
+    # haze acts per wavelength, and max(mean zeta, zeta_deck) over a coarser
+    # bin would erase the line cores that poke above a deck (Jensen).
+    wl_store = WL
 
     R_p = FIDUCIAL["R_p_RJ"] * R_J
     R_s = FIDUCIAL["R_s_RSun"] * R_Sun
@@ -111,7 +115,7 @@ def main(argv=None):
     log_P_fine = np.linspace(-6.0, 2.0, 40)
 
     shape = (len(T_K), len(log_met), len(c_to_o), len(wl_store))
-    zeta = np.full(shape, np.nan, np.float32)
+    zeta = np.full(shape, np.nan, np.float16)
     mu = np.full(shape[:3], np.nan, np.float32)
     done = np.zeros(len(T_K), bool)
     out_of_column = {}
@@ -140,7 +144,7 @@ def main(argv=None):
                                         spectrum_type="transmission")
                 assert np.isfinite(spec).all(), (T, met, co)
                 z, n_below, n_above = zeta_from_spectrum(spec, atmo, R_s)
-                zeta[it, im, ic] = binning.bin_model(WL, z, edges)
+                zeta[it, im, ic] = z
                 mu[it, im, ic] = mu_photosphere(atmo)
                 if args.smoke:
                     log(f"  smoke T={T} met={met} co={co}: depth "
@@ -168,7 +172,8 @@ def main(argv=None):
             "chemistry": "fastchem", "PT_profile": "isotherm",
             "poseidon_version": poseidon_version(),
             "R_model": int(round(1.0 / np.log(WL[1] / WL[0]))),
-            "R_store": ZETA_R_STORE, "mu_layers_bar": list(MU_LAYERS_BAR),
+            "R_store": "native", "zeta_dtype": "float16",
+            "mu_layers_bar": list(MU_LAYERS_BAR),
             "zeta_definition": "-ln(P_tau=1 / 1 bar) at slant optical depth "
                                "unity, via depth -> R -> r(P) column",
             "out_of_column": out_of_column, "smoke": bool(args.smoke)}

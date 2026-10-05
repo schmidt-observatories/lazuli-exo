@@ -68,5 +68,4 @@ ZETA_T_K = [300, 400, 500, 600, 700, 800, 900, 1000, 1200, 1400, 1600, 1800,
             2000, 2300, 2600, 3000]
 ZETA_LOG_MET = [-1.0, -0.5, 0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
 ZETA_C_TO_O = [0.3, 0.55, 0.8, 1.0]
-ZETA_R_STORE = 2000          # constant-R wavelength grid of the stored zeta
 FIDUCIAL = dict(R_p_RJ=1.0, g_ms2=10.0, R_s_RSun=1.0)

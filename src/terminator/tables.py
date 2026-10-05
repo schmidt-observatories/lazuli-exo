@@ -88,9 +88,9 @@ def write_ld_table(tables_dir, planet, wavelength_um, u1, u2, meta):
                   wavelength_um=wavelength_um, u1=u1, u2=u2)
 
 
-def _write_grid(path, meta, float32_keys, **arrays):
-    arrays = {k: (np.asarray(v, dtype=np.float32) if k in float32_keys
-                  else np.asarray(v, dtype=float)) for k, v in arrays.items()}
+def _write_grid(path, meta, dtypes, **arrays):
+    arrays = {k: np.asarray(v, dtype=dtypes.get(k, float))
+              for k, v in arrays.items()}
     return _write(path, meta, **arrays)
 
 
@@ -110,9 +110,14 @@ def _load_grid(path, script):
 
 def write_zeta_grid(tables_dir, *, T_K, log_met, c_to_o, wavelength_um,
                     zeta, mu, meta):
-    """Planet-independent photospheric log-pressure grid (float32 zeta, mu)."""
+    """Planet-independent photospheric log-pressure grid.
+
+    zeta is stored float16 (abs. precision <= 0.016 at zeta <= 16, i.e. < 2 %
+    of a scale height) at the native model resolution; mu float32.
+    """
     _GRID_CACHE.pop(str((Path(tables_dir) / ZETA_GRID).resolve()), None)
-    return _write_grid(Path(tables_dir) / ZETA_GRID, meta, {"zeta", "mu"},
+    return _write_grid(Path(tables_dir) / ZETA_GRID, meta,
+                       {"zeta": np.float16, "mu": np.float32},
                        T_K=T_K, log_met=log_met, c_to_o=c_to_o,
                        wavelength_um=wavelength_um, zeta=zeta, mu=mu)
 
@@ -126,7 +131,8 @@ def write_phoenix_grid(tables_dir, *, teff_K, logg, feh, wavelength_um,
                        log_flam, meta):
     """PHOENIX SED mini-grid (float32 log10 F_lambda)."""
     _GRID_CACHE.pop(str((Path(tables_dir) / PHOENIX_GRID).resolve()), None)
-    return _write_grid(Path(tables_dir) / PHOENIX_GRID, meta, {"log_flam"},
+    return _write_grid(Path(tables_dir) / PHOENIX_GRID, meta,
+                       {"log_flam": np.float32},
                        teff_K=teff_K, logg=logg, feh=feh,
                        wavelength_um=wavelength_um, log_flam=log_flam)
 
