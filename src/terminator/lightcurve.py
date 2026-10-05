@@ -14,8 +14,9 @@ Transit shape: when the planet is in the frozen target registry
 (terminator.targets) and has a limb-darkening table
 (precompute/make_ld_tables.py), the model is a quadratically limb-darkened
 transit with the real geometry — b from a/R*, cos i and the eccentricity
-factor, z(t) along the circular-orbit arc traversed at the conjunction
-speed f_e = (1 + e sin w) / sqrt(1 - e^2). Per-band (u1, u2) interpolate
+factor, z(t) along a local circular arc of radius r_c = a (1 - e^2) /
+(1 + e sin w) (the conjunction star-planet distance, so z(0) = b) traversed
+at the Keplerian conjunction sky speed. Per-band (u1, u2) interpolate
 the LD table at the band's bin centers. Otherwise (synthetic planets,
 missing LD table) it falls back to a trapezoid for a central transit
 (b = 0, no limb darkening) with ingress t14 * k / (1 + k), k = sqrt(depth).
@@ -46,17 +47,20 @@ class LightCurveSet:
     meta: dict = field(default_factory=dict)
 
 
-def transit_flux(z, k, u1, u2, n_r=401):
+def transit_flux(z, k, u1, u2, n_r=1601):
     """Normalized flux of a quadratically limb-darkened star occulted by
     an opaque disk of radius ratio `k` at projected separations `z`
     (stellar radii).
 
     Numpy-only numerical disk integration: per separation, quadrature over
-    the occulted radial band [|z|-k, |z|+k] of the analytic overlap-arc
+    the occulted radial band ``[|z|-k, |z|+k]`` of the analytic overlap-arc
     weight times the intensity profile. The Chebyshev-type substitution
     r = c - h*cos(psi) absorbs the square-root behavior at both band edges
-    (planet edge and stellar limb), so midpoint quadrature converges to
-    ~1e-7 absolute at the default n_r.
+    (planet edge and stellar limb). Measured against the analytic
+    uniform-source solution, the maximum absolute flux error at the default
+    n_r is <= 1e-6 for k <= 0.2 (~1e-6 at k = 0.3); it grows roughly as k^2
+    and shrinks as n_r grows. Flux is evaluated at exposure centers by the
+    caller — there is no exposure-time integration.
     """
     z = np.atleast_1d(np.asarray(z, float))
     zc = np.maximum(np.abs(z), 1e-12)
@@ -117,12 +121,18 @@ def light_curves(obs, n_groups=1, seed=None, max_points=2000):
     geo = _resolve_geometry(obs)
     if geo is not None:
         target, wl_ld, u1_ld, u2_ld = geo
-        e, w = target["ecc"] or 0.0, np.radians(target["w_deg"] or 90.0)
+        e = 0.0 if target["ecc"] is None else target["ecc"]
+        w = np.radians(90.0 if target["w_deg"] is None else target["w_deg"])
         a_rs, inc = target["a_over_rs"], np.radians(target["inc_deg"])
         f_e = (1.0 + e * np.sin(w)) / np.sqrt(1.0 - e**2)
-        b = a_rs * np.cos(inc) * (1.0 - e**2) / (1.0 + e * np.sin(w))
-        theta = 2.0 * np.pi * time_s * f_e / (target["period_d"] * 86400.0)
-        z = a_rs * np.hypot(np.sin(theta), np.cos(inc) * np.cos(theta))
+        # star-planet distance at conjunction; the local circular arc has
+        # this radius, so z(0) = b exactly, and its angular speed is scaled
+        # by a/r_c to keep the Keplerian sky-plane conjunction velocity
+        r_c = a_rs * (1.0 - e**2) / (1.0 + e * np.sin(w))
+        b = r_c * np.cos(inc)
+        theta = (2.0 * np.pi * time_s * f_e * (a_rs / r_c)
+                 / (target["period_d"] * 86400.0))
+        z = r_c * np.hypot(np.sin(theta), np.cos(inc) * np.cos(theta))
 
         u1 = np.array([np.interp(obs.wavelength[g], wl_ld, u1_ld).mean()
                        for g in groups])

@@ -1,4 +1,5 @@
 """Assemble a simulated Lazuli IFS transmission-spectroscopy observation."""
+import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -52,6 +53,13 @@ def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None):
     wl_m, d_m, meta_m = tables.load_model(tdir, planet, scenario)
     wl_n, e_n, meta_n = tables.load_noise(tdir, planet)
     _, d_flat, _ = tables.load_model(tdir, planet, "flat")
+
+    if meta_n.get("fully_desaturated") is False:
+        warnings.warn(
+            f"{planet}: noise table was generated with residual detector "
+            f"saturation ({meta_n.get('nsaturated_detpx')} px); its "
+            "uncertainties are unvalidated — do not use for quantitative "
+            "forecasts", UserWarning, stacklevel=2)
 
     edges = binning.constant_R_edges(wl_n.min(), wl_n.max(), R)
     depth = binning.bin_model(wl_m, d_m, edges)

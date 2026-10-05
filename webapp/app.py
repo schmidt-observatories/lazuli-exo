@@ -69,9 +69,44 @@ MU_H2 = 2.3          # H2/He-dominated mean molecular weight (assumption)
 R_SUN_M = 6.957e8
 
 
+def _observing(noise_meta):
+    """Slicersim observing setup: raw noise-table meta plus derived
+    readout quantities (frame/ramp timing, ramps per transit, and the
+    equal in/out-of-transit time accounting the tables assume)."""
+    out = {k: noise_meta.get(k) for k in
+           ("instrument", "J_mag", "t14_s", "t_obs_s", "nmd_used",
+            "default_nmd", "nramps", "nsaturated_detpx",
+            "fully_desaturated", "norm_band")}
+    nmd, t_obs = noise_meta.get("nmd_used"), noise_meta.get("t_obs_s")
+    t14 = noise_meta.get("t14_s")
+    if nmd and t_obs:
+        n, m, d = nmd
+        nramps = noise_meta.get("nramps") or 1
+        nframes = n * (m + d) - d
+        ramp_s = t_obs / nramps
+        tframe = ramp_s / nframes
+        out.update(
+            readout_mode="MACC up-the-ramp",
+            macc=f"{n}:{m}:{d}",
+            nframes_per_ramp=nframes,
+            tframe_s=tframe,
+            ramp_s=ramp_s,
+            ramps_per_transit=(t14 / ramp_s) if t14 else None)
+        if noise_meta.get("default_nmd"):
+            dn, dm, dd = noise_meta["default_nmd"]
+            out["default_macc"] = f"{dn}:{dm}:{dd}"
+            out["default_ramp_s"] = (dn * (dm + dd) - dd) * tframe
+    if t14:
+        # noise tables assume the full transit observed plus an equal
+        # out-of-transit baseline (the sqrt(2) in depth_err)
+        out["t_in_s"] = t14
+        out["t_out_s"] = t14
+    return out
+
+
 def _derived(t):
     """Quantities computed from the registry entry (None-safe)."""
-    e = t["ecc"] or 0.0
+    e = t["ecc"] if t["ecc"] is not None else 0.0
     w = math.radians(t["w_deg"] if t["w_deg"] is not None else 90.0)
     b = (t["a_over_rs"] * math.cos(math.radians(t["inc_deg"]))
          * (1.0 - e**2) / (1.0 + e * math.sin(w)))
@@ -114,16 +149,27 @@ def create_app():
             raise BadRequest(f"unknown planet {planet!r}")
         *_, noise_meta = tables.load_noise(
             tables.resolve_tables_dir(None), planet)
-        observing = {k: noise_meta.get(k) for k in
-                     ("instrument", "J_mag", "t14_s", "t_obs_s", "nmd_used",
-                      "nramps", "nsaturated_detpx", "fully_desaturated",
-                      "norm_band")}
-        return jsonify(target=t, derived=_derived(t), observing=observing)
+        return jsonify(target=t, derived=_derived(t),
+                       observing=_observing(noise_meta))
 
     @app.get("/api/observe")
     def observe():
         obs, seed = _validated_observe(request.args)
+        noise_meta = obs.meta["noise"]
+        validated = noise_meta.get("fully_desaturated") is not False
+        caveats = [
+            "H2/He isothermal equilibrium-chemistry toy scenarios — "
+            "not tailored atmospheric predictions",
+            "statistical (photon/read) noise only: no systematics floor, "
+            "red noise, or visit overheads; errors scale as 1/√n_transits",
+        ]
+        if not validated:
+            caveats.append(
+                f"noise table retains {noise_meta.get('nsaturated_detpx')} "
+                "saturated detector pixels — uncertainties unvalidated")
         return jsonify(
+            noise_validated=validated,
+            caveats=caveats,
             planet=obs.planet, scenario=obs.scenario,
             n_transits=obs.n_transits, R=obs.R, seed=seed,
             wavelength=obs.wavelength.tolist(),
@@ -133,7 +179,7 @@ def create_app():
             model_wavelength=obs.model_wavelength.tolist(),
             model_depth=obs.model_depth.tolist(),
             flat_depth=obs.flat_depth,
-            detections=obs.detect(),
+            feature_snr=obs.detect(),
         )
 
     @app.get("/api/lightcurve")

@@ -66,6 +66,13 @@ def star_spectrum(t):
                            interp_backend="pysynphot")
         grid_used = "phoenix"
     except Exception as exc:
+        # Only the documented out-of-grid failure (observed for TRAPPIST-1,
+        # T_eff ~ 2566 K below the PHOENIX grid) may fall back to a
+        # blackbody. Anything else (I/O, missing inputs, install problems)
+        # must fail loudly, not silently swap the stellar model.
+        msg = str(exc).lower()
+        if not any(s in msg for s in ("out of", "bounds", "grid", "exceed")):
+            raise
         print(f"  PHOENIX failed for T_eff={t['T_eff_K']}K ({exc!r}); "
               "falling back to blackbody")
         star = create_star(t["R_s_RSun"] * R_Sun, t["T_eff_K"],

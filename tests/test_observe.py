@@ -50,3 +50,19 @@ def test_simulate_points_reproducible(fixture_tables):
 def test_unknown_planet_raises(fixture_tables):
     with pytest.raises(KeyError, match="Testar-1 b"):
         terminator.observe("Nope-1 b", tables_dir=fixture_tables)
+
+
+# --- unvalidated (residually saturated) noise tables ----------------------
+
+def test_saturated_noise_table_warns():
+    """The three bright hosts whose noise tables retain detector saturation
+    must be flagged, not silently treated as validated forecasts."""
+    with pytest.warns(UserWarning, match="saturat"):
+        terminator.observe("HD 209458 b", scenario="flat", R=50)
+
+
+def test_clean_noise_table_does_not_warn():
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        terminator.observe("WASP-39 b", scenario="flat", R=50)

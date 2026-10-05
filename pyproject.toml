@@ -13,6 +13,15 @@ dependencies = ["numpy"]
 plot = ["matplotlib"]
 test = ["pytest"]
 web = ["flask"]
+# Building the docs also needs a pandoc binary on the build machine
+# (conda install pandoc / brew install pandoc) for nbsphinx.
+docs = [
+    "sphinx>=7",
+    "sphinx-rtd-theme>=2",
+    "nbsphinx>=0.9",
+    "ipykernel",
+    "matplotlib",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

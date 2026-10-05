@@ -121,11 +121,13 @@ def _uniform_disk_analytic(z, k):
 
 
 def test_transit_flux_uniform_disk_matches_analytic():
-    k = 0.1
+    """Documented accuracy: <= 1e-6 absolute for k <= 0.2 at the default
+    quadrature resolution (covers every registry target's radius ratio)."""
     z = np.linspace(0.0, 1.3, 400)
-    flux = lightcurve.transit_flux(z, k, 0.0, 0.0)
-    np.testing.assert_allclose(flux, 1.0 - _uniform_disk_analytic(z, k),
-                               atol=2e-6)
+    for k in (0.05, 0.1, 0.2):
+        flux = lightcurve.transit_flux(z, k, 0.0, 0.0)
+        np.testing.assert_allclose(flux, 1.0 - _uniform_disk_analytic(z, k),
+                                   atol=1e-6)
 
 
 def test_transit_flux_small_planet_ld():
@@ -177,3 +179,29 @@ def test_fixture_planet_falls_back_to_trapezoid(obs):
     lc = lightcurve.light_curves(obs, n_groups=1, seed=0)
     assert lc.meta["shape"] == "trapezoid"
     assert lc.u1 is None and lc.u2 is None
+
+
+def test_eccentric_mid_transit_separation_equals_b():
+    """The flux model must use the same (eccentric) impact parameter the
+    metadata reports: z(0) = b, not a/R* cos i."""
+    obs = observe("HAT-P-11 b", scenario="clear", n_transits=1, R=100)
+    lc = lightcurve.light_curves(obs, n_groups=1, seed=0)
+    assert lc.meta["shape"] == "quadratic-ld"
+    i_mid = np.argmin(np.abs(lc.time_hr))
+    k = np.sqrt(lc.depth[0])
+    expected = lightcurve.transit_flux(
+        np.array([lc.meta["b"]]), k, lc.u1[0], lc.u2[0])[0]
+    assert lc.flux_model[0, i_mid] == pytest.approx(expected, abs=1e-5)
+
+
+def test_omega_zero_is_not_treated_as_missing(monkeypatch):
+    """A valid w_deg = 0.0 must not be replaced by the 90-deg default."""
+    from terminator import targets as targets_mod
+    t = dict(targets_mod.TARGETS["WASP-39 b"], ecc=0.3, w_deg=0.0)
+    monkeypatch.setitem(targets_mod.TARGETS, "WASP-39 b", t)
+    obs = observe("WASP-39 b", scenario="clear", n_transits=1, R=100)
+    lc = lightcurve.light_curves(obs, n_groups=1, seed=0)
+    # with w = 0: b = a/R* cos i (1 - e^2) / (1 + e sin 0)
+    expected_b = t["a_over_rs"] * np.cos(np.radians(t["inc_deg"])) \
+        * (1.0 - 0.3**2)
+    assert lc.meta["b"] == pytest.approx(expected_b)

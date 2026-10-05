@@ -51,11 +51,30 @@ def test_observe_matches_direct_call(client):
     np.testing.assert_allclose(j["model_depth"], obs.model_depth)
     assert j["flat_depth"] == pytest.approx(obs.flat_depth)
     direct = obs.detect()
-    assert set(j["detections"]) == set(direct)
-    for mol, sig in direct.items():
-        assert j["detections"][mol] == pytest.approx(sig)
+    assert "detections" not in j          # renamed: not detection sigmas
+    fsnr = j["feature_snr"]
+    assert fsnr["template_snr_diagonal"] == pytest.approx(
+        direct["template_snr_diagonal"])
+    assert set(fsnr["band_snr"]) == set(direct["band_snr"])
+    for mol, snr in direct["band_snr"].items():
+        assert fsnr["band_snr"][mol] == pytest.approx(snr)
     assert (j["planet"], j["scenario"]) == ("WASP-39 b", "cloudy")
     assert (j["n_transits"], j["R"], j["seed"]) == (5, 100, 3)
+
+
+def test_observe_carries_status_caveats(client):
+    j = client.get("/api/observe", query_string={
+        "planet": "WASP-39 b"}).get_json()
+    assert j["noise_validated"] is True
+    joined = " ".join(j["caveats"]).lower()
+    assert "toy" in joined
+    assert "statistical" in joined or "photon" in joined
+    assert "saturat" not in joined
+
+    j = client.get("/api/observe", query_string={
+        "planet": "HD 209458 b"}).get_json()
+    assert j["noise_validated"] is False
+    assert any("saturat" in c.lower() for c in j["caveats"])
 
 
 def test_observe_defaults(client):
@@ -147,9 +166,24 @@ def test_target_endpoint(client):
     assert j["derived"]["H_km"] > 0
     assert j["derived"]["feature_amp_ppm"] > 0
     # observing setup from the noise-table meta
-    assert j["observing"]["instrument"] == "lazuli_cbe"
-    assert j["observing"]["t_obs_s"] > 0
-    assert isinstance(j["observing"]["fully_desaturated"], bool)
+    o = j["observing"]
+    assert o["instrument"] == "lazuli_cbe"
+    assert o["t_obs_s"] > 0
+    assert isinstance(o["fully_desaturated"], bool)
+    # derived readout diagnostics: lazuli_cbe frame time is 2.83 s and the
+    # ramp timing must be self-consistent with the recorded nmd
+    n, m, d = o["nmd_used"]
+    assert o["macc"] == f"{n}:{m}:{d}"
+    assert o["nframes_per_ramp"] == n * (m + d) - d
+    assert o["tframe_s"] == pytest.approx(2.83, rel=1e-2)
+    assert o["ramp_s"] == pytest.approx(o["tframe_s"] * o["nframes_per_ramp"])
+    assert o["ramps_per_transit"] == pytest.approx(o["t14_s"] / o["ramp_s"])
+    dn, dm, dd = o["default_nmd"]
+    assert o["default_macc"] == f"{dn}:{dm}:{dd}"
+    assert o["default_ramp_s"] == pytest.approx(
+        (dn * (dm + dd) - dd) * o["tframe_s"])
+    # equal in/out-of-transit baseline assumption
+    assert o["t_in_s"] == o["t_out_s"] == o["t14_s"]
 
 
 def test_target_endpoint_rejects_unknown(client):

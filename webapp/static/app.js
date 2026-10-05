@@ -22,26 +22,44 @@ function fillScenarios(planet) {
   sel.value = targets[planet].includes(prev) ? prev : targets[planet][0];
 }
 
-function renderDetections(det) {
-  const rows = Object.entries(det)
-    .sort((a, b) => (a[0] === "atmosphere" ? -1 : b[0] === "atmosphere" ? 1
-                     : b[1] - a[1]))
-    .map(([k, v]) => `<tr><td>${k}</td><td>${v.toFixed(1)}</td></tr>`);
-  $("detections").querySelector("tbody").innerHTML = rows.join("");
+let lastFeatureSnr = null;
+
+function renderFeatureSnr(f) {
+  lastFeatureSnr = f;
+  const entries = [["atmosphere (template)",
+                    f.template_snr_diagonal.toFixed(1)]];
+  if ($("show_bands").checked) {
+    Object.entries(f.band_snr).sort((a, b) => b[1] - a[1])
+      .forEach(([k, v]) => entries.push([`${k} band`, v.toFixed(1)]));
+  }
+  $("featuresnr").querySelector("tbody").innerHTML = entries
+    .map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+}
+
+function renderStatus(j) {
+  $("status").innerHTML = (j.caveats || []).map((c) => {
+    const low = c.toLowerCase();
+    const bad = low.includes("saturat");
+    const short = bad ? "unvalidated noise (saturation)"
+      : low.includes("toy") ? "H₂/He toy scenarios"
+      : "statistical noise only";
+    return `<span class="chip ${bad ? "bad" : "warn"}" title="${c}">` +
+      `${short}</span>`;
+  }).join("");
 }
 
 function renderPlot(j) {
   const model = {
     x: j.model_wavelength, y: pct(j.model_depth), mode: "lines",
     name: `model (${j.scenario})`,
-    line: { width: 1, color: "#0b7285" }, opacity: 0.7,
+    line: { width: 1, color: "#168ea0" }, opacity: 0.7,
     visible: $("show_model").checked ? true : "legendonly",
     hovertemplate: "%{x:.3f} µm — %{y:.4f}%<extra>model</extra>",
   };
   const points = {
     x: j.wavelength, y: pct(j.points), mode: "markers",
     name: `simulated (R=${j.R})`,
-    marker: { size: 5, color: "#c92a2a" },
+    marker: { size: 5, color: "#b3261e" },
     error_y: { type: "data", array: pct(j.depth_err), thickness: 1, width: 2 },
     hovertemplate: "%{x:.3f} µm — %{y:.4f}% ± %{error_y.array:.4f}%" +
       "<extra>simulated</extra>",
@@ -56,6 +74,8 @@ function renderPlot(j) {
     legend: { x: 0.02, y: 0.98 },
     margin: { t: 40, r: 20, b: 45, l: 60 },
     paper_bgcolor: "#fff", plot_bgcolor: "#fff",
+    font: { family: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", ' +
+            "Inter, sans-serif", color: "#485a60" },
   };
   Plotly.react("plot", [model, points], layout, { responsive: true });
 }
@@ -95,6 +115,8 @@ function renderLightcurve(j) {
     legend: { x: 0.02, y: 0.02, yanchor: "bottom" },
     margin: { t: 40, r: 20, b: 45, l: 60 },
     paper_bgcolor: "#fff", plot_bgcolor: "#fff",
+    font: { family: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", ' +
+            "Inter, sans-serif", color: "#485a60" },
   };
   Plotly.react("lcplot", traces, layout, { responsive: true });
 
@@ -152,6 +174,11 @@ function renderTarget(j) {
   return o;
 }
 
+function hrs(seconds, digits = 2) {
+  return (seconds === null || seconds === undefined) ? null
+    : (seconds / 3600).toFixed(digits) + " h";
+}
+
 function renderDiagnostics(obs) {
   const w = obs.depth_err.map((s) => 1 / (s * s));
   const sigWhite = 1 / Math.sqrt(w.reduce((a, v) => a + v, 0));
@@ -159,19 +186,44 @@ function renderDiagnostics(obs) {
   const medErr = errs[Math.floor(errs.length / 2)];
   const d = lastTarget ? lastTarget.derived : {};
   const o = lastTarget ? lastTarget.observing : {};
-  rows("diagnostics", [
+  const nt = obs.n_transits;
+
+  rows("diag_spec", [
     ["Bins @ R=" + obs.R, obs.wavelength.length],
     ["Median σ/bin (ppm)", fmt(medErr * 1e6, 0)],
     ["White-light σ (ppm)", fmt(sigWhite * 1e6, 1)],
     ["Feature amp. (ppm)", fmt(d.feature_amp_ppm, 0)],
     ["Amp / σ per bin", d.feature_amp_ppm
       ? fmt(d.feature_amp_ppm / (medErr * 1e6), 1) : null],
-    ["Atmosphere σ", fmt(obs.detections.atmosphere, 1)],
-    ["Sample time (s)", fmt(o.t_obs_s, 1)],
-    ["Ramp (nmd)", o.nmd_used ? o.nmd_used.join("/") : null],
+    ["Template S/N", fmt(obs.feature_snr.template_snr_diagonal, 1)],
+  ]);
+
+  const retuned = o.macc && o.default_macc && o.macc !== o.default_macc;
+  rows("diag_readout", [
+    ["Instrument config", o.instrument],
+    ["Readout mode", o.readout_mode],
+    ["Frame time (s)", fmt(o.tframe_s, 2)],
+    ["Ramp MACC n:m:d", o.macc],
+    ["Frames per ramp", o.nframes_per_ramp],
+    ["Ramp duration (s)", fmt(o.ramp_s, 1)],
+    ["slicersim default", retuned
+      ? `${o.default_macc} (${fmt(o.default_ramp_s, 0)} s, retuned)`
+      : (o.default_macc ? `${o.default_macc} (kept)` : null)],
+    ["Ramps simulated", o.nramps],
+    ["Ramps per transit (√t)", fmt(o.ramps_per_transit, 0)],
     ["Saturation", o.fully_desaturated === undefined ? null
-      : (o.fully_desaturated ? "clean"
-         : `${o.nsaturated_detpx} px residual`)],
+      : (o.fully_desaturated ? '<span class="chip ok">clean</span>'
+         : `<span class="chip bad">${o.nsaturated_detpx} px residual</span>`)],
+  ]);
+
+  rows("diag_time", [
+    ["In-transit / transit", hrs(o.t_in_s)],
+    ["Baseline / transit", o.t_out_s !== undefined
+      ? hrs(o.t_out_s) + " (equal)" : null],
+    ["Transits", nt],
+    ["Total in-transit", hrs(o.t_in_s * nt)],
+    ["Total on target", (o.t_in_s && o.t_out_s)
+      ? hrs((o.t_in_s + o.t_out_s) * nt) : null],
   ]);
 }
 
@@ -212,7 +264,8 @@ async function refresh() {
     $("error").textContent = "";
     if (target) renderTarget(target);
     renderPlot(obs);
-    renderDetections(obs.detections);
+    renderStatus(obs);
+    renderFeatureSnr(obs.feature_snr);
     renderLightcurve(lc);
     renderDiagnostics(obs);
   } catch (e) {
@@ -233,6 +286,9 @@ async function init() {
   for (const id of ["scenario", "n_transits", "R", "lc_groups"])
     $(id).addEventListener("change", refresh);
   $("reroll").addEventListener("click", () => { seed += 1; refresh(); });
+  $("show_bands").addEventListener("change", () => {
+    if (lastFeatureSnr) renderFeatureSnr(lastFeatureSnr);
+  });
   $("show_model").addEventListener("change", () =>
     Plotly.restyle("plot", { visible: $("show_model").checked ? true : "legendonly" }, [0]));
   refresh();

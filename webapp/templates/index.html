@@ -6,75 +6,194 @@
 <title>terminator — Lazuli IFS simulator</title>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
-  :root { --ink: #1a1a1a; --muted: #6b6b6b; --line: #e2e2e2; --accent: #0b7285; }
-  body { margin: 0; font: 14px/1.45 -apple-system, "Helvetica Neue", Arial, sans-serif;
-         color: var(--ink); background: #fafaf8; }
-  header { padding: 14px 22px; border-bottom: 1px solid var(--line); background: #fff; }
-  header h1 { margin: 0; font-size: 17px; font-weight: 600; }
-  header h1 span { color: var(--muted); font-weight: 400; }
-  main { display: grid; grid-template-columns: 230px 1fr 230px; gap: 18px;
-         padding: 18px 22px; max-width: 1400px; align-items: start; }
-  .col { display: flex; flex-direction: column; gap: 18px; }
-  .panel { background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 14px; }
-  .panel h2 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase;
-              letter-spacing: .06em; color: var(--muted); }
-  label { display: block; margin: 10px 0 3px; font-size: 12px; color: var(--muted); }
-  select, input[type=number] { width: 100%; box-sizing: border-box; padding: 6px 8px;
-       border: 1px solid var(--line); border-radius: 4px; font: inherit; background: #fff; }
-  .check { margin-top: 12px; display: flex; align-items: center; gap: 6px; }
+  /* Theme tokens shared with the Lazuli ETC site (lazuli-etc-web2 site.css). */
+  :root {
+    --bg: #f1f6f8;
+    --panel: #ffffff;
+    --panel-tinted: #f7fbfc;
+    --ink: #131f24;
+    --ink-soft: #485a60;
+    --muted: #8a9aa0;
+    --line: #dde7ea;
+    --line-soft: #eaf1f2;
+    --turq-mid: #20bcd0;
+    --turq-deep: #168ea0;
+    --turq-soft: #c5e9ef;
+    --ok: #1b8a4a;
+    --warn: #c47a00;
+    --bad: #b3261e;
+    --good-soft: #e6f4ec;
+    --warn-soft: #fbf1dc;
+    --bad-soft: #fbe7e5;
+    --shadow: 0 1px 0 rgba(10,30,28,0.04), 0 6px 16px rgba(10,30,28,0.05);
+    --radius: 10px;
+    --serif: "Source Serif Pro", "Source Serif 4", "PT Serif", Cambria, Georgia, "Times New Roman", serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.5 var(--sans); }
+
+  header.app {
+    display: flex; align-items: center; gap: 18px; height: 72px;
+    padding: 0 24px; background: #fff; border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .brand-mark { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .brand-logo-frame { height: 58px; width: 150px; display: flex;
+    align-items: center; overflow: hidden; flex: 0 0 auto; }
+  .brand-logo-frame img { height: 86px; width: auto; display: block;
+    max-width: none; }
+  .brand-mark .divider { width: 1px; height: 26px; background: var(--line); }
+  .brand-mark .wordmark { font: 500 17px/1 var(--serif); white-space: nowrap; }
+  .brand-mark .wordmark em { font-style: italic; color: var(--ink-soft); }
+  .header-spacer { flex: 1; }
+  .pill {
+    background: var(--ink); color: #fff; padding: 4px 8px; border-radius: 2px;
+    font: 500 11px/1 var(--sans); letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  main { display: grid; grid-template-columns: 250px 1fr 280px; gap: 18px;
+         padding: 18px 24px 28px; max-width: 1500px; margin: 0 auto;
+         align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 18px; position: relative; overflow: hidden;
+  }
+  .card h2 { margin: 0 0 14px; font: 600 12px/1 var(--sans);
+    text-transform: uppercase; letter-spacing: 0.10em; color: var(--muted); }
+  .card.featured::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--turq-mid);
+  }
+
+  .field { display: grid; gap: 4px; margin: 0 0 10px; }
+  .field label { font-size: 12px; color: var(--ink-soft); }
+  .field select, .field input[type=number] {
+    border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px;
+    font: inherit; background: #fff; color: var(--ink); width: 100%;
+  }
+  .field input:focus, .field select:focus, button:focus {
+    outline: 2px solid var(--turq-soft); outline-offset: 2px;
+  }
+  .field input:focus, .field select:focus { border-color: var(--turq-deep); }
+  .check { margin-top: 12px; display: flex; align-items: center; gap: 6px;
+           font-size: 12px; color: var(--ink-soft); }
   .check label { margin: 0; color: var(--ink); }
-  button { margin-top: 14px; width: 100%; padding: 7px 0; border: 1px solid var(--accent);
-           border-radius: 4px; background: var(--accent); color: #fff; font: inherit;
-           cursor: pointer; }
-  button:hover { filter: brightness(1.08); }
+  button.primary {
+    margin-top: 14px; width: 100%; background: var(--ink); color: #fff;
+    border: 0; padding: 10px 14px; border-radius: 4px;
+    font: 600 13px/1 var(--sans); letter-spacing: 0.03em; cursor: pointer;
+  }
+  button.primary:hover { background: var(--turq-deep); }
+
+  table { width: 100%; border-collapse: collapse;
+          font-variant-numeric: tabular-nums; font-size: 12px; }
+  td, th { padding: 6px 4px; text-align: left;
+           border-bottom: 1px solid var(--line-soft); }
+  th { color: var(--muted); font-weight: 600; text-transform: uppercase;
+       letter-spacing: 0.06em; }
+  td:last-child, th:last-child { text-align: right; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .subhead {
+    margin: 16px 0 6px; font: 600 11px/1 var(--sans);
+    text-transform: uppercase; letter-spacing: 0.10em; color: var(--muted);
+    padding-top: 12px; border-top: 1px solid var(--line-soft);
+  }
+  .subhead:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+
+  .chip { display: inline-block; font-size: 11px; padding: 3px 8px;
+          border-radius: 3px; font-weight: 600; letter-spacing: 0.02em; }
+  .chip.ok { background: var(--good-soft); color: var(--ok); }
+  .chip.warn { background: var(--warn-soft); color: var(--warn); }
+  .chip.bad { background: var(--bad-soft); color: var(--bad); }
+  .statusbar { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .statusbar .chip { cursor: help; }
+
   #plot { width: 100%; min-height: 420px; }
   #lcplot { width: 100%; min-height: 420px; margin-top: 6px; }
-  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  td, th { padding: 4px 2px; text-align: left; border-bottom: 1px solid var(--line);
-           font-size: 13px; }
-  td:last-child, th:last-child { text-align: right; }
-  .caveat { margin-top: 10px; font-size: 11px; color: var(--muted); }
-  #error { color: #b02a37; font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
-  #seedlabel { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .caveat { margin-top: 10px; font-size: 11px; color: var(--muted);
+            line-height: 1.5; }
+  #error { color: var(--bad); font-size: 13px; margin-top: 10px;
+           white-space: pre-wrap; }
+  #seedlabel { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  @media (max-width: 1100px) {
+    main { grid-template-columns: 1fr 1fr; }
+    .col.center { grid-column: 1 / -1; order: -1; }
+  }
+  @media (max-width: 700px) {
+    main { grid-template-columns: 1fr; padding: 14px; }
+    header.app { gap: 12px; padding: 0 14px; }
+    .brand-logo-frame { height: 50px; width: 124px; }
+    .brand-logo-frame img { height: 74px; }
+    .brand-mark .divider { display: none; }
+  }
 </style>
 </head>
 <body>
-<header><h1>terminator <span>— Lazuli IFS transmission spectroscopy (local demo)</span></h1></header>
+<header class="app">
+  <span class="brand-mark">
+    <span class="brand-logo-frame" aria-hidden="true">
+      <img src="{{ url_for('static', filename='logo_schmidt_observatory_system.png') }}" alt="">
+    </span>
+    <span class="divider" aria-hidden="true"></span>
+    <span class="wordmark">terminator <em>Lazuli IFS</em></span>
+  </span>
+  <div class="header-spacer"></div>
+  <span class="pill">Local demo</span>
+</header>
 <main>
   <div class="col">
-  <div class="panel">
+  <div class="card">
     <h2>Inputs</h2>
-    <label for="planet">Planet</label>
-    <select id="planet"></select>
-    <label for="scenario">Scenario</label>
-    <select id="scenario"></select>
-    <label for="n_transits">Transits (1–1000)</label>
-    <input id="n_transits" type="number" min="1" max="1000" step="1" value="1">
-    <label for="R">Resolution R (10–500)</label>
-    <input id="R" type="number" min="10" max="500" step="5" value="100">
-    <label for="lc_groups">Light-curve bands</label>
-    <select id="lc_groups">
-      <option value="1" selected>White light</option>
-      <option value="3">3 bands</option>
-      <option value="5">5 bands</option>
-      <option value="8">8 bands</option>
-    </select>
+    <div class="field">
+      <label for="planet">Planet</label>
+      <select id="planet"></select>
+    </div>
+    <div class="field">
+      <label for="scenario">Scenario</label>
+      <select id="scenario"></select>
+    </div>
+    <div class="field">
+      <label for="n_transits">Transits (1–1000)</label>
+      <input id="n_transits" type="number" min="1" max="1000" step="1" value="1">
+    </div>
+    <div class="field">
+      <label for="R">Resolution R (10–500)</label>
+      <input id="R" type="number" min="10" max="500" step="5" value="100">
+    </div>
+    <div class="field">
+      <label for="lc_groups">Light-curve bands</label>
+      <select id="lc_groups">
+        <option value="1" selected>White light</option>
+        <option value="3">3 bands</option>
+        <option value="5">5 bands</option>
+        <option value="8">8 bands</option>
+      </select>
+    </div>
     <div class="check">
       <input id="show_model" type="checkbox" checked>
       <label for="show_model">Show model</label>
     </div>
-    <button id="reroll">Re-roll noise</button>
+    <button id="reroll" class="primary">Re-roll noise</button>
     <div id="seedlabel">seed = 0</div>
     <div id="error"></div>
   </div>
-  <div class="panel">
+  <div class="card">
     <h2>System parameters</h2>
     <table id="targetparams"><tbody></tbody></table>
     <div class="caveat">NEA PSCompPars, frozen 2026-08-29; b, g, H derived
       (H assumes H<sub>2</sub>/He, &mu;&nbsp;=&nbsp;2.3).</div>
   </div>
   </div>
-  <div class="panel">
+  <div class="col center">
+  <div class="card featured">
+    <div id="status" class="statusbar"></div>
     <div id="plot"></div>
     <div id="lcplot"></div>
     <div id="sysparams" class="caveat"></div>
@@ -82,20 +201,40 @@
       uncertainties as the spectrum
       (&sigma;<sub>pt</sub> = &sigma;<sub>band</sub>&nbsp;&radic;(t&#8321;&#8324;/2c)).</div>
   </div>
+  </div>
   <div class="col">
-  <div class="panel">
-    <h2>Detections</h2>
-    <table id="detections"><thead><tr><th>Feature</th><th>&sigma;</th></tr></thead>
+  <div class="card">
+    <h2>Feature S/N</h2>
+    <table id="featuresnr"><thead><tr><th>Feature</th><th>S/N</th></tr></thead>
       <tbody></tbody></table>
-    <div class="caveat">Band masks overlap (e.g. H<sub>2</sub>O and CH<sub>4</sub> near
-      1.15&nbsp;µm), so per-molecule significances are approximate. CO and NH<sub>3</sub>
+    <div class="check">
+      <input id="show_bands" type="checkbox">
+      <label for="show_bands">Show per-band S/N</label>
+    </div>
+    <div class="caveat">Matched-template amplitude S/N against the best-fit
+      flat line (diagonal errors, no nuisance terms) — <b>not</b> a calibrated
+      detection significance. Per-band values restrict the same statistic to
+      fixed wavelength masks; they mix every species in the mask plus
+      haze/cloud/continuum structure (H<sub>2</sub>O and CH<sub>4</sub> overlap near
+      1.15&nbsp;µm) and are <b>not</b> molecule detections. CO and NH<sub>3</sub>
       have no masks in 0.4–1.7&nbsp;µm and are never reported.</div>
   </div>
-  <div class="panel">
+  <div class="card">
     <h2>Diagnostics</h2>
-    <table id="diagnostics"><tbody></tbody></table>
+    <div class="subhead">Spectrum precision</div>
+    <table id="diag_spec"><tbody></tbody></table>
+    <div class="subhead">Detector readout (slicersim)</div>
+    <table id="diag_readout"><tbody></tbody></table>
+    <div class="subhead">Time on target</div>
+    <table id="diag_time"><tbody></tbody></table>
     <div class="caveat">Feature amplitude is the 2HR<sub>p</sub>/R<sub>&starf;</sub><sup>2</sup>
       one-scale-height estimate; compare with the per-bin precision.</div>
+    <div class="caveat">The MACC ramp is retuned per target (shrinking the
+      slicersim default) until no detector pixel saturates. slicersim
+      simulates one ramp; the noise tables scale its SNR as &radic;t to the
+      in-transit time, i.e. back-to-back ramps with no reset overhead, and
+      assume an equal out-of-transit baseline (the &radic;2 in the depth
+      error).</div>
   </div>
   </div>
 </main>
