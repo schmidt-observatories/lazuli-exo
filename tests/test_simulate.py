@@ -1,0 +1,52 @@
+import importlib
+
+import numpy as np
+import pytest
+
+import terminator
+
+# terminator.simulate (the attribute) is the function; grab the module
+sim_mod = importlib.import_module("terminator.simulate")
+
+
+def fake_depth_error(wl_A, f_lambda, *, mag, band, mag_system, t14_s,
+                     n_transits=1, instrument):
+    wl_um = np.geomspace(0.4, 1.7, 500)
+    return wl_um, np.full(500, 1e-4) / np.sqrt(n_transits), {
+        "mag_ab": mag + 0.9, "vega_ab_offset": 0.9, "nsaturated_detpx": 0,
+        "fully_desaturated": True, "t_obs_s": 60.0, "nmd_used": [16, 8, 0],
+        "slicersim_version": "fake", "instrument": instrument,
+        "trimmed_channels": 0}
+
+
+@pytest.fixture
+def both_grids(zeta_fixture, phoenix_fixture):
+    # the two fixtures write into the same tmp_path/tables
+    return zeta_fixture
+
+
+PARAMS = dict(name="Testar-1 b", T_eq_K=1000.0, R_p_RJ=1.0, M_p_MJ=0.6,
+              R_s_RSun=1.0, teff_K=5000.0, logg=4.5, feh=0.0, mag=10.0,
+              t14_s=7200.0)
+
+
+def test_simulate_returns_simulated_spectrum(both_grids, monkeypatch):
+    monkeypatch.setattr(sim_mod, "depth_error", fake_depth_error)
+    obs = terminator.simulate(PARAMS, R=50, n_transits=4, tables_dir=both_grids)
+    assert isinstance(obs, terminator.SimulatedSpectrum)
+    assert obs.planet == "Testar-1 b" and obs.scenario == "custom"
+    assert obs.wavelength.shape == obs.depth.shape == obs.depth_err.shape
+    np.testing.assert_allclose(obs.flat_depth, (7.1492e7 / 6.957e8) ** 2)
+    assert obs.meta["noise"]["mag_ab"] == 10.9
+    assert obs.meta["atmosphere"]["mu_source"] == "chemistry"
+    assert obs.detect()["template_snr_diagonal"] > 0
+    # n_transits reaches the noise function (not applied twice)
+    obs1 = terminator.simulate(PARAMS, R=50, n_transits=1, tables_dir=both_grids)
+    np.testing.assert_allclose(obs1.depth_err / obs.depth_err, 2.0)
+
+
+def test_missing_required_key_raises(both_grids, monkeypatch):
+    monkeypatch.setattr(sim_mod, "depth_error", fake_depth_error)
+    with pytest.raises(ValueError, match="t14_s"):
+        terminator.simulate({k: v for k, v in PARAMS.items() if k != "t14_s"},
+                            tables_dir=both_grids)
