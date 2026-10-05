@@ -239,7 +239,78 @@ async function fetchJSON(url, signal) {
   return j;
 }
 
+// ---------- custom planet (parametric model) ----------
+const CUSTOM_FIELDS = ["planet_name", "teff", "logg", "feh", "rstar", "mag", "band",
+  "mag_system", "rp", "mp", "teq", "t14_h", "log_met", "c_to_o", "mu", "log_p_cloud",
+  "log_a_haze", "haze_slope", "instrument_config"];
+
+function isCustom() { return $("mode").value === "custom"; }
+
+function applyMode() {
+  const custom = isCustom();
+  document.querySelectorAll(".showcase-only").forEach((el) => { el.hidden = custom; });
+  document.querySelectorAll(".custom-only").forEach((el) => { el.hidden = !custom; });
+  $("lcplot").hidden = custom;
+}
+
+function fillCustomForm(values) {
+  for (const k of CUSTOM_FIELDS) {
+    const v = values[k];
+    $(`f_${k}`).value = v === null || v === undefined ? "" : v;
+  }
+}
+
+function renderDerived(rows) {
+  $("derived").querySelector("tbody").innerHTML = rows
+    .map((r) => `<tr><td>${r.label}</td><td class="${r.cls}">${r.value}</td></tr>`).join("");
+}
+
+async function customRefresh() {
+  const q = new URLSearchParams({ n_transits: $("n_transits").value, resolution: $("R").value, seed });
+  for (const k of CUSTOM_FIELDS) q.set(k, $(`f_${k}`).value);
+  const ctrl = new AbortController();
+  if (inflight) inflight.abort();
+  inflight = ctrl;
+  $("seedlabel").textContent = `seed = ${seed}`;
+  try {
+    const j = await fetchJSON(`/api/simulate?${q}`, ctrl.signal);
+    $("error").textContent = "";
+    $("warnings").textContent = (j.warnings || []).join(" · ");
+    renderPlot(j);
+    renderStatus(j);
+    renderFeatureSnr(j.feature_snr);
+    renderDerived(j.derived);
+  } catch (e) {
+    if (e.name !== "AbortError") $("error").textContent = e.message;
+  }
+}
+
+async function initCustom() {
+  const p = await (await fetch("/api/presets")).json();
+  for (const [id, items] of [["preset_planet", p.planets], ["preset_scenario", p.scenarios]]) {
+    for (const name of items) {
+      const opt = document.createElement("option");
+      opt.value = opt.textContent = name;
+      $(id).appendChild(opt);
+    }
+  }
+  $("preset_planet").value = "WASP-39 b";
+  $("preset_scenario").value = "clear";
+  $("load_preset").addEventListener("click", async () => {
+    const q = new URLSearchParams({ planet: $("preset_planet").value, scenario: $("preset_scenario").value });
+    try {
+      fillCustomForm((await fetchJSON(`/api/preset?${q}`)).values);
+      customRefresh();
+    } catch (e) { $("error").textContent = e.message; }
+  });
+  $("run_custom").addEventListener("click", customRefresh);
+  $("mode").addEventListener("change", () => { applyMode(); isCustom() ? customRefresh() : refresh(); });
+  fillCustomForm(Object.fromEntries(Object.entries(p.defaults).map(([k, v]) => [k, v === "" ? null : v])));
+  applyMode();
+}
+
 async function refresh() {
+  if (isCustom()) return customRefresh();
   const params = {
     planet: $("planet").value, scenario: $("scenario").value,
     n_transits: $("n_transits").value, R: $("R").value, seed: seed,
@@ -286,6 +357,7 @@ async function init() {
   for (const id of ["scenario", "n_transits", "R", "lc_groups"])
     $(id).addEventListener("change", refresh);
   $("reroll").addEventListener("click", () => { seed += 1; refresh(); });
+  await initCustom();
   $("show_bands").addEventListener("change", () => {
     if (lastFeatureSnr) renderFeatureSnr(lastFeatureSnr);
   });

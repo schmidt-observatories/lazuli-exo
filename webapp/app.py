@@ -8,7 +8,7 @@ import math
 from flask import Flask, jsonify, render_template, request
 
 import terminator
-from terminator import tables
+from terminator import forms, report, tables
 from terminator.targets import get_target
 
 N_TRANSITS_MAX = 1000
@@ -181,6 +181,37 @@ def create_app():
             flat_depth=obs.flat_depth,
             feature_snr=obs.detect(),
         )
+
+    # --- parametric model: thin wrappers, the logic lives in terminator ---
+
+    @app.get("/api/presets")
+    def presets_list():
+        return jsonify(planets=terminator.presets.PLANET_NAMES,
+                       scenarios=terminator.presets.SCENARIOS,
+                       defaults=forms.FIELD_DEFAULTS)
+
+    @app.get("/api/preset")
+    def preset():
+        try:
+            values = forms.from_preset(request.args.get("planet", ""),
+                                       request.args.get("scenario", "clear"))
+        except KeyError as e:
+            raise BadRequest(str(e))
+        return jsonify(values=values)
+
+    @app.get("/api/simulate")
+    def simulate():
+        res = forms.parse(request.args)
+        if res.errors:
+            raise BadRequest("; ".join(res.errors))
+        v = res.values
+        try:
+            obs = terminator.simulate(
+                forms.to_params(v), R=v["resolution"], n_transits=v["n_transits"],
+                instrument=forms.INSTRUMENTS[v["instrument_config"]])
+        except ValueError as e:        # grid ranges, unbound atmosphere, PHOENIX ceiling
+            raise BadRequest(str(e))
+        return jsonify(**report.summary(obs, seed=v["seed"]), warnings=res.warnings)
 
     @app.get("/api/lightcurve")
     def light_curve():

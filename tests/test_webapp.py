@@ -200,3 +200,73 @@ def test_r_beyond_native_noise_sampling_is_json_400(client):
                    query_string={"planet": "WASP-39 b", "R": 500})
     assert r.status_code == 400
     assert "native noise sampling" in r.get_json()["error"]
+
+
+# --- parametric model endpoints (thin wrappers over terminator.forms/report) ---
+
+def _fake_simulate(params, R=100, n_transits=1, tables_dir=None, instrument="lazuli_cbe"):
+    wl = np.geomspace(0.4, 1.7, 40)
+    return terminator.SimulatedSpectrum(
+        planet=params["name"], scenario=params["scenario"], n_transits=n_transits, R=R,
+        wavelength=wl, depth=np.full(40, 0.01), depth_err=np.full(40, 1e-4) / np.sqrt(n_transits),
+        model_wavelength=wl, model_depth=np.full(40, 0.01), flat_depth=0.01,
+        meta={"atmosphere": {"g_ms2": 10.0, "H_m": 5e5, "H_over_Rp": 0.007, "mu_used": 2.3,
+                             "mu_source": "chemistry", "T_clamped": False, "T_chem_K": 1200.0,
+                             "feature_amplitude_ppm": 500.0, "column_slope_median": 0.8,
+                             "zeta_ref": 4.0, "zeta_shift": 0.1},
+              "star": {"fallback": None, "clamped": {}, "grid": "phoenix"},
+              "noise": {"mag_input": params["mag"], "mag_system": params["mag_system"], "mag_ab": params["mag"] + 0.9,
+                        "vega_ab_offset": 0.9, "nsaturated_detpx": 0, "fully_desaturated": True,
+                        "t_obs_s": 60.0, "nmd_used": [16, 8, 0], "default_nmd": [16, 8, 0], "nramps": 1,
+                        "slicersim_version": "fake", "instrument": instrument, "trimmed_channels": 0,
+                        "t14_s": params["t14_s"]},
+              "params": params})
+
+
+def test_preset_endpoint(client):
+    j = client.get("/api/preset", query_string={"planet": "WASP-39 b", "scenario": "cloudy"}).get_json()
+    assert j["values"]["mag"] == 10.663 and j["values"]["log_p_cloud"] == -3.0 and j["values"]["mu"] is None
+    assert "planets" not in j
+    r = client.get("/api/preset", query_string={"planet": "Vulcan b"})
+    assert r.status_code == 400 and "error" in r.get_json()
+
+
+def test_presets_listing(client):
+    j = client.get("/api/presets").get_json()
+    assert "WASP-39 b" in j["planets"] and "hazy" in j["scenarios"]
+    assert j["defaults"]["teff"] == "5500"
+
+
+def test_simulate_endpoint_uses_terminator_and_report(client, monkeypatch):
+    monkeypatch.setattr(terminator, "simulate", _fake_simulate)
+    j = client.get("/api/simulate", query_string={"mag": "10", "n_transits": "4", "resolution": "50",
+                                                  "teff": "abc", "seed": "7"}).get_json()
+    assert j["n_transits"] == 4 and j["R"] == 50 and j["seed"] == 7
+    assert len(j["points"]) == 40 and j["feature_snr"]["template_snr_diagonal"] >= 0
+    assert j["result"]["median_err_ppm"] == pytest.approx(50.0)
+    assert any("teff" in w for w in j["warnings"])          # garbage fell back, run proceeded
+    assert any(r["label"] == "mu" for r in j["derived"])
+
+
+def test_simulate_endpoint_fatal_errors_are_json_400(client, monkeypatch):
+    monkeypatch.setattr(terminator, "simulate", _fake_simulate)
+    r = client.get("/api/simulate", query_string={"teff": "5000"})          # no mag
+    assert r.status_code == 400 and "mag" in r.get_json()["error"]
+    r = client.get("/api/simulate", query_string={"mag": "10", "rp": "-1"})
+    assert r.status_code == 400 and "rp" in r.get_json()["error"]
+
+    def boom(*a, **k):
+        raise ValueError("T_eff=9000 K above the PHOENIX grid ceiling 8000 K")
+    monkeypatch.setattr(terminator, "simulate", boom)
+    r = client.get("/api/simulate", query_string={"mag": "10"})
+    assert r.status_code == 400 and "PHOENIX" in r.get_json()["error"]
+
+
+def test_simulate_canary_real_slicersim(client):
+    pytest.importorskip("slicersim")
+    v = client.get("/api/preset", query_string={"planet": "WASP-39 b", "scenario": "clear"}).get_json()["values"]
+    q = {k: ("" if val is None else str(val)) for k, val in v.items()}
+    q.update(resolution="50")
+    j = client.get("/api/simulate", query_string=q).get_json()
+    assert j["result"]["template_snr_diagonal"] > 1.0 and j["warnings"] == []
+    assert {r["label"]: r for r in j["derived"]}["magnitude"]["value"].startswith("10.66 J vega → 11.56")

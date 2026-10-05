@@ -133,6 +133,11 @@
     .brand-logo-frame img { height: 74px; }
     .brand-mark .divider { display: none; }
   }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  .row { display: flex; gap: 6px; }
+  .row > select, .row > button { flex: 1; min-width: 0; }
+  #derived td.warn { color: #b8860b; }
+  #derived td.bad { color: #b02a2a; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -152,10 +157,17 @@
   <div class="card">
     <h2>Inputs</h2>
     <div class="field">
+      <label for="mode">Mode</label>
+      <select id="mode">
+        <option value="showcase" selected>Showcase tables (14 planets)</option>
+        <option value="custom">Custom planet (parametric model)</option>
+      </select>
+    </div>
+    <div class="field showcase-only">
       <label for="planet">Planet</label>
       <select id="planet"></select>
     </div>
-    <div class="field">
+    <div class="field showcase-only">
       <label for="scenario">Scenario</label>
       <select id="scenario"></select>
     </div>
@@ -167,7 +179,7 @@
       <label for="R">Resolution R (10–500)</label>
       <input id="R" type="number" min="10" max="500" step="5" value="100">
     </div>
-    <div class="field">
+    <div class="field showcase-only">
       <label for="lc_groups">Light-curve bands</label>
       <select id="lc_groups">
         <option value="1" selected>White light</option>
@@ -184,7 +196,57 @@
     <div id="seedlabel">seed = 0</div>
     <div id="error"></div>
   </div>
-  <div class="card">
+  <div class="card custom-only" id="customcard" hidden>
+    <h2>Custom planet</h2>
+    <div class="field">
+      <label for="preset_planet">Prefill from</label>
+      <div class="row">
+        <select id="preset_planet"></select>
+        <select id="preset_scenario"></select>
+        <button id="load_preset" class="ghost">Load</button>
+      </div>
+    </div>
+    <div class="subhead">Star</div>
+    <div class="grid2">
+      <div class="field"><label for="f_teff">T<sub>eff</sub> [K]</label><input id="f_teff" type="number" step="10"></div>
+      <div class="field"><label for="f_logg">log g</label><input id="f_logg" type="number" step="0.1"></div>
+      <div class="field"><label for="f_feh">[Fe/H]</label><input id="f_feh" type="number" step="0.1"></div>
+      <div class="field"><label for="f_rstar">R<sub>&starf;</sub> [R<sub>&#9737;</sub>]</label><input id="f_rstar" type="number" step="0.01"></div>
+      <div class="field"><label for="f_mag">magnitude</label><input id="f_mag" type="number" step="0.01"></div>
+      <div class="field"><label for="f_band">band / system</label>
+        <div class="row">
+          <select id="f_band"><option>J</option><option>H</option><option>Ks</option><option>V</option></select>
+          <select id="f_mag_system"><option value="vega">Vega</option><option value="ab">AB</option></select>
+        </div></div>
+    </div>
+    <div class="subhead">Planet</div>
+    <div class="grid2">
+      <div class="field"><label for="f_rp">R<sub>p</sub> [R<sub>J</sub>]</label><input id="f_rp" type="number" step="0.01"></div>
+      <div class="field"><label for="f_mp">M<sub>p</sub> [M<sub>J</sub>]</label><input id="f_mp" type="number" step="0.001"></div>
+      <div class="field"><label for="f_teq">T<sub>eq</sub> [K]</label><input id="f_teq" type="number" step="10"></div>
+      <div class="field"><label for="f_t14_h">T<sub>14</sub> [h]</label><input id="f_t14_h" type="number" step="0.01"></div>
+    </div>
+    <div class="subhead">Atmosphere</div>
+    <div class="grid2">
+      <div class="field"><label for="f_log_met">[M/H] (log, &minus;1…3)</label><input id="f_log_met" type="number" step="0.1"></div>
+      <div class="field"><label for="f_c_to_o">C/O (0.3…1.0)</label><input id="f_c_to_o" type="number" step="0.05"></div>
+      <div class="field"><label for="f_mu">&mu; [amu] (blank = chemistry)</label><input id="f_mu" type="number" step="0.1" placeholder="auto"></div>
+      <div class="field"><label for="f_log_p_cloud">log P<sub>cloud</sub> [bar] (blank = clear)</label><input id="f_log_p_cloud" type="number" step="0.5" placeholder="clear"></div>
+      <div class="field"><label for="f_log_a_haze">log a<sub>haze</sub> (blank = none)</label><input id="f_log_a_haze" type="number" step="0.5" placeholder="none"></div>
+      <div class="field"><label for="f_haze_slope">haze slope &gamma;</label><input id="f_haze_slope" type="number" step="0.5"></div>
+    </div>
+    <div class="subhead">Observation</div>
+    <div class="grid2">
+      <div class="field"><label for="f_instrument_config">instrument</label>
+        <select id="f_instrument_config"><option value="cbe">CBE</option><option value="eol">EOL</option></select></div>
+      <div class="field"><label for="f_planet_name">label</label><input id="f_planet_name" type="text" placeholder="custom"></div>
+    </div>
+    <button id="run_custom" class="primary">Run</button>
+    <div id="warnings" class="caveat"></div>
+    <div class="caveat">Transits and R come from the Inputs card. R<sub>p</sub> is the band-median
+      transit radius. Light curves are not available for custom stars.</div>
+  </div>
+  <div class="card showcase-only">
     <h2>System parameters</h2>
     <table id="targetparams"><tbody></tbody></table>
     <div class="caveat">NEA PSCompPars, frozen 2026-08-29; b, g, H derived
@@ -219,7 +281,14 @@
       1.15&nbsp;µm) and are <b>not</b> molecule detections. CO and NH<sub>3</sub>
       have no masks in 0.4–1.7&nbsp;µm and are never reported.</div>
   </div>
-  <div class="card">
+  <div class="card custom-only" id="derivedcard" hidden>
+    <h2>Derived</h2>
+    <table id="derived"><tbody></tbody></table>
+    <div class="caveat">From the parametric model: the scale height uses T<sub>eq</sub> and the
+      gravity at R<sub>p</sub>; &mu; comes from equilibrium chemistry unless overridden;
+      the magnitude is converted Vega&rarr;AB for slicersim.</div>
+  </div>
+  <div class="card showcase-only">
     <h2>Diagnostics</h2>
     <div class="subhead">Spectrum precision</div>
     <table id="diag_spec"><tbody></tbody></table>
