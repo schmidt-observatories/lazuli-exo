@@ -21,3 +21,6 @@ memo/*.aux
 memo/*.log
 memo/*.out
 memo/*.synctex.gz
+
+# Internal cross-check memo (scripts, data snapshot, results, PDF): kept local, not in the repo
+memo/
