@@ -84,7 +84,10 @@ therefore feeds the model each table's own band-median radius.
 **Magnitudes.** slicersim normalizes in AB; archive J magnitudes are Vega.
 `terminator.slicer.depth_error` converts (J: +0.90 mag via sncosmo) and reports
 the offset in `info`. The committed noise tables were regenerated with this
-conversion on 2026-10-04 and are 1.4-1.5x more conservative than before.
+conversion on 2026-10-04 and are 1.4-1.5x more conservative than before for
+the eleven unsaturated hosts; the three bright hosts that sit at the readout
+floor (HAT-P-11 b now desaturated, HD 189733 b and HD 209458 b still flagged)
+are saturation-limited and essentially unchanged.
 
 ## Documentation
 

@@ -34,3 +34,9 @@ def test_blackbody_fallback_and_ceiling(phoenix_fixture):
     assert f[np.argmin(abs(wl_A - 15000))] > f[np.argmin(abs(wl_A - 5000))]
     with pytest.raises(ValueError, match="8000"):
         star.phoenix_sed(9000.0, 4.0, 0.0, tables_dir=phoenix_fixture)
+
+
+def test_nonpositive_teff_raises(phoenix_fixture):
+    for bad in (0.0, -5.0, float("nan")):
+        with pytest.raises(ValueError, match="T_eff"):
+            star.phoenix_sed(bad, 4.5, 0.0, tables_dir=phoenix_fixture)

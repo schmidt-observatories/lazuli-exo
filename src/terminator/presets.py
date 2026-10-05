@@ -3,7 +3,8 @@ from .targets import PLANET_NAMES, get_target  # noqa: F401  (re-exported)
 
 # Mirrors precompute/scenarios.py: cloudy = gray deck at 1 mbar; hazy =
 # MacMad17 haze with log_a = 2 (100x H2 Rayleigh at 0.35 um), slope -6;
-# flat = deck far above the gas photosphere; high_metallicity = 100x solar.
+# high_metallicity = 100x solar; flat = deck at 10 nbar, above every line
+# core on the grid (1e-7 bar ceiling), so the Ein deck tail leaves < 10 ppm.
 SCENARIO_PARAMS = {
     "clear": dict(log_met=0.0, c_to_o=0.55, log_P_cloud_bar=None,
                   log_a_haze=None, haze_slope=-4.0),
@@ -13,7 +14,7 @@ SCENARIO_PARAMS = {
                              log_a_haze=None, haze_slope=-4.0),
     "hazy": dict(log_met=0.0, c_to_o=0.55, log_P_cloud_bar=None,
                  log_a_haze=2.0, haze_slope=-6.0),
-    "flat": dict(log_met=0.0, c_to_o=0.55, log_P_cloud_bar=-6.0,
+    "flat": dict(log_met=0.0, c_to_o=0.55, log_P_cloud_bar=-8.0,
                  log_a_haze=None, haze_slope=-4.0),
 }
 SCENARIOS = sorted(SCENARIO_PARAMS)

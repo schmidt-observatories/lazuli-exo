@@ -24,6 +24,8 @@ def phoenix_sed(teff_K, logg, feh, tables_dir=None):
     raises ValueError. Absolute flux scale is irrelevant downstream
     (slicersim renormalizes to the magnitude).
     """
+    if not (np.isfinite(teff_K) and teff_K > 0):
+        raise ValueError(f"T_eff must be > 0 K, got {teff_K}")
     g = tables.load_phoenix_grid(tables_dir)
     wl_um = g["wavelength_um"]
     teff_axis = g["teff_K"]

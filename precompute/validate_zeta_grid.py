@@ -3,6 +3,10 @@
 Run: ~/anaconda3/envs/py313/bin/python precompute/validate_zeta_grid.py
 Writes notebooks/figs/06_validation.json and prints a markdown table.
 
+14 planets x 5 scenarios. The four atmospheric scenarios are gated on the
+feature-amplitude ratio; 'flat' (deck at 10 nbar) is gated on the model's
+absolute residual amplitude (< FLAT_MAX_PPM), since the table's is zero.
+
 For each planet x scenario both spectra are binned to R = 100 over
 0.40-1.70 um, a constant offset (the P_ref convention, which the parametric
 path defines away) is removed, and the feature amplitude (max - min) is
@@ -31,6 +35,7 @@ from terminator import binning, presets, tables  # noqa: E402
 from terminator.atmosphere import transmission_depth  # noqa: E402
 
 TOL = {"clear": 0.10, "high_metallicity": 0.10, "cloudy": 0.20, "hazy": 0.20}
+FLAT_MAX_PPM = 10.0      # 'flat' has no amplitude ratio: gate the model's residual absolutely
 # Documented exceptions to the gate, (planet, scenario) -> reason. Each one is
 # still reported with its numbers; waiving it only keeps the regression test
 # green. Remove an entry rather than widen TOL if the model improves.
@@ -72,6 +77,8 @@ def compare(planet, scen, tdir, edges, T_override=None):
     dev = bm - bt - offset
     amp_t, amp_m = float(np.ptp(bt)), float(np.ptp(bm))
     ratio = amp_m / amp_t if amp_t > 0 else float("nan")
+    passed = (amp_m * 1e6 <= FLAT_MAX_PPM if scen == "flat"
+              else abs(ratio - 1) <= TOL[scen])
     return dict(planet=planet, scenario=scen,
                 T_eq_used_K=float(kw["T_eq_K"]),
                 R_p_archive_RJ=p["R_p_RJ"], R_p_median_RJ=kw["R_p_RJ"],
@@ -80,9 +87,9 @@ def compare(planet, scen, tdir, edges, T_override=None):
                 max_abs_dev_ppm=float(np.max(np.abs(dev)) * 1e6),
                 amp_table_ppm=amp_t * 1e6, amp_model_ppm=amp_m * 1e6,
                 amp_ratio=float(ratio), offset_ppm=offset * 1e6,
-                tol=TOL[scen], T_clamped=bool(info["T_clamped"]),
+                tol=TOL.get(scen, FLAT_MAX_PPM), T_clamped=bool(info["T_clamped"]),
                 T_iso_table_K=float(meta_tab.get("T_iso_K", kw["T_eq_K"])),
-                passed=bool(abs(ratio - 1) <= TOL[scen]),
+                passed=bool(passed),
                 waived=WAIVED.get((planet, scen)))
 
 
@@ -91,7 +98,7 @@ def validate(tables_dir=None):
     edges = binning.constant_R_edges(*BAND, R_CMP)
     rows = []
     for planet in presets.PLANET_NAMES:
-        for scen in TOL:
+        for scen in list(TOL) + ["flat"]:
             row = compare(planet, scen, tdir, edges)
             rows.append(row)
             if row["T_clamped"]:
@@ -109,9 +116,10 @@ def main():
     print("|---|---|---|---|---|---|---|---|")
     for r in rows:
         tag = " (like-for-like)" if r["like_for_like"] else ""
+        ratio = "abs<%g" % FLAT_MAX_PPM if r["scenario"] == "flat" else f"{r['amp_ratio']:.2f}"
         print(f"| {r['planet']} | {r['scenario']} | {r['T_eq_used_K']:.0f}{tag} | "
               f"{r['amp_table_ppm']:.0f} | {r['amp_model_ppm']:.0f} | "
-              f"{r['amp_ratio']:.2f} | {r['max_abs_dev_ppm']:.0f} | "
+              f"{ratio} | {r['max_abs_dev_ppm']:.0f} | "
               f"{'yes' if r['passed'] else 'NO'} |")
     gated = [r for r in rows if r["like_for_like"] or not r["T_clamped"]]
     n_fail = sum(not r["passed"] for r in gated)

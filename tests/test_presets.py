@@ -12,7 +12,9 @@ def test_showcase_maps_registry_and_scenario():
 
 
 def test_flat_is_a_high_deck():
-    assert presets.showcase("GJ 1214 b", "flat")["log_P_cloud_bar"] == -6.0
+    # -8: with native-R line cores reaching 1e-7 bar and the Ein deck keeping
+    # partial absorption above the deck, -6 left 240-760 ppm pseudo-features
+    assert presets.showcase("GJ 1214 b", "flat")["log_P_cloud_bar"] == -8.0
 
 
 def test_unknown_raise():

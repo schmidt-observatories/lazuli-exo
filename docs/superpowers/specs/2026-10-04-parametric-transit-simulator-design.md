@@ -164,7 +164,7 @@ registry plus scenario to `simulate` inputs:
 | cloudy | 0 | 0.55 | −3 | none |
 | high_metallicity | 2 | 0.55 | none | none |
 | hazy | 0 | 0.55 | none | (P_h, γ) fitted in validation to match the POSEIDON hazy tables |
-| flat | 0 | 0.55 | −6 (opaque above the photosphere) | none |
+| flat | 0 | 0.55 | −8 (see amendment 11) | none |
 
 ### Validation (precompute/validate_zeta_grid.py, run before merge)
 
@@ -354,3 +354,8 @@ itself.
     and a +0.09 ζ extrapolation at 2600 K. Direct POSEIDON runs of K2-18 b-
     and WASP-12 b-like planets match the parametric clear spectra to 0.99
     and 1.00.
+11. **Flat preset deck at 10 nbar (log P = −8), not 1 µbar.** With ζ stored
+    at native resolution (line cores reach the 1e-7 bar grid ceiling) and the
+    Ein deck keeping partial absorption above the deck, a −6 deck left
+    240–760 ppm pseudo-features on hot Jupiters. Validation now covers all
+    5 scenarios: `flat` is gated absolutely (model residual < 10 ppm).
