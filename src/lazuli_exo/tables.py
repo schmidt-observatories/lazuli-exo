@@ -2,7 +2,6 @@
 
 Layout under a tables directory:
     index.json
-    models/<planet-slug>__<scenario>.npz   (wavelength_um, transit_depth, meta)
     star/<planet-slug>.npz                 (wavelength_um, f_lambda, meta)
     noise/<planet-slug>.npz                (wavelength_um, depth_err_1transit, meta)
     ld/<planet-slug>.npz                   (wavelength_um, u1, u2, meta)
@@ -10,6 +9,9 @@ Layout under a tables directory:
     star/phoenix_grid.npz   (teff_K, logg, feh, wavelength_um, log_flam, meta)
 
 All wavelengths are in micron. `meta` is a JSON dict stored as a string array.
+The POSEIDON model tables (models/<planet-slug>__<scenario>.npz) are not
+runtime data since schema 3; they live under precompute/tables/ as validation
+material and are read with write_model_table/load_model on that directory.
 """
 import json
 import os
@@ -18,7 +20,7 @@ from pathlib import Path
 
 import numpy as np
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 ZETA_GRID = Path("atmo") / "zeta_grid.npz"
 PHOENIX_GRID = Path("star") / "phoenix_grid.npz"
 _GRID_CACHE = {}
@@ -151,17 +153,11 @@ def _planet_entry(index, planet):
 
 
 def load_model(tables_dir, planet, scenario):
-    index = load_index(tables_dir)
-    name, entry = _planet_entry(index, planet)
-    if scenario not in entry["scenarios"]:
-        raise KeyError(
-            f"Unknown scenario {scenario!r} for {name!r}. "
-            f"Available: {entry['scenarios']}")
-    path = _model_path(tables_dir, name, scenario)
+    """POSEIDON validation table (precompute/tables/), not indexed."""
+    path = _model_path(tables_dir, planet, scenario)
     if not path.exists():
         raise FileNotFoundError(
-            f"{path} is indexed but missing; re-run "
-            "precompute/make_model_tables.py and tables.rebuild_index().")
+            f"{path} missing; re-run precompute/make_model_tables.py")
     return _read(path, "wavelength_um", "transit_depth")
 
 
@@ -198,16 +194,11 @@ def load_ld(tables_dir, planet):
 def rebuild_index(tables_dir):
     tdir = Path(tables_dir)
     planets = {}
-    for path in sorted((tdir / "models").glob("*.npz")):
+    for path in sorted((tdir / "noise").glob("*.npz")):
         *_, meta = _read(path, "wavelength_um")
         name = meta["planet"]
-        entry = planets.setdefault(name, {"slug": slugify(name),
-                                          "scenarios": [], "has_noise": False})
-        entry["scenarios"].append(meta["scenario"])
-    for name, entry in planets.items():
-        entry["scenarios"] = sorted(entry["scenarios"])
-        entry["has_noise"] = (tdir / "noise" / f"{entry['slug']}.npz").exists()
-        entry["has_ld"] = (tdir / "ld" / f"{entry['slug']}.npz").exists()
+        planets[name] = {"slug": slugify(name), "has_noise": True,
+                         "has_ld": (tdir / "ld" / f"{slugify(name)}.npz").exists()}
     index = {"version": SCHEMA_VERSION, "planets": planets,
              "atmo": {"zeta_grid": (tdir / ZETA_GRID).exists()},
              "star_grid": {"phoenix_grid": (tdir / PHOENIX_GRID).exists()}}
@@ -233,5 +224,7 @@ def list_planets(tables_dir=None):
 
 
 def list_scenarios(planet, tables_dir=None):
-    _, entry = _planet_entry(load_index(tables_dir), planet)
-    return entry["scenarios"]
+    """Scenarios every showcase planet supports (presets.SCENARIOS)."""
+    from .presets import SCENARIOS
+    _planet_entry(load_index(tables_dir), planet)
+    return list(SCENARIOS)

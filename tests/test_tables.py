@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pytest
 
-from lazuli_exo import tables
+from lazuli_exo import presets, tables
 
 
 @pytest.fixture
@@ -13,10 +13,6 @@ def tdir(tmp_path):
 
 def _write_minimal(tdir):
     wl = np.linspace(0.4, 1.7, 50)
-    tables.write_model_table(tdir, "Testar-1 b", "clear", wl, np.full(50, 0.01),
-                             meta={"note": "fixture"})
-    tables.write_model_table(tdir, "Testar-1 b", "flat", wl, np.full(50, 0.01),
-                             meta={})
     tables.write_noise_table(tdir, "Testar-1 b", wl, np.full(50, 1e-4),
                              meta={"t14_s": 7200.0})
     tables.rebuild_index(tdir)
@@ -33,7 +29,6 @@ def test_model_roundtrip(tdir):
     path = tables.write_model_table(tdir, "Testar-1 b", "clear", wl, depth,
                                     meta={"scenario": "clear"})
     assert path.exists()
-    tables.rebuild_index(tdir)
     wl2, d2, meta = tables.load_model(tdir, "Testar-1 b", "clear")
     np.testing.assert_allclose(wl2, wl)
     np.testing.assert_allclose(d2, depth)
@@ -43,9 +38,6 @@ def test_model_roundtrip(tdir):
 def test_noise_roundtrip(tdir):
     wl = np.linspace(0.4, 1.7, 20)
     err = np.full(20, 2e-4)
-    # Write a model table first so rebuild_index discovers the planet
-    tables.write_model_table(tdir, "Testar-1 b", "clear", wl, np.full(20, 0.01),
-                             meta={})
     tables.write_noise_table(tdir, "Testar-1 b", wl, err, meta={})
     tables.rebuild_index(tdir)
     wl2, e2, _ = tables.load_noise(tdir, "Testar-1 b")
@@ -57,7 +49,9 @@ def test_index_and_listings(tdir):
     idx = tables.load_index(tdir)
     assert idx["version"] == tables.SCHEMA_VERSION
     assert tables.list_planets(tdir) == ["Testar-1 b"]
-    assert tables.list_scenarios("Testar-1 b", tdir) == ["clear", "flat"]
+    assert tables.list_scenarios("Testar-1 b", tdir) == presets.SCENARIOS
+    assert idx["planets"]["Testar-1 b"] == {"slug": "testar-1-b",
+                                            "has_noise": True, "has_ld": False}
 
 
 def test_version_mismatch_rejected(tdir):
@@ -72,13 +66,12 @@ def test_version_mismatch_rejected(tdir):
 def test_unknown_planet_lists_options(tdir):
     _write_minimal(tdir)
     with pytest.raises(KeyError, match="Testar-1 b"):
-        tables.load_model(tdir, "Nope-1 b", "clear")
+        tables.load_noise(tdir, "Nope-1 b")
 
 
-def test_unknown_scenario_lists_options(tdir):
-    _write_minimal(tdir)
-    with pytest.raises(KeyError, match="clear"):
-        tables.load_model(tdir, "Testar-1 b", "nope")
+def test_model_table_missing_raises(tdir):
+    with pytest.raises(FileNotFoundError, match="make_model_tables"):
+        tables.load_model(tdir, "Testar-1 b", "clear")
 
 
 def test_resolve_tables_dir_env(tdir, monkeypatch):
@@ -144,7 +137,7 @@ def test_phoenix_grid_roundtrip(tmp_path):
 def test_index_reports_grids(tmp_path):
     _tiny_zeta(tmp_path)
     idx = tables.rebuild_index(tmp_path)
-    assert idx["version"] == 2
+    assert idx["version"] == tables.SCHEMA_VERSION
     assert idx["atmo"] == {"zeta_grid": True}
     assert idx["star_grid"] == {"phoenix_grid": False}
 

@@ -4,22 +4,26 @@ import pytest
 from lazuli_exo import tables
 
 PLANET = "Testar-1 b"
-BASE_DEPTH = 0.0100
-BUMP = 0.0004        # 400 ppm gaussian feature at 1.4 um
 SIGMA_CH = 1.0e-4    # noise per native channel, one transit
+# Fake registry entry for observe(): k = R_p/R_s = 0.1 exactly, so the flat
+# scenario sits at BASE_DEPTH; no orbit geometry, so light curves fall back
+# to the trapezoid.
+R_J_M, R_SUN_M = 7.1492e7, 6.957e8
+FIXTURE_TARGET = dict(
+    name=PLANET, slug="testar-1-b", provenance="test fixture",
+    T_eq_K=1000.0, R_p_RJ=0.1 * R_SUN_M / R_J_M, M_p_MJ=0.6, R_s_RSun=1.0,
+    T_eff_K=5000.0, log_g_star=4.5, Met_star=0.0, J_mag=10.0, t14_s=7200.0,
+    depth=0.01, a_over_rs=None, inc_deg=None, period_d=None, ecc=None,
+    w_deg=None)
+BASE_DEPTH = (FIXTURE_TARGET["R_p_RJ"] * R_J_M / R_SUN_M) ** 2
 
 
 @pytest.fixture
-def fixture_tables(tmp_path):
-    """Synthetic table set with analytically known content."""
-    tdir = tmp_path / "tables"
-    wl_m = np.geomspace(0.4, 1.7, 8000)
-    depth = BASE_DEPTH + BUMP * np.exp(-0.5 * ((wl_m - 1.4) / 0.05) ** 2)
-    tables.write_model_table(tdir, PLANET, "clear", wl_m, depth,
-                             meta={"scenario": "clear"})
-    tables.write_model_table(tdir, PLANET, "flat", wl_m,
-                             np.full_like(wl_m, BASE_DEPTH),
-                             meta={"scenario": "flat"})
+def fixture_tables(zeta_fixture, monkeypatch):
+    """Analytic zeta grid + flat noise table + a fake registry planet."""
+    from lazuli_exo import targets
+    monkeypatch.setitem(targets.TARGETS, PLANET, FIXTURE_TARGET)
+    tdir = zeta_fixture
     wl_n = np.geomspace(0.4, 1.7, 500)
     tables.write_noise_table(tdir, PLANET, wl_n,
                              np.full_like(wl_n, SIGMA_CH),

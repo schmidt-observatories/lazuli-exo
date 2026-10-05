@@ -9,11 +9,16 @@ lazuli-exo returns the model transmission spectrum of a transiting planet binned
 to the Lazuli IFS, with photon/read-noise error bars for a chosen number of
 transits, plus a spectral-template S/N. Two ways in:
 
-- **Showcase tables**: 14 well-known planets x 5 atmosphere scenarios,
-  precomputed with POSEIDON (`lazuli_exo.observe`).
+- **Showcase planets**: 14 well-known planets x 5 atmosphere scenarios from
+  the frozen NASA Exoplanet Archive registry, with precomputed slicersim
+  noise tables (`lazuli_exo.observe`).
 - **Parametric model**: any planet from its star, radius, mass, T_eq, transit
   duration and atmosphere knobs ([M/H], C/O, mu, cloud deck, haze), with
   slicersim computing the noise live (`lazuli_exo.simulate`).
+
+Both paths evaluate the same parametric model (a POSEIDON-derived opacity
+grid), so a showcase planet and the same numbers typed by hand give the same
+spectrum.
 
 The runtime is numpy-only with its lookup tables shipped as package data.
 These are isothermal, equilibrium-chemistry toy models with statistical noise
@@ -43,7 +48,7 @@ showcase tables do not.
 ```python
 import lazuli_exo
 
-# showcase tables
+# showcase planet (precomputed noise table)
 obs = lazuli_exo.observe("WASP-39 b", scenario="cloudy", n_transits=5, R=100)
 obs.wavelength, obs.depth, obs.depth_err      # binned spectrum + 1-sigma per bin
 obs.detect()                                  # {"template_snr_diagonal": ..., "band_snr": {...}}
@@ -92,8 +97,9 @@ prefill from a preset and edit the star, planet and atmosphere. This is a
 local exploration tool; the public page lives on the Lazuli simulators site.
 
 # Notes
-- Tables (~50 MB) live in `src/lazuli_exo/data/tables/` and ship with the
-  package; `LAZULI_EXO_TABLES` overrides the location.
+- Tables (~34 MB) live in `src/lazuli_exo/data/tables/` and ship with the
+  package; `LAZULI_EXO_TABLES` overrides the location. The POSEIDON
+  validation tables stay in `precompute/tables/` and are not runtime data.
 - Regenerating tables needs POSEIDON (conda env `poseidon`) and slicersim;
   see [docs/MODEL.md](docs/MODEL.md).
 - Tests: `pytest` (the slicersim-dependent tests skip when it is absent).

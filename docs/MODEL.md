@@ -38,14 +38,20 @@ R = 10,000 so that a cloud deck clips individual line cores, as in POSEIDON,
 and on two fiducial planets (1 R_J at g = 10 m/s^2; 0.3 R_J at g = 30 m/s^2) so that the
 pressure dependence of the line cores is captured to first order.
 
-Fidelity is unchanged from the showcase tables: isothermal, equilibrium
-chemistry, gray deck, power-law haze (POSEIDON MacMad17 form, anchored at
-0.35 um), photon + read noise only. Validation against the 14 POSEIDON
-planets is in `notebooks/06_parametric_model.ipynb`
+`lazuli_exo.observe(planet, scenario)` runs the same model at the frozen
+registry values (`presets.showcase`) and combines it with the precomputed
+noise table, so the showcase and parametric paths share one model and one
+radius convention (issue #3). The 14 x 5 POSEIDON spectra in
+`precompute/tables/models/` are validation data only: isothermal, equilibrium
+chemistry, gray deck, power-law haze (MacMad17 form, anchored at 0.35 um).
+Validation is in `notebooks/06_parametric_model.ipynb`
 (`precompute/validate_zeta_grid.py`). Note the convention difference: the
-per-planet tables put the archive radius at 10 bar, the parametric path puts
+POSEIDON tables put the archive radius at 10 bar, the parametric path puts
 it at the transit photosphere, ~10 scale heights higher; the validation
-therefore feeds the model each table's own band-median radius.
+therefore feeds the model each table's own band-median radius. The transit
+depth baseline `k = R_p/R_s` is taken from the registry radii (`R_p_RJ`,
+`R_s_RSun`) on both paths and recorded as `meta["k_source"]`; the registry
+`depth` field (archive `pl_ratror^2`) is informational.
 
 **Magnitudes.** slicersim normalizes in AB; archive J magnitudes are Vega.
 `lazuli_exo.slicer.depth_error` converts (J: +0.90 mag via sncosmo) and reports
@@ -61,27 +67,32 @@ are saturation-limited and essentially unchanged.
 inputs (POSEIDON opacities + fastchem grid)
       |
       v  poseidon conda env
-models/<planet>__<scenario>.npz   star/<planet>.npz
-      |
-      v  py313 env + slicersim
-noise/<planet>.npz   (per-planet single-transit depth_err(lambda))
-
+atmo/zeta_grid.npz   star/phoenix_grid.npz   star/<planet>.npz
+      |                                            |
+      |                                            v  py313 env + slicersim
+      |                                      noise/<planet>.npz
+      v
 runtime (src/lazuli_exo/) = numpy + these tables, nothing heavier
+
+precompute/tables/models/<planet>__<scenario>.npz   POSEIDON validation data
 ```
 
-Model/star tables and noise tables are built in separate steps, in separate
+Grids/star tables and noise tables are built in separate steps, in separate
 conda environments, because POSEIDON and slicersim never need to be
-installed together. `src/lazuli_exo/data/tables/` (~50 MB) is committed to the repo, ships in the wheel as package data, and
-shipped with the package; the runtime only ever reads it.
+installed together. `src/lazuli_exo/data/tables/` (~34 MB) is committed to
+the repo and ships in the wheel as package data; the runtime only ever reads
+it. The per-planet POSEIDON spectra (14 MB) live in `precompute/tables/` and
+are read only by the validation script and notebook 06.
 
 ## Regenerating the tables
 
 ```bash
-# 1. model + star tables (poseidon env; needs the opacity/chemistry inputs)
+# 1. POSEIDON validation tables (-> precompute/tables/models) + star tables
+#    (poseidon env; needs the opacity/chemistry inputs)
 POSEIDON_input_data=$HOME/inputs/ PYSYN_CDBS=$HOME/inputs/stellar_grids \
   ~/anaconda3/envs/poseidon/bin/python precompute/make_model_tables.py [planet ...]
 
-# 2. flat (featureless) baseline tables (analytic, py313 env)
+# 2. flat (featureless) validation tables (analytic, py313 env)
 ~/anaconda3/envs/py313/bin/python precompute/make_flat_tables.py
 
 # 3. noise tables (py313 env; needs slicersim)
@@ -105,11 +116,14 @@ always reflects what's actually on disk.
 Under a tables directory:
 
 ```
-index.json                              # version, planets, scenarios, provenance
-models/<planet-slug>__<scenario>.npz    # wavelength_um, transit_depth, meta
+index.json                              # version, planets (slug, has_noise, has_ld), grids
 star/<planet-slug>.npz                  # wavelength_um, f_lambda, meta
 noise/<planet-slug>.npz                 # wavelength_um, depth_err_1transit, meta
+ld/<planet-slug>.npz                    # wavelength_um, u1, u2, meta
+atmo/zeta_grid.npz, star/phoenix_grid.npz
 ```
+
+Scenarios are not table files: `list_scenarios()` returns `presets.SCENARIOS`.
 
 `index.json` carries a schema `version` integer; `lazuli_exo.tables` refuses to
 load a mismatched version with a clear error. `observe()` resolves the

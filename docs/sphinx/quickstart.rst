@@ -11,15 +11,16 @@ The mental model
 
    precomputed tables                      runtime (numpy only)
    ------------------                      --------------------
-   models/  transmission spectrum  ─┐
+   atmo/    zeta grid (opacities)  ─┐
    noise/   1-transit sigma(lambda) ─┼──►  observe()  ──►  SimulatedSpectrum
    ld/      limb darkening          ─┤                       ├─ .detect()
-   star/    stellar F_lambda        ─┘                       ├─ .light_curves()
+   targets  frozen NEA registry     ─┘                       ├─ .light_curves()
                                                              ├─ .simulate_points()
                                                              └─ .plot()
 
-There is no model evaluation at runtime. ``observe()`` reads the precomputed
-model and noise tables, bins both onto a common constant-resolving-power grid,
+``observe()`` evaluates the parametric model at the registry values of the
+showcase planet (the same model ``simulate()`` runs for any planet), bins it
+and the precomputed noise table onto a common constant-resolving-power grid,
 and scales the uncertainty by :math:`1/\sqrt{N_\mathrm{transits}}`.
 
 1. See what is available
