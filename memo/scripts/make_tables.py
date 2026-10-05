@@ -98,19 +98,19 @@ def table_d():
     cap = (r"Check D. Every dataset with $\ge 5$ points and errors inside 0.40--1.70\,$\mu$m (NASA Exoplanet Archive; TRAPPIST-1\,e from Espinoza et al.\ 2025). "
            r"``amp'' and $\sigma$: measured peak-to-peak depth and median error (ppm). ``best'' is the scenario with the lowest offset-fit $\chi^2_\nu$ "
            r"(also given for the flat scenario); $b$ is the fitted data/model amplitude ratio (1 = the scenario has the measured amplitude); "
-           r"``brk.'' = the four atmospheric scenarios' $b$ values straddle 1. Derived here.")
+           r"``brk.'' = the four atmospheric scenarios' $b$ values (hazy and high-metallicity in \texttt{checkD\_spectra\_summary.csv}) straddle 1. Derived here.")
     out = {"table": [], "parametric": []}
     for r in rows:
-        ds = tex(r["reference"][:22] + ", " + r["instrument"][:12])
+        ds = tex(r["reference"][:18].replace("Espinoza et al. 20", "Espinoza+25") + ", " + r["instrument"][:11].replace("Wide Field ", "WFC3").replace("Space Teles", "STIS").replace("Near Infrar", "NIR").replace("HST_WFC3IR_", "WFC3 ").replace("JWST_PRISM_", "PRISM "))
         for path in out:
             out[path].append([tex(r["planet"]), ds, r["facility"][:4], r["n_bins"], f"{fnum(r['data_amp_ppm']):.0f}", f"{fnum(r['median_sigma_ppm']):.0f}",
                               tex(r[f"{path}_best"].replace("high_metallicity", "high-met")), f(r[f"{path}_chi2_best"], 1), f(r[f"{path}_chi2_flat"], 1),
-                              f(r[f"{path}_b_clear"]), f(r[f"{path}_b_cloudy"]), f(r[f"{path}_b_hazy"]), f(r[f"{path}_b_highmet"]),
+                              f(r[f"{path}_b_clear"]), f(r[f"{path}_b_cloudy"]),
                               "yes" if r[f"{path}_bracketed"] == "True" else "no"])
     cols = ["Planet", "Dataset", "Fac.", r"$n$", "amp", r"$\sigma$", "best", r"$\chi^2_\nu$", r"$\chi^2_{\nu,\rm flat}$",
-            r"$b_{\rm clear}$", r"$b_{\rm cloudy}$", r"$b_{\rm hazy}$", r"$b_{\rm high\text{-}met}$", "brk."]
-    t1 = table(cols, out["table"], "Committed POSEIDON tables. " + cap, "Table D1", align="lllrrr" + "lrr" + "rrrr" + "l", size=r"\scriptsize")
-    t2 = table(cols, out["parametric"], "Parametric model with the same showcase presets. " + cap, "Table D2", align="lllrrr" + "lrr" + "rrrr" + "l", size=r"\scriptsize")
+            r"$b_{\rm clear}$", r"$b_{\rm cloudy}$", "brk."]
+    t1 = table(cols, out["table"], "Committed POSEIDON tables. " + cap, "Table D1", align="lllrrr" + "lrr" + "rr" + "l", size=r"\scriptsize")
+    t2 = table(cols, out["parametric"], "Parametric model with the same showcase presets. " + cap, "Table D2", align="lllrrr" + "lrr" + "rr" + "l", size=r"\scriptsize")
     return t1 + t2
 
 
