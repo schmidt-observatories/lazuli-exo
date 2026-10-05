@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from terminator import tables
+from lazuli_exo import tables
 
 PLANET = "Testar-1 b"
 BASE_DEPTH = 0.0100

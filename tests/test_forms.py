@@ -3,8 +3,8 @@ import json
 import numpy as np
 import pytest
 
-import terminator
-from terminator import forms, presets, report
+import lazuli_exo
+from lazuli_exo import forms, presets, report
 
 
 def test_defaults_when_empty():
@@ -61,7 +61,7 @@ def test_from_preset_round_trips_to_showcase_params():
 
 def _fake_obs(nsat=0):
     wl = np.geomspace(0.4, 1.7, 60)
-    return terminator.SimulatedSpectrum(
+    return lazuli_exo.SimulatedSpectrum(
         planet="X b", scenario="custom", n_transits=4, R=50, wavelength=wl,
         depth=np.full(60, 0.01), depth_err=np.full(60, 1e-4), model_wavelength=wl,
         model_depth=np.full(60, 0.01), flat_depth=0.01,

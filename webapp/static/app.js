@@ -1,4 +1,4 @@
-/* terminator local demo: controls + Plotly wiring. */
+/* lazuli-exo local demo: controls + Plotly wiring. */
 "use strict";
 
 const $ = (id) => document.getElementById(id);

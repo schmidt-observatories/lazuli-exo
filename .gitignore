@@ -11,5 +11,5 @@ docs/sphinx/notebooks/
 precompute/*.log
 precompute/*.stdout
 precompute/*.pid
-src/terminator/data/tables/atmo/*.partial.npz
-src/terminator/data/tables/atmo/*.smoke.npz
+src/lazuli_exo/data/tables/atmo/*.partial.npz
+src/lazuli_exo/data/tables/atmo/*.smoke.npz

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from terminator import star
+from lazuli_exo import star
 
 
 def test_node_recovery(phoenix_fixture):

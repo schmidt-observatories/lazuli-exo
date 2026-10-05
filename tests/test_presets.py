@@ -1,6 +1,6 @@
 import pytest
 
-from terminator import presets
+from lazuli_exo import presets
 
 
 def test_showcase_maps_registry_and_scenario():

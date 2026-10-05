@@ -7,8 +7,8 @@ os.environ.setdefault("POSEIDON_input_data", str(Path.home() / "inputs") + "/")
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src")); sys.path.insert(0, str(ROOT / "precompute"))
 from scenarios import P_GRID_ARGS, P_REF_BAR, PARAM_SPECIES, make_wl_grid
-from terminator import binning, tables
-from terminator.atmosphere import transmission_depth, K_B, M_H, G
+from lazuli_exo import binning, tables
+from lazuli_exo.atmosphere import transmission_depth, K_B, M_H, G
 from POSEIDON.chemistry import load_chemistry_grid
 from POSEIDON.constants import R_J, R_Sun, M_J
 from POSEIDON.core import compute_spectrum, create_planet, create_star, define_model, make_atmosphere, read_opacities

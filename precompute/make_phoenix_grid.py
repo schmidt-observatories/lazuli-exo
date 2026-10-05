@@ -14,7 +14,7 @@ from astropy.io import fits
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from terminator import binning, tables  # noqa: E402
+from lazuli_exo import binning, tables  # noqa: E402
 
 CDBS = Path(os.environ.get("PYSYN_CDBS", Path.home() / "inputs" / "stellar_grids"))
 GRID = CDBS / "grid" / "phoenix"

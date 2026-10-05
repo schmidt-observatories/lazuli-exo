@@ -1,4 +1,4 @@
-"""terminator: Lazuli IFS exoplanet transmission spectroscopy simulator."""
+"""lazuli-exo: Lazuli IFS exoplanet transmission spectroscopy simulator."""
 from . import atmosphere, binning, forms, lightcurve, presets, report, slicer, star, tables
 from .observe import SimulatedSpectrum, observe
 from .simulate import simulate

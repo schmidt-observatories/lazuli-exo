@@ -1,4 +1,4 @@
-from terminator.orbit import transit_duration_s
+from lazuli_exo.orbit import transit_duration_s
 
 
 def test_hd209458b_circular_matches_archive():

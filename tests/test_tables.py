@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pytest
 
-from terminator import tables
+from lazuli_exo import tables
 
 
 @pytest.fixture
@@ -83,7 +83,7 @@ def test_unknown_scenario_lists_options(tdir):
 
 def test_resolve_tables_dir_env(tdir, monkeypatch):
     _write_minimal(tdir)
-    monkeypatch.setenv("TERMINATOR_TABLES", str(tdir))
+    monkeypatch.setenv("LAZULI_EXO_TABLES", str(tdir))
     assert tables.resolve_tables_dir(None) == tdir
 
 
@@ -156,7 +156,7 @@ def test_missing_grid_message(tmp_path):
 
 def test_default_tables_dir_is_inside_the_package():
     """Tables must ship with a pip/VCS install, so they live under the package."""
-    import terminator
+    import lazuli_exo
     d = tables.resolve_tables_dir(None)
-    assert d == Path(terminator.__file__).resolve().parent / "data" / "tables"
+    assert d == Path(lazuli_exo.__file__).resolve().parent / "data" / "tables"
     assert (d / "index.json").exists() and (d / "atmo" / "zeta_grid.npz").exists()

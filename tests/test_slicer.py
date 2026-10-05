@@ -4,7 +4,7 @@ import pytest
 slicersim = pytest.importorskip("slicersim")
 sncosmo = pytest.importorskip("sncosmo")
 
-from terminator import slicer, star  # noqa: E402
+from lazuli_exo import slicer, star  # noqa: E402
 
 
 def test_vega_ab_offsets_are_sane():

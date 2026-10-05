@@ -1,4 +1,4 @@
-"""Local Flask demo UI for terminator (requires the [web] extra).
+"""Local Flask demo UI for lazuli-exo (requires the [web] extra).
 
 Run from the repo root:  flask --app webapp/app run
 Not the deployable frontend — no packaging, persistence, or auth.
@@ -7,9 +7,9 @@ import math
 
 from flask import Flask, jsonify, render_template, request
 
-import terminator
-from terminator import forms, report, tables
-from terminator.targets import get_target
+import lazuli_exo
+from lazuli_exo import forms, report, tables
+from lazuli_exo.targets import get_target
 
 N_TRANSITS_MAX = 1000
 R_MIN, R_MAX = 10, 500
@@ -38,10 +38,10 @@ def _validated_observe(args):
     planet = args.get("planet")
     if planet is None:
         raise BadRequest("planet is required")
-    if planet not in terminator.list_planets():
+    if planet not in lazuli_exo.list_planets():
         raise BadRequest(f"unknown planet {planet!r}")
     scenario = args.get("scenario", "clear")
-    if scenario not in terminator.list_scenarios(planet):
+    if scenario not in lazuli_exo.list_scenarios(planet):
         raise BadRequest(f"unknown scenario {scenario!r} for {planet}")
     n_transits = _int_param(args, "n_transits", 1)
     R = _int_param(args, "R", 100)
@@ -51,7 +51,7 @@ def _validated_observe(args):
     if not R_MIN <= R <= R_MAX:
         raise BadRequest(f"R must be in [{R_MIN}, {R_MAX}]")
     try:
-        obs = terminator.observe(planet, scenario=scenario,
+        obs = lazuli_exo.observe(planet, scenario=scenario,
                                  n_transits=n_transits, R=R)
     except ValueError as e:
         # e.g. R within our cap but beyond the noise tables' native
@@ -135,8 +135,8 @@ def create_app():
 
     @app.get("/api/targets")
     def targets():
-        return jsonify({p: terminator.list_scenarios(p)
-                        for p in terminator.list_planets()})
+        return jsonify({p: lazuli_exo.list_scenarios(p)
+                        for p in lazuli_exo.list_planets()})
 
     @app.get("/api/target")
     def target():
@@ -182,12 +182,12 @@ def create_app():
             feature_snr=obs.detect(),
         )
 
-    # --- parametric model: thin wrappers, the logic lives in terminator ---
+    # --- parametric model: thin wrappers, the logic lives in lazuli_exo ---
 
     @app.get("/api/presets")
     def presets_list():
-        return jsonify(planets=terminator.presets.PLANET_NAMES,
-                       scenarios=terminator.presets.SCENARIOS,
+        return jsonify(planets=lazuli_exo.presets.PLANET_NAMES,
+                       scenarios=lazuli_exo.presets.SCENARIOS,
                        defaults=forms.FIELD_DEFAULTS)
 
     @app.get("/api/preset")
@@ -206,7 +206,7 @@ def create_app():
             raise BadRequest("; ".join(res.errors))
         v = res.values
         try:
-            obs = terminator.simulate(
+            obs = lazuli_exo.simulate(
                 forms.to_params(v), R=v["resolution"], n_transits=v["n_transits"],
                 instrument=forms.INSTRUMENTS[v["instrument_config"]])
         except ValueError as e:        # grid ranges, unbound atmosphere, PHOENIX ceiling

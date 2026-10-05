@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from terminator import binning
+from lazuli_exo import binning
 
 
 def test_constant_R_edges_spacing():

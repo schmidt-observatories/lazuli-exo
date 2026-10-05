@@ -1,7 +1,7 @@
 """Live slicersim noise: single-transit depth uncertainty per IFS channel.
 
 slicersim and sncosmo are imported inside the functions so that
-`import terminator` stays numpy-only. slicersim normalizes magnitudes as AB
+`import lazuli_exo` stays numpy-only. slicersim normalizes magnitudes as AB
 (scene/pointsource.py hard-codes bandmag(band, "ab")); archive magnitudes are
 Vega, so the default path converts with sncosmo's own band definitions.
 """

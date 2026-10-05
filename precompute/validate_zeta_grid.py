@@ -31,8 +31,8 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from terminator import binning, presets, tables  # noqa: E402
-from terminator.atmosphere import transmission_depth  # noqa: E402
+from lazuli_exo import binning, presets, tables  # noqa: E402
+from lazuli_exo.atmosphere import transmission_depth  # noqa: E402
 
 TOL = {"clear": 0.10, "high_metallicity": 0.10, "cloudy": 0.20, "hazy": 0.20}
 FLAT_MAX_PPM = 10.0      # 'flat' has no amplitude ratio: gate the model's residual absolutely

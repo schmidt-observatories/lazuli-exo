@@ -5,7 +5,7 @@ import sys
 import numpy as np
 import pytest
 
-import terminator
+import lazuli_exo
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
@@ -30,8 +30,8 @@ def test_targets_shape(client):
     r = client.get("/api/targets")
     assert r.status_code == 200
     targets = r.get_json()
-    assert set(targets) == set(terminator.list_planets())
-    assert targets["WASP-39 b"] == terminator.list_scenarios("WASP-39 b")
+    assert set(targets) == set(lazuli_exo.list_planets())
+    assert targets["WASP-39 b"] == lazuli_exo.list_scenarios("WASP-39 b")
 
 
 def test_observe_matches_direct_call(client):
@@ -41,7 +41,7 @@ def test_observe_matches_direct_call(client):
     assert r.status_code == 200
     j = r.get_json()
 
-    obs = terminator.observe("WASP-39 b", scenario="cloudy",
+    obs = lazuli_exo.observe("WASP-39 b", scenario="cloudy",
                              n_transits=5, R=100)
     np.testing.assert_allclose(j["wavelength"], obs.wavelength)
     np.testing.assert_allclose(j["depth"], obs.depth)
@@ -119,7 +119,7 @@ def test_lightcurve_matches_direct_call(client):
     assert r.status_code == 200
     j = r.get_json()
 
-    obs = terminator.observe("WASP-39 b", scenario="cloudy",
+    obs = lazuli_exo.observe("WASP-39 b", scenario="cloudy",
                              n_transits=2, R=100)
     lc = obs.light_curves(n_groups=3, seed=4)
     np.testing.assert_allclose(j["time_hr"], lc.time_hr)
@@ -160,7 +160,7 @@ def test_target_endpoint(client):
               "T_eff_K", "log_g_star", "J_mag", "t14_s", "depth"):
         assert f in j["target"], f
     # derived quantities consistent with the light-curve geometry
-    obs = terminator.observe("WASP-39 b")
+    obs = lazuli_exo.observe("WASP-39 b")
     lc = obs.light_curves(seed=0)
     assert j["derived"]["b"] == pytest.approx(lc.meta["b"])
     assert j["derived"]["H_km"] > 0
@@ -202,11 +202,11 @@ def test_r_beyond_native_noise_sampling_is_json_400(client):
     assert "native noise sampling" in r.get_json()["error"]
 
 
-# --- parametric model endpoints (thin wrappers over terminator.forms/report) ---
+# --- parametric model endpoints (thin wrappers over lazuli_exo.forms/report) ---
 
 def _fake_simulate(params, R=100, n_transits=1, tables_dir=None, instrument="lazuli_cbe"):
     wl = np.geomspace(0.4, 1.7, 40)
-    return terminator.SimulatedSpectrum(
+    return lazuli_exo.SimulatedSpectrum(
         planet=params["name"], scenario=params["scenario"], n_transits=n_transits, R=R,
         wavelength=wl, depth=np.full(40, 0.01), depth_err=np.full(40, 1e-4) / np.sqrt(n_transits),
         model_wavelength=wl, model_depth=np.full(40, 0.01), flat_depth=0.01,
@@ -237,8 +237,8 @@ def test_presets_listing(client):
     assert j["defaults"]["teff"] == "5500"
 
 
-def test_simulate_endpoint_uses_terminator_and_report(client, monkeypatch):
-    monkeypatch.setattr(terminator, "simulate", _fake_simulate)
+def test_simulate_endpoint_uses_lazuli_exo_and_report(client, monkeypatch):
+    monkeypatch.setattr(lazuli_exo, "simulate", _fake_simulate)
     j = client.get("/api/simulate", query_string={"mag": "10", "n_transits": "4", "resolution": "50",
                                                   "teff": "abc", "seed": "7"}).get_json()
     assert j["n_transits"] == 4 and j["R"] == 50 and j["seed"] == 7
@@ -249,7 +249,7 @@ def test_simulate_endpoint_uses_terminator_and_report(client, monkeypatch):
 
 
 def test_simulate_endpoint_fatal_errors_are_json_400(client, monkeypatch):
-    monkeypatch.setattr(terminator, "simulate", _fake_simulate)
+    monkeypatch.setattr(lazuli_exo, "simulate", _fake_simulate)
     r = client.get("/api/simulate", query_string={"teff": "5000"})          # no mag
     assert r.status_code == 400 and "mag" in r.get_json()["error"]
     r = client.get("/api/simulate", query_string={"mag": "10", "rp": "-1"})
@@ -257,7 +257,7 @@ def test_simulate_endpoint_fatal_errors_are_json_400(client, monkeypatch):
 
     def boom(*a, **k):
         raise ValueError("T_eff=9000 K above the PHOENIX grid ceiling 8000 K")
-    monkeypatch.setattr(terminator, "simulate", boom)
+    monkeypatch.setattr(lazuli_exo, "simulate", boom)
     r = client.get("/api/simulate", query_string={"mag": "10"})
     assert r.status_code == 400 and "PHOENIX" in r.get_json()["error"]
 

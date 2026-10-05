@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from conftest import ZETA0, ZETA_AMP
-from terminator import atmosphere as atm
+from lazuli_exo import atmosphere as atm
 
 K_B, M_H, G = 1.380649e-23, 1.6735575e-27, 6.674e-11
 R_J, M_J, R_SUN = 7.1492e7, 1.898e27, 6.957e8
@@ -27,7 +27,7 @@ def test_node_recovery_shape_and_median_radius(zeta_fixture):
     np.testing.assert_allclose(np.median(radius_m(depth[band], 1.0)), R_J, rtol=1e-6)
     # exact hydrostatic mapping: 1/r linear in zeta, R = R_p / (1 - h (zeta - zeta_ref)),
     # evaluated on the stored (float16) node values
-    from terminator import tables
+    from lazuli_exo import tables
     node = tables.load_zeta_grid(zeta_fixture)["zeta"][2, 1, 1, 0].astype(float)   # T=1000, met=0, co=0.55, x=0
     zeta_eff = node + info["zeta_shift"]
     expect = R_J / (1 - (H / R_J) * (zeta_eff - info["zeta_ref"]))
@@ -99,7 +99,7 @@ def test_ranges_raise(zeta_fixture):
 
 def test_puffy_atmosphere_uses_exact_hydrostatic_mapping(zeta_fixture):
     """g ~ 1/r^2: the high-zeta side extends more than H*dzeta, the low side less."""
-    from terminator import tables
+    from lazuli_exo import tables
     wl = atm.grid_wavelengths(zeta_fixture)
     puffy = dict(T_eq_K=1500.0, R_p_RJ=1.0, M_p_MJ=0.05, R_s_RSun=1.0)   # g ~ 1.2, H/R_p ~ 0.06
     d, info = atm.transmission_depth(wl, **puffy, tables_dir=zeta_fixture)
@@ -122,7 +122,7 @@ def test_unbound_atmosphere_raises(zeta_fixture):
 
 def expected_zeta(tdir, idx, info):
     """zeta linear in x through the stored nodes at grid index idx = (iT, imet, ico)."""
-    from terminator import tables
+    from lazuli_exo import tables
     g = tables.load_zeta_grid(tdir)
     x1 = g["meta"]["fiducials"][1]["x_column"]
     node0 = g["zeta"][idx + (0,)].astype(float)
@@ -153,7 +153,7 @@ def test_column_axis_interpolation_and_extrapolation(zeta_fixture):
 
 
 def test_ein_limits_and_deck_transition(zeta_fixture):
-    from terminator.atmosphere import EULER_GAMMA, _ein
+    from lazuli_exo.atmosphere import EULER_GAMMA, _ein
     np.testing.assert_allclose(_ein(1e-9), 1e-9, rtol=1e-6)
     np.testing.assert_allclose(_ein(1.0), 0.7965995992970531, rtol=1e-4)        # Ein(1)
     np.testing.assert_allclose(_ein(50.0), EULER_GAMMA + np.log(50.0), rtol=1e-4)

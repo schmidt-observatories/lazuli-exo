@@ -3,7 +3,7 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "terminator"
+name = "lazuli-exo"
 version = "0.1.0"
 description = "Lazuli IFS exoplanet transmission spectroscopy simulator (lookup-table runtime)"
 requires-python = ">=3.10"
@@ -27,4 +27,4 @@ docs = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-terminator = ["data/tables/index.json", "data/tables/*/*.npz"]
+lazuli_exo = ["data/tables/index.json", "data/tables/*/*.npz"]

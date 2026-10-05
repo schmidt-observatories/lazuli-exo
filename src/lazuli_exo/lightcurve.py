@@ -11,7 +11,7 @@ so recombining the light curve recovers exactly the depth error bar shown
 on the spectrum (the native integration time cancels).
 
 Transit shape: when the planet is in the frozen target registry
-(terminator.targets) and has a limb-darkening table
+(lazuli_exo.targets) and has a limb-darkening table
 (precompute/make_ld_tables.py), the model is a quadratically limb-darkened
 transit with the real geometry — b from a/R*, cos i and the eccentricity
 factor, z(t) along a local circular arc of radius r_c = a (1 - e^2) /

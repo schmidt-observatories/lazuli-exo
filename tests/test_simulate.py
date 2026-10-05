@@ -3,10 +3,10 @@ import importlib
 import numpy as np
 import pytest
 
-import terminator
+import lazuli_exo
 
-# terminator.simulate (the attribute) is the function; grab the module
-sim_mod = importlib.import_module("terminator.simulate")
+# lazuli_exo.simulate (the attribute) is the function; grab the module
+sim_mod = importlib.import_module("lazuli_exo.simulate")
 
 
 def fake_depth_error(wl_A, f_lambda, *, mag, band, mag_system, t14_s,
@@ -32,8 +32,8 @@ PARAMS = dict(name="Testar-1 b", T_eq_K=1000.0, R_p_RJ=1.0, M_p_MJ=0.6,
 
 def test_simulate_returns_simulated_spectrum(both_grids, monkeypatch):
     monkeypatch.setattr(sim_mod, "depth_error", fake_depth_error)
-    obs = terminator.simulate(PARAMS, R=50, n_transits=4, tables_dir=both_grids)
-    assert isinstance(obs, terminator.SimulatedSpectrum)
+    obs = lazuli_exo.simulate(PARAMS, R=50, n_transits=4, tables_dir=both_grids)
+    assert isinstance(obs, lazuli_exo.SimulatedSpectrum)
     assert obs.planet == "Testar-1 b" and obs.scenario == "custom"
     assert obs.wavelength.shape == obs.depth.shape == obs.depth_err.shape
     np.testing.assert_allclose(obs.flat_depth, (7.1492e7 / 6.957e8) ** 2)
@@ -41,12 +41,12 @@ def test_simulate_returns_simulated_spectrum(both_grids, monkeypatch):
     assert obs.meta["atmosphere"]["mu_source"] == "chemistry"
     assert obs.detect()["template_snr_diagonal"] > 0
     # n_transits reaches the noise function (not applied twice)
-    obs1 = terminator.simulate(PARAMS, R=50, n_transits=1, tables_dir=both_grids)
+    obs1 = lazuli_exo.simulate(PARAMS, R=50, n_transits=1, tables_dir=both_grids)
     np.testing.assert_allclose(obs1.depth_err / obs.depth_err, 2.0)
 
 
 def test_missing_required_key_raises(both_grids, monkeypatch):
     monkeypatch.setattr(sim_mod, "depth_error", fake_depth_error)
     with pytest.raises(ValueError, match="t14_s"):
-        terminator.simulate({k: v for k, v in PARAMS.items() if k != "t14_s"},
+        lazuli_exo.simulate({k: v for k, v in PARAMS.items() if k != "t14_s"},
                             tables_dir=both_grids)

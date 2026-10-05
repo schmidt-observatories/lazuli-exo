@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from terminator.detect import BAND_MASKS, detect_features
+from lazuli_exo.detect import BAND_MASKS, detect_features
 
 
 def test_flat_spectrum_zero_snr():

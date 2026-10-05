@@ -1,4 +1,4 @@
-"""Web-form strings -> validated terminator.simulate() parameters.
+"""Web-form strings -> validated lazuli_exo.simulate() parameters.
 
 Shared by every UI (local Flask demo, the Django simulators site) so that
 defaults, ranges, clamping and error messages live in one place. A UI
@@ -92,7 +92,7 @@ def parse(data):
 
 
 def to_params(v):
-    """Typed form values -> the terminator.simulate() parameter dict."""
+    """Typed form values -> the lazuli_exo.simulate() parameter dict."""
     return dict(name=v["planet_name"] or "custom", scenario="custom",
                 T_eq_K=v["teq"], R_p_RJ=v["rp"], M_p_MJ=v["mp"], R_s_RSun=v["rstar"],
                 teff_K=v["teff"], logg=v["logg"], feh=v["feh"], mag=v["mag"],

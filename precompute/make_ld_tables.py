@@ -22,8 +22,8 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from terminator import tables                    # noqa: E402
-from terminator.targets import TARGETS           # noqa: E402
+from lazuli_exo import tables                    # noqa: E402
+from lazuli_exo.targets import TARGETS           # noqa: E402
 
 TABLES = tables.resolve_tables_dir(None)
 LD_DATA = os.environ.get("EXOTIC_LD_DATA",

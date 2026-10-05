@@ -1,8 +1,8 @@
-"""Tests for terminator.lightcurve against the analytic fixture tables."""
+"""Tests for lazuli_exo.lightcurve against the analytic fixture tables."""
 import numpy as np
 import pytest
 
-from terminator import lightcurve, observe
+from lazuli_exo import lightcurve, observe
 
 from conftest import PLANET  # pytest puts tests/ on sys.path
 
@@ -196,7 +196,7 @@ def test_eccentric_mid_transit_separation_equals_b():
 
 def test_omega_zero_is_not_treated_as_missing(monkeypatch):
     """A valid w_deg = 0.0 must not be replaced by the 90-deg default."""
-    from terminator import targets as targets_mod
+    from lazuli_exo import targets as targets_mod
     t = dict(targets_mod.TARGETS["WASP-39 b"], ecc=0.3, w_deg=0.0)
     monkeypatch.setitem(targets_mod.TARGETS, "WASP-39 b", t)
     obs = observe("WASP-39 b", scenario="clear", n_transits=1, R=100)

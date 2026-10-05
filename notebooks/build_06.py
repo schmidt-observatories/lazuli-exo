@@ -15,7 +15,7 @@ ATMO_KEYS = ("T_eq_K", "R_p_RJ", "M_p_MJ", "R_s_RSun", "log_met", "c_to_o",
 cells = [
 new_markdown_cell(r"""# 6. The parametric model
 
-`terminator.simulate(params)` builds a spectrum for *any* transiting planet. The
+`lazuli_exo.simulate(params)` builds a spectrum for *any* transiting planet. The
 atmosphere comes from one POSEIDON-derived grid of the photospheric
 log-pressure,
 
@@ -41,9 +41,9 @@ try:
 except OSError:
     pass
 
-import terminator
-from terminator import tables, presets, binning
-from terminator.atmosphere import transmission_depth, grid_wavelengths
+import lazuli_exo
+from lazuli_exo import tables, presets, binning
+from lazuli_exo.atmosphere import transmission_depth, grid_wavelengths
 
 FIGS = Path("figs"); FIGS.mkdir(exist_ok=True)
 g = tables.load_zeta_grid()
@@ -126,7 +126,7 @@ ax.legend(frameon=False, fontsize=8); fig.tight_layout(); fig.savefig(FIGS / "06
 new_markdown_cell("## A custom planet end to end\n\nTOI-270 d with a heavier atmosphere (μ = 5), a cloud deck at 10 mbar, 20 transits. `simulate` needs slicersim and sncosmo at call time; the noise comes out of a live slicersim run on the PHOENIX SED, with the archive J (Vega) converted to AB."),
 new_code_cell("""p = presets.showcase("TOI-270 d", "clear")
 p.update(name="TOI-270 d (custom)", scenario="custom", mu=5.0, log_P_cloud_bar=-2.0)
-obs = terminator.simulate(p, R=60, n_transits=20)
+obs = lazuli_exo.simulate(p, R=60, n_transits=20)
 a, n = obs.meta["atmosphere"], obs.meta["noise"]
 print(f"g = {a['g_ms2']:.1f} m/s2, H = {a['H_m']/1e3:.0f} km, H/Rp = {a['H_over_Rp']:.4f}, "
       f"mu = {a['mu_used']} ({a['mu_source']}), T_clamped = {a['T_clamped']}")

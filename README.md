@@ -1,6 +1,6 @@
-# terminator
+# lazuli-exo
 
-terminator simulates exoplanet transmission spectroscopy with the Lazuli IFS. For
+lazuli-exo simulates exoplanet transmission spectroscopy with the Lazuli IFS. For
 a showcase planet, an atmosphere scenario, and a number of transits, it
 returns the model transmission spectrum binned to the instrument with
 statistical (photon/read-noise-only) error bars, plus a spectral-template
@@ -23,12 +23,12 @@ pip install -e ".[plot,test]"
 ## Quickstart
 
 ```python
-import terminator
+import lazuli_exo
 
-terminator.list_planets()                 # -> [str], 14 showcase targets
-terminator.list_scenarios("WASP-39 b")    # -> ["clear", "cloudy", "flat", "hazy", "high_metallicity"]
+lazuli_exo.list_planets()                 # -> [str], 14 showcase targets
+lazuli_exo.list_scenarios("WASP-39 b")    # -> ["clear", "cloudy", "flat", "hazy", "high_metallicity"]
 
-obs = terminator.observe("WASP-39 b", scenario="cloudy", n_transits=5, R=100)
+obs = lazuli_exo.observe("WASP-39 b", scenario="cloudy", n_transits=5, R=100)
 obs.wavelength      # bin centers [um]
 obs.depth           # binned model transit depth
 obs.depth_err       # per-bin 1-sigma uncertainty (scaled by 1/sqrt(n_transits))
@@ -39,17 +39,17 @@ obs.plot()          # requires the [plot] extra
 
 ## Parametric model (any planet)
 
-`terminator.simulate(params)` builds a spectrum for any transiting planet from a
-shared POSEIDON-derived opacity grid (`src/terminator/data/tables/atmo/zeta_grid.npz`) and a
-PHOENIX stellar grid (`src/terminator/data/tables/star/phoenix_grid.npz`), with slicersim
+`lazuli_exo.simulate(params)` builds a spectrum for any transiting planet from a
+shared POSEIDON-derived opacity grid (`src/lazuli_exo/data/tables/atmo/zeta_grid.npz`) and a
+PHOENIX stellar grid (`src/lazuli_exo/data/tables/star/phoenix_grid.npz`), with slicersim
 computing the noise live (needs `slicersim` and `sncosmo` at call time;
-`import terminator` itself stays numpy-only):
+`import lazuli_exo` itself stays numpy-only):
 
 ```python
-import terminator
-p = terminator.presets.showcase("WASP-39 b", "cloudy")   # or build the dict by hand
+import lazuli_exo
+p = lazuli_exo.presets.showcase("WASP-39 b", "cloudy")   # or build the dict by hand
 p.update(mu=None, log_P_cloud_bar=-2.0)
-obs = terminator.simulate(p, R=100, n_transits=5)
+obs = lazuli_exo.simulate(p, R=100, n_transits=5)
 obs.detect()
 ```
 
@@ -82,7 +82,7 @@ it at the transit photosphere, ~10 scale heights higher; the validation
 therefore feeds the model each table's own band-median radius.
 
 **Magnitudes.** slicersim normalizes in AB; archive J magnitudes are Vega.
-`terminator.slicer.depth_error` converts (J: +0.90 mag via sncosmo) and reports
+`lazuli_exo.slicer.depth_error` converts (J: +0.90 mag via sncosmo) and reports
 the offset in `info`. The committed noise tables were regenerated with this
 conversion on 2026-10-04 and are 1.4-1.5x more conservative than before for
 the eleven unsaturated hosts; the three bright hosts that sit at the readout
@@ -133,12 +133,12 @@ models/<planet>__<scenario>.npz   star/<planet>.npz
       v  py313 env + slicersim
 noise/<planet>.npz   (per-planet single-transit depth_err(lambda))
 
-runtime (src/terminator/) = numpy + these tables, nothing heavier
+runtime (src/lazuli_exo/) = numpy + these tables, nothing heavier
 ```
 
 Model/star tables and noise tables are built in separate steps, in separate
 conda environments, because POSEIDON and slicersim never need to be
-installed together. `src/terminator/data/tables/` (~50 MB) is committed to the repo, ships in the wheel as package data, and
+installed together. `src/lazuli_exo/data/tables/` (~50 MB) is committed to the repo, ships in the wheel as package data, and
 shipped with the package; the runtime only ever reads it.
 
 ## Regenerating the tables
@@ -173,24 +173,24 @@ star/<planet-slug>.npz                  # wavelength_um, f_lambda, meta
 noise/<planet-slug>.npz                 # wavelength_um, depth_err_1transit, meta
 ```
 
-`index.json` carries a schema `version` integer; `terminator.tables` refuses to
+`index.json` carries a schema `version` integer; `lazuli_exo.tables` refuses to
 load a mismatched version with a clear error. `observe()` resolves the
 tables directory as: an explicit `tables_dir=` argument, else the
-`TERMINATOR_TABLES` environment variable, else the `data/tables/` shipped inside the installed
+`LAZULI_EXO_TABLES` environment variable, else the `data/tables/` shipped inside the installed
 repo/package.
 
 ## Known approximations
 
 - **Isothermal equilibrium chemistry**: every scenario uses a single T = T_eq
   isotherm, not a real P-T profile.
-- **Light-curve shape** (`terminator.lightcurve`): quadratically
+- **Light-curve shape** (`lazuli_exo.lightcurve`): quadratically
   limb-darkened transit (numpy-only numerical disk integration, validated
   against the analytic uniform-disk and small-planet limits) with geometry
   from the frozen NEA registry (b from a/R*, cos i and the eccentricity
   factor; z(t) along a local circular arc of radius a(1-e^2)/(1+e sin w),
   the conjunction star-planet distance, so z(0) = b, traversed at the
   Keplerian conjunction sky speed).
-  LD coefficients come from per-planet tables (`src/terminator/data/tables/ld/`) computed
+  LD coefficients come from per-planet tables (`src/lazuli_exo/data/tables/ld/`) computed
   by `precompute/make_ld_tables.py` with exotic-ld (PHOENIX grid, trilinear
   interpolation, 48 wavelength chunks). Planets without a registry entry or
   LD table fall back to a b = 0 trapezoid; `meta["shape"]` records which.
@@ -214,7 +214,7 @@ repo/package.
   diagonal covariance (`template_snr_diagonal`) — there is no defined
   null/alternative likelihood ratio, nuisance model, covariance, or
   false-positive calibration. Per-band values (`band_snr`, masks in
-  `terminator.detect.BAND_MASKS`) restrict the same statistic to fixed
+  `lazuli_exo.detect.BAND_MASKS`) restrict the same statistic to fixed
   wavelength masks; they mix every species in the mask plus haze/cloud/
   continuum structure, and bands overlap (e.g. H2O and CH4 near 1.15 um) —
   they are not molecule detections. The rigorous upgrade path is a
@@ -258,12 +258,12 @@ seed reproduces the notebook figures exactly. Design notes:
 
 The runtime ships with its lookup tables and no heavy dependencies (numpy,
 plus matplotlib as an optional extra), so a future Django frontend can be
-deployed on Heroku importing `terminator` directly — no POSEIDON, slicersim,
+deployed on Heroku importing `lazuli-exo` directly — no POSEIDON, slicersim,
 jax, or opacity data needs to reach the web dyno. That app is a separate,
 not-yet-started follow-up project.
 
-The tables live at `src/terminator/data/tables` and are declared as package
+The tables live at `src/lazuli_exo/data/tables` and are declared as package
 data in `pyproject.toml`, so an editable install, a repo checkout, a VCS pin
 (`pip install git+https://...@<sha>`) and a built wheel all ship them (~50 MB).
-`TERMINATOR_TABLES` overrides the location when a deployment wants the tables
+`LAZULI_EXO_TABLES` overrides the location when a deployment wants the tables
 somewhere else.

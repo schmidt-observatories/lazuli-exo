@@ -2,7 +2,7 @@
 
 Run: ~/anaconda3/envs/py313/bin/python precompute/make_noise_tables.py
 
-Thin loop over terminator.slicer.depth_error, which owns the physics: the
+Thin loop over lazuli_exo.slicer.depth_error, which owns the physics: the
 Vega -> AB conversion of the archive J magnitude (slicersim normalizes in AB),
 the readout desaturation loop for bright hosts (see its docstring), and the
 equal-baseline depth-error formula. Residual saturation at the ramp floor is
@@ -22,9 +22,9 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 ROOT = Path(__file__).resolve().parents[1]
 
-from terminator import tables  # noqa: E402
-from terminator.slicer import depth_error  # noqa: E402
-from terminator.targets import PLANET_NAMES, get_target  # noqa: E402
+from lazuli_exo import tables  # noqa: E402
+from lazuli_exo.slicer import depth_error  # noqa: E402
+from lazuli_exo.targets import PLANET_NAMES, get_target  # noqa: E402
 
 TABLES = tables.resolve_tables_dir(None)
 

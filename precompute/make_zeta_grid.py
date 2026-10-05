@@ -36,7 +36,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 import scenarios  # noqa: E402
 from scenarios import (FIDUCIALS, P_GRID_ARGS, P_REF_BAR, PARAM_SPECIES,  # noqa: E402
                        ZETA_C_TO_O, ZETA_LOG_MET, ZETA_T_K)
-from terminator import tables  # noqa: E402
+from lazuli_exo import tables  # noqa: E402
 
 from POSEIDON.chemistry import load_chemistry_grid  # noqa: E402
 from POSEIDON.constants import R_J, R_Sun  # noqa: E402
