@@ -7,7 +7,8 @@ values, fatal `errors` (the run cannot proceed) and non-fatal `warnings`
 (a value was replaced or clamped and the run proceeds).
 
 Blank optional fields carry meaning: mu blank -> equilibrium-chemistry mu;
-log_p_cloud blank -> no deck; log_a_haze blank -> no haze.
+log_p_cloud blank -> no deck; log_a_haze blank -> no haze. band is any sncosmo bandpass name or one of the
+J/H/Ks/V aliases; it is validated at simulate time.
 """
 from collections import namedtuple
 
@@ -24,7 +25,7 @@ FIELDS = {
     "feh": ("0.0", "float", (-2.0, 1.0)),
     "rstar": ("1.0", "float", (0.05, 20.0)),
     "mag": ("", "float", (-2.0, 25.0)),             # required (blank default)
-    "band": ("J", "choice", ("J", "H", "Ks", "V")),
+    "band": ("J", "str", None),
     "mag_system": ("vega", "choice", ("vega", "ab")),
     "rp": ("1.0", "float", (0.01, 3.0)),
     "mp": ("1.0", "float", (1e-4, 30.0)),
