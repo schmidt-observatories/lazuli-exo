@@ -108,7 +108,9 @@ def main(argv=None):
         M_p = f["g_ms2"] * R_p ** 2 / G_SI
         fids.append(dict(R_p_m=float(R_p), M_p_kg=float(M_p), g_ms2=f["g_ms2"],
                          R_s_m=float(R_s), P_ref_bar=P_REF_BAR,
-                         x_column=0.5 * float(np.log(R_p / (FIDUCIALS[0]["R_p_RJ"] * R_J))),
+                         x_column=0.5 * float(np.log(
+                             (f["R_p_RJ"] / FIDUCIALS[0]["R_p_RJ"])
+                             * (FIDUCIALS[0]["g_ms2"] / f["g_ms2"]))),
                          planet=create_planet(f"zeta_fiducial_{k}", R_p, mass=M_p)))
     star = create_star(fids[0]["R_s_m"], 5500.0, 4.5, 0.0, stellar_grid="blackbody", wl=WL)
     model = define_model("zeta_grid", bulk_species=["H2", "He"],

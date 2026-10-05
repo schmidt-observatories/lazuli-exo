@@ -32,8 +32,8 @@ def fixture_tables(tmp_path):
 # independent of T and C/O; mu = 2.3 + 0.5*log_met
 ZETA0, ZETA_AMP = 9.0, 1.0
 FIDS = [{"R_p_m": 7.1492e7, "g_ms2": 10.0, "R_s_m": 6.957e8, "P_ref_bar": 10.0, "x_column": 0.0},
-        {"R_p_m": 7.1492e6, "g_ms2": 10.0, "R_s_m": 6.957e8, "P_ref_bar": 10.0,
-         "x_column": 0.5 * np.log(0.1)}]
+        {"R_p_m": 0.3 * 7.1492e7, "g_ms2": 30.0, "R_s_m": 6.957e8, "P_ref_bar": 10.0,
+         "x_column": 0.5 * np.log(0.3 * 10.0 / 30.0)}]
 FID = FIDS[0]
 ZETA_NODE1_OFFSET = 0.2     # small-planet node sits 0.2 higher (pressure dependence)
 
