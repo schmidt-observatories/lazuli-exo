@@ -1,6 +1,6 @@
 {
  "atmo": {
-  "zeta_grid": false
+  "zeta_grid": true
  },
  "planets": {
   "GJ 1214 b": {
