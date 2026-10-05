@@ -15,3 +15,12 @@ src/lazuli_exo/data/tables/atmo/*.partial.npz
 src/lazuli_exo/data/tables/atmo/*.smoke.npz
 build/
 *.egg-info/
+
+# LaTeX build files for the memo
+memo/*.aux
+memo/*.log
+memo/*.out
+memo/*.synctex.gz
+
+# Internal cross-check memo (scripts, data snapshot, results, PDF): kept local, not in the repo
+memo/

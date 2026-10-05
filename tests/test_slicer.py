@@ -51,3 +51,8 @@ def test_unknown_instrument_is_a_valueerror(sun):
     # toml missing a section); the web layers only translate ValueError into 400s
     with pytest.raises(ValueError, match="instrument"):
         slicer.depth_error(*sun, mag=10.0, t14_s=7200.0, instrument="lazuli_nonexistent")
+
+
+def test_eol_instrument_builds_via_overlay(sun):
+    _, err, info = slicer.depth_error(*sun, mag=10.0, t14_s=7200.0, instrument="lazuli_eol")
+    assert np.all(np.isfinite(err)) and info["instrument"] == "lazuli_eol"

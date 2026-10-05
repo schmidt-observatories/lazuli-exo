@@ -85,7 +85,10 @@ def depth_error(wl_A, f_lambda, *, mag, band="J", mag_system="vega", t14_s,
         warnings.simplefilter("ignore", FutureWarning)
         try:
             target = LazuliTarget(np.asarray(wl_A, float), np.asarray(f_lambda, float),
-                                  mag=mag_ab, band=sn_band, instrument=instrument)
+                                  mag=mag_ab, band=sn_band, instrument="lazuli_cbe")
+            if instrument != "lazuli_cbe":
+                # the eol/bol tomls are partial overlays on the cbe config
+                target.change_configuration(instrument.removeprefix("lazuli_"))
             sim = target.simulation
         except Exception as e:      # missing/broken instrument config -> user-facing error
             raise ValueError(f"slicersim could not build instrument {instrument!r}: "
