@@ -1,4 +1,4 @@
-"""Compare the parametric model against the 14 x 4 committed POSEIDON tables.
+"""Compare the parametric model against the 14 x 5 POSEIDON tables in precompute/tables.
 
 Run: ~/anaconda3/envs/py313/bin/python precompute/validate_zeta_grid.py
 Writes notebooks/figs/06_validation.json and prints a markdown table.
@@ -56,12 +56,13 @@ R_J_M, R_SUN_M = 7.1492e7, 6.957e8
 # pressure POSEIDON actually realized.
 DECK_REALIZED_LOG_OFFSET = float(np.log10(1.376))
 OUT = ROOT / "notebooks" / "figs" / "06_validation.json"
+MODELS = ROOT / "precompute" / "tables"     # POSEIDON tables (not runtime data)
 ATMO_KEYS = ("T_eq_K", "R_p_RJ", "M_p_MJ", "R_s_RSun", "log_met", "c_to_o",
              "mu", "log_P_cloud_bar", "log_a_haze", "haze_slope")
 
 
 def compare(planet, scen, tdir, edges, T_override=None):
-    wl, d_tab, meta_tab = tables.load_model(tdir, planet, scen)
+    wl, d_tab, meta_tab = tables.load_model(MODELS, planet, scen)
     p = presets.showcase(planet, scen)
     kw = {k: p[k] for k in ATMO_KEYS}
     if T_override is not None:

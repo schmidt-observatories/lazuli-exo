@@ -35,7 +35,8 @@ from POSEIDON.constants import M_J, R_J, R_Sun
 from POSEIDON.core import (compute_spectrum, create_planet, create_star,
                            define_model, make_atmosphere, read_opacities)
 
-TABLES = tables.resolve_tables_dir(None)
+TABLES = tables.resolve_tables_dir(None)             # star tables (feed make_noise_tables)
+MODELS = Path(__file__).resolve().parent / "tables"   # POSEIDON tables: validation data only
 WL = make_wl_grid()
 
 # Loaded once at script start (chem_eq requires this be passed explicitly
@@ -150,7 +151,7 @@ def run_planet(name):
                 **{k: v for k, v in cfg.items()}}
         if T_clamped:
             meta["note"] = "isothermal T clamped to fastchem grid floor"
-        tables.write_model_table(TABLES, name, scen, WL, spectrum, meta=meta)
+        tables.write_model_table(MODELS, name, scen, WL, spectrum, meta=meta)
         print(f"model: {name} / {scen}  "
               f"depth {spec_min:.5f}-{spec_max:.5f}")
 

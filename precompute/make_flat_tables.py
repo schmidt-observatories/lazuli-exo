@@ -12,7 +12,7 @@ from scenarios import make_wl_grid
 
 from lazuli_exo import tables, targets
 
-TABLES = tables.resolve_tables_dir(None)
+MODELS = Path(__file__).resolve().parent / "tables"   # validation data, not runtime
 
 
 def main():
@@ -20,11 +20,10 @@ def main():
     for name in targets.PLANET_NAMES:
         t = targets.get_target(name)
         tables.write_model_table(
-            TABLES, name, "flat", wl, np.full_like(wl, t["depth"]),
+            MODELS, name, "flat", wl, np.full_like(wl, t["depth"]),
             meta={"generator": "make_flat_tables.py",
                   "depth": t["depth"], "provenance": t["provenance"]})
         print(f"flat: {name}  depth={t['depth']:.5f}")
-    tables.rebuild_index(TABLES)
 
 
 if __name__ == "__main__":

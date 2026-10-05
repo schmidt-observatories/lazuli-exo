@@ -16,7 +16,15 @@ def test_observe_shapes(fixture_tables):
 def test_flat_scenario_is_flat(fixture_tables):
     obs = lazuli_exo.observe(PLANET, scenario="flat", R=50,
                          tables_dir=fixture_tables)
-    np.testing.assert_allclose(obs.depth, BASE_DEPTH, rtol=1e-12)
+    assert obs.flat_depth == pytest.approx(BASE_DEPTH)
+    # deck at 10 nbar: the Ein tail leaves < 1e-3 of the depth
+    np.testing.assert_allclose(obs.depth, BASE_DEPTH, rtol=1e-3)
+    assert obs.meta["k_source"].startswith("archive")
+
+
+def test_unknown_scenario_raises(fixture_tables):
+    with pytest.raises(KeyError, match="stormy"):
+        lazuli_exo.observe(PLANET, scenario="stormy", tables_dir=fixture_tables)
 
 
 def test_error_scaling_with_transits(fixture_tables):
@@ -34,7 +42,8 @@ def test_error_magnitude(fixture_tables):
 
 
 def test_r_too_high_raises(fixture_tables):
-    with pytest.raises(ValueError, match="native noise sampling"):
+    # whichever grid runs out first (fixture zeta grid or noise channels)
+    with pytest.raises(ValueError, match="coarser R|native noise sampling"):
         lazuli_exo.observe(PLANET, R=2000, tables_dir=fixture_tables)
 
 
@@ -48,7 +57,7 @@ def test_simulate_points_reproducible(fixture_tables):
 
 
 def test_unknown_planet_raises(fixture_tables):
-    with pytest.raises(KeyError, match="Testar-1 b"):
+    with pytest.raises(KeyError, match="Nope-1 b"):
         lazuli_exo.observe("Nope-1 b", tables_dir=fixture_tables)
 
 

@@ -27,9 +27,24 @@ def test_every_planet_observes(planet):
 
 
 def test_flat_scenario_detects_nothing():
+    # deck at 10 nbar: the Ein tail leaves < 1 ppm of ripple (S/N < 0.004)
     for planet in PLANETS:
         obs = lazuli_exo.observe(planet, scenario="flat", R=80)
-        assert obs.detect()["template_snr_diagonal"] < 1e-6
+        assert obs.detect()["template_snr_diagonal"] < 0.01
+        np.testing.assert_allclose(obs.depth, obs.flat_depth, rtol=1e-3)
+
+
+def test_observe_matches_simulate():
+    """Issue #3: the showcase path and the parametric path are one model."""
+    pytest.importorskip("slicersim")
+    pytest.importorskip("sncosmo")
+    obs = lazuli_exo.observe("WASP-39 b", scenario="clear", R=100)
+    sim = lazuli_exo.simulate(lazuli_exo.presets.showcase("WASP-39 b", "clear"), R=100)
+    np.testing.assert_allclose(obs.depth, sim.depth, rtol=1e-12)
+    assert obs.flat_depth == pytest.approx(sim.flat_depth)
+    # noise: precomputed table (POSEIDON star) vs live slicersim (PHOENIX grid)
+    ratio = np.median(obs.depth_err / sim.depth_err)
+    assert 0.8 < ratio < 1.25, ratio
 
 
 def test_clear_beats_cloudy():

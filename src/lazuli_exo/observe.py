@@ -4,7 +4,12 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from . import binning, tables
+from . import binning, presets, tables
+from .atmosphere import R_J, R_SUN, grid_wavelengths, transmission_depth
+
+# keys transmission_depth() takes from a showcase/simulate params dict
+ATMO_KEYS = ("T_eq_K", "R_p_RJ", "M_p_MJ", "R_s_RSun", "log_met", "c_to_o",
+             "mu", "log_P_cloud_bar", "log_a_haze", "haze_slope")
 
 
 @dataclass
@@ -18,7 +23,7 @@ class SimulatedSpectrum:
     depth_err: np.ndarray        # 1-sigma per bin, n_transits included
     model_wavelength: np.ndarray  # native-resolution model [um]
     model_depth: np.ndarray
-    flat_depth: float            # (Rp/Rs)^2 baseline from the 'flat' table
+    flat_depth: float            # (Rp/Rs)^2 from the archive radii
     meta: dict = field(default_factory=dict)
 
     def simulate_points(self, seed=None):
@@ -40,19 +45,22 @@ class SimulatedSpectrum:
 
 
 def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None):
-    """Simulate observing `planet` under `scenario` for `n_transits` transits.
+    """Simulate observing showcase `planet` under `scenario` for `n_transits`.
 
-    Returns a SimulatedSpectrum with the noiseless binned model in `.depth`
-    and per-bin 1-sigma uncertainties in `.depth_err` (analytic single-transit
-    depth precision from the noise tables, scaled by 1/sqrt(n_transits)).
+    The spectrum is the parametric model evaluated at the frozen registry
+    values (`presets.showcase`), so observe() and simulate() share one model
+    and one radius convention: the archive R_p is the band-median transit
+    radius and H uses the true T_eq. The per-bin 1-sigma uncertainties come
+    from the precomputed slicersim noise table, scaled by 1/sqrt(n_transits).
     """
     if n_transits < 1:
         raise ValueError("n_transits must be >= 1")
     tdir = tables.resolve_tables_dir(tables_dir)
-
-    wl_m, d_m, meta_m = tables.load_model(tdir, planet, scenario)
+    p = presets.showcase(planet, scenario)
+    wl_m = grid_wavelengths(tdir)
+    d_m, info_a = transmission_depth(
+        wl_m, **{k: p[k] for k in ATMO_KEYS}, tables_dir=tdir)
     wl_n, e_n, meta_n = tables.load_noise(tdir, planet)
-    _, d_flat, _ = tables.load_model(tdir, planet, "flat")
 
     if meta_n.get("fully_desaturated") is False:
         warnings.warn(
@@ -67,8 +75,10 @@ def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None):
 
     keep = (wl_m >= edges[0]) & (wl_m <= edges[-1])
     return SimulatedSpectrum(
-        planet=meta_m["planet"], scenario=scenario, n_transits=int(n_transits),
+        planet=p["name"], scenario=scenario, n_transits=int(n_transits),
         R=int(R), wavelength=binning.bin_centers(edges), depth=depth,
         depth_err=err, model_wavelength=wl_m[keep], model_depth=d_m[keep],
-        flat_depth=float(np.median(d_flat)),
-        meta={"model": meta_m, "noise": meta_n, "tables_dir": str(tdir)})
+        flat_depth=float((p["R_p_RJ"] * R_J / (p["R_s_RSun"] * R_SUN)) ** 2),
+        meta={"atmosphere": info_a, "noise": meta_n, "params": p,
+              "k_source": "archive R_p / R_s (registry R_p_RJ, R_s_RSun)",
+              "tables_dir": str(tdir)})

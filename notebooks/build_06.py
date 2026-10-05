@@ -85,7 +85,7 @@ tdir = tables.resolve_tables_dir(None)
 edges = binning.constant_R_edges(0.40, 1.70, 100); wc = binning.bin_centers(edges)
 fig, axes = plt.subplots(2, 2, figsize=(11, 6.5), sharex=True)
 for ax, scen in zip(axes.ravel(), ["clear", "cloudy", "high_metallicity", "hazy"]):
-    wl_t, d_t, _ = tables.load_model(tdir, "WASP-39 b", scen)
+    wl_t, d_t, _ = tables.load_model(Path("..") / "precompute" / "tables", "WASP-39 b", scen)
     p = presets.showcase("WASP-39 b", scen)
     kw = {k: p[k] for k in %r}
     band = (wl_t >= 0.4) & (wl_t <= 1.7)
