@@ -1,3 +1,7 @@
+![Logo](docs/logo_schmidt_observatory_system.png)
+
+[![Tests](https://github.com/schmidt-observatories/lazuli-exo/actions/workflows/tests.yml/badge.svg)](https://github.com/schmidt-observatories/lazuli-exo/actions/workflows/tests.yml)
+
 # lazuli-exo
 Exoplanet transmission spectroscopy simulator for the Lazuli IFS
 
