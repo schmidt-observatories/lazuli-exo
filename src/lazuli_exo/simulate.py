@@ -12,13 +12,17 @@ ATMO_DEFAULTS = dict(log_met=0.0, c_to_o=0.55, mu=None, log_P_cloud_bar=None,
 
 
 def simulate(params, R=100, n_transits=1, tables_dir=None,
-             instrument="lazuli_cbe"):
+             instrument="lazuli_cbe", **setup):
     """Simulate any transiting planet from a parameter dict.
 
     Required keys: T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun, teff_K, logg, feh, mag,
     t14_s. Optional: name, scenario, band ("J"), mag_system ("vega"),
     log_met, c_to_o, mu, log_P_cloud_bar, log_a_haze, haze_slope. Needs
     slicersim + sncosmo at call time (not at import).
+
+    ``**setup`` is the optional instrument setup forwarded to
+    slicer.depth_error: nmd, tframe, spectrograph_mode, guiding_sigma,
+    zodi_ab_mag (see slicer.normalize_setup).
     """
     missing = [k for k in REQUIRED if params.get(k) is None]
     if missing:
@@ -39,7 +43,7 @@ def simulate(params, R=100, n_transits=1, tables_dir=None,
     wl_n, err, info_n = depth_error(
         wl_A, flam, mag=p["mag"], band=p.get("band", "J"),
         mag_system=p.get("mag_system", "vega"), t14_s=p["t14_s"],
-        n_transits=n_transits, instrument=instrument)
+        n_transits=n_transits, instrument=instrument, **setup)
 
     edges = binning.constant_R_edges(wl_n.min(), wl_n.max(), R)
     depth = binning.bin_model(wl_model, depth_model, edges)
