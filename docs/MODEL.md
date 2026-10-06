@@ -61,6 +61,24 @@ the eleven unsaturated hosts; the three bright hosts that sit at the readout
 floor (HAT-P-11 b now desaturated, HD 189733 b and HD 209458 b still flagged)
 are saturation-limited and essentially unchanged.
 
+### Live instrument-noise cache
+
+`simulate()` reuses up to 32 native slicersim results per process and caches
+Vega-to-AB zero-point offsets for up to 32 bands. Native-result cache keys
+include the exact stellar wavelength/flux arrays, converted AB magnitude,
+band, instrument, and slicersim version/target implementation. Changing the
+atmosphere, output resolution, duration, or transit count reuses the native
+result; duration and transit-count scaling and metadata are recomputed for
+each call. Different SED contents (including a different stellar grid) miss
+the cache. Returned arrays and metadata can be edited without affecting it.
+
+The cache assumes instrument/calibration files and registered bandpasses
+stay fixed while the process runs. After changing them, call
+`lazuli_exo.slicer.clear_noise_cache()` or restart the process. For an
+independent reference calculation, call `slicer.depth_error(...,
+use_cache=False)`; this bypasses both cache lookup and storage. The cache
+is bounded and process-local, not persistent or shared across web workers.
+
 ## Two-stage precompute
 
 ```
