@@ -16,6 +16,7 @@ material and are read with write_model_table/load_model on that directory.
 import json
 import os
 import re
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -93,7 +94,18 @@ def write_ld_table(tables_dir, planet, wavelength_um, u1, u2, meta):
 def _write_grid(path, meta, dtypes, **arrays):
     arrays = {k: np.asarray(v, dtype=dtypes.get(k, float))
               for k, v in arrays.items()}
-    return _write(path, meta, **arrays)
+    # Serialize beside the destination, then publish only the completed file.
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=path.parent, prefix=".grid-",
+                                     suffix=".npz", delete=False) as f:
+        temporary = Path(f.name)
+    try:
+        _write(temporary, meta, **arrays)
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return path
 
 
 def _load_grid(path, script):
@@ -111,17 +123,22 @@ def _load_grid(path, script):
 
 
 def write_zeta_grid(tables_dir, *, T_K, log_met, c_to_o, wavelength_um,
-                    zeta, mu, meta):
+                    zeta, mu, meta, smoke=False):
     """Planet-independent photospheric log-pressure grid.
 
     zeta is stored float16 (abs. precision <= 0.016 at zeta <= 16, i.e. < 2 %
     of a scale height) at the native model resolution; mu float32.
+    Smoke output is isolated from the production grid and its runtime cache.
     """
-    _GRID_CACHE.pop(str((Path(tables_dir) / ZETA_GRID).resolve()), None)
-    return _write_grid(Path(tables_dir) / ZETA_GRID, meta,
+    path = Path(tables_dir) / ZETA_GRID
+    if smoke:
+        path = path.with_name("zeta_grid.smoke.npz")
+    result = _write_grid(path, meta,
                        {"zeta": np.float16, "mu": np.float32},
                        T_K=T_K, log_met=log_met, c_to_o=c_to_o,
                        wavelength_um=wavelength_um, zeta=zeta, mu=mu)
+    _GRID_CACHE.pop(str(path.resolve()), None)
+    return result
 
 
 def load_zeta_grid(tables_dir=None):

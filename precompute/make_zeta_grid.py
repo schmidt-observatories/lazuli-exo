@@ -38,13 +38,7 @@ from scenarios import (FIDUCIALS, P_GRID_ARGS, P_REF_BAR, PARAM_SPECIES,  # noqa
                        ZETA_C_TO_O, ZETA_LOG_MET, ZETA_T_K)
 from lazuli_exo import tables  # noqa: E402
 
-from POSEIDON.chemistry import load_chemistry_grid  # noqa: E402
-from POSEIDON.constants import R_J, R_Sun  # noqa: E402
-from POSEIDON.core import (compute_spectrum, create_planet, create_star,  # noqa: E402
-                           define_model, make_atmosphere, read_opacities)
-
 TABLES = tables.resolve_tables_dir(None)
-PARTIAL = TABLES / "atmo" / "zeta_grid.partial.npz"
 LOG = Path(__file__).with_suffix(".log")
 G_SI = 6.674e-11
 AMU_KG = 1.66053907e-27
@@ -88,9 +82,19 @@ def mu_photosphere(atmosphere):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--smoke", action="store_true",
-                    help="1 T x 2 met x 1 C/O at full R; writes zeta_grid.smoke.npz")
+                    help="1 T x 1 met x 1 C/O at full R; writes zeta_grid.smoke.npz")
     ap.add_argument("--resume", action="store_true")
     args = ap.parse_args(argv)
+
+    from POSEIDON.chemistry import load_chemistry_grid
+    from POSEIDON.constants import R_J, R_Sun
+    from POSEIDON.core import (compute_spectrum, create_planet, create_star,
+                               define_model, make_atmosphere, read_opacities)
+
+    target = TABLES / tables.ZETA_GRID
+    if args.smoke:
+        target = target.with_name("zeta_grid.smoke.npz")
+    partial = target.with_suffix(".partial.npz")
 
     T_K = ZETA_T_K[7:8] if args.smoke else ZETA_T_K        # 1000 K
     log_met = ZETA_LOG_MET[2:3] if args.smoke else ZETA_LOG_MET
@@ -126,8 +130,8 @@ def main(argv=None):
     mu = np.full(shape[:3], np.nan, np.float32)
     done = np.zeros(len(T_K), bool)
     out_of_column = {}
-    if args.resume and PARTIAL.exists():
-        with np.load(PARTIAL) as f:
+    if args.resume and partial.exists():
+        with np.load(partial) as f:
             if f["zeta"].shape == shape:
                 zeta, mu, done = f["zeta"], f["mu"], f["done"]
                 out_of_column = json.loads(str(f["out_of_column"]))
@@ -165,8 +169,8 @@ def main(argv=None):
         done[it] = True
         del opac
         gc.collect()
-        PARTIAL.parent.mkdir(parents=True, exist_ok=True)
-        np.savez(PARTIAL, zeta=zeta, mu=mu, done=done,
+        partial.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(partial, zeta=zeta, mu=mu, done=done,
                  out_of_column=json.dumps(out_of_column))
         elapsed = (time.time() - t_start) / 60
         log(f"T={T} K done ({done.sum()}/{len(T_K)}), {elapsed:.1f} min elapsed, "
@@ -187,14 +191,10 @@ def main(argv=None):
                                "unity, via depth -> R -> r(P) column",
             "out_of_column": out_of_column, "smoke": bool(args.smoke)}
     tables.write_zeta_grid(TABLES, T_K=T_K, log_met=log_met, c_to_o=c_to_o,
-                           wavelength_um=wl_store, zeta=zeta, mu=mu, meta=meta)
-    target = TABLES / tables.ZETA_GRID
-    if args.smoke:
-        smoke = target.with_name("zeta_grid.smoke.npz")
-        target.rename(smoke)
-        target = smoke
-    else:
-        PARTIAL.unlink(missing_ok=True)
+                           wavelength_um=wl_store, zeta=zeta, mu=mu, meta=meta,
+                           smoke=args.smoke)
+    partial.unlink(missing_ok=True)
+    if not args.smoke:
         tables.rebuild_index(TABLES)
     log(f"wrote {target} ({target.stat().st_size / 1e6:.1f} MB)")
 

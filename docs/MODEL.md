@@ -220,3 +220,14 @@ data in `pyproject.toml`, so an editable install, a repo checkout, a VCS pin
 (`pip install git+https://...@<sha>`) and a built wheel all ship them (~50 MB).
 `LAZULI_EXO_TABLES` overrides the location when a deployment wants the tables
 somewhere else.
+
+### Atmosphere-grid smoke builds
+
+`precompute/make_zeta_grid.py --smoke` writes only
+`atmo/zeta_grid.smoke.npz`, with a separate
+`atmo/zeta_grid.smoke.partial.npz` checkpoint. Add `--resume` to resume that
+smoke checkpoint. Production builds retain `zeta_grid.npz` and
+`zeta_grid.partial.npz`; a smoke run never changes the production grid or
+index. Completed grids are serialized to a temporary file beside the
+destination and atomically replaced, so a failed write preserves the last
+published grid. A failed build retains its checkpoint for resuming.
