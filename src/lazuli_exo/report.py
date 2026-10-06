@@ -7,8 +7,8 @@ renders both the showcase tables and the parametric model, plus `result`
 import numpy as np
 
 CAVEATS = [
-    "isothermal H2/He equilibrium-chemistry toy model with gray deck and "
-    "power-law haze — not a tailored atmospheric prediction",
+    "isothermal H2/He equilibrium-chemistry model atmosphere with a gray cloud deck and "
+    "power-law haze — a comparison model, not a tailored atmospheric prediction",
     "statistical (photon/read) noise only: no systematics floor, red noise, "
     "or visit overheads; errors scale as 1/sqrt(n_transits)",
 ]

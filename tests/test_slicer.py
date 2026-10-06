@@ -133,3 +133,19 @@ def test_zodi_scale_reference_maps_to_one():
     ref = slicer._zodi_ab_mag_at_unit_scale()
     assert slicer.zodi_scale_from_ab_mag(ref) == pytest.approx(1.0)
     assert slicer.zodi_scale_from_ab_mag(ref - 2.5) == pytest.approx(10.0)
+
+def test_band_alias_and_sncosmo_name_agree(sun):
+    _, err_alias, info_a = slicer.depth_error(*sun, mag=10.0, band="J", t14_s=3600.0)
+    _, err_name, info_n = slicer.depth_error(*sun, mag=10.0, band="2massj", t14_s=3600.0)
+    assert np.allclose(err_alias, err_name)
+    assert info_a["sncosmo_band"] == info_n["sncosmo_band"] == "2massj"
+
+
+def test_any_sncosmo_band_is_accepted(sun):
+    _, err, info = slicer.depth_error(*sun, mag=12.0, band="sdssr", t14_s=3600.0)
+    assert np.all(np.isfinite(err)) and info["sncosmo_band"] == "sdssr"
+
+
+def test_unknown_sncosmo_band_raises():
+    with pytest.raises(ValueError, match="sncosmo"):
+        slicer._sncosmo_band("nope")

@@ -18,13 +18,13 @@ def test_defaults_when_empty():
 
 def test_garbage_falls_back_and_warns():
     res = forms.parse({"mag": "10", "teff": "abc", "log_met": "9", "n_transits": "0",
-                       "resolution": "5000", "mag_system": "weird", "band": "Q"})
+                       "resolution": "5000", "mag_system": "weird"})
     v = res.values
     assert res.errors == []
     assert v["teff"] == 5500.0 and v["log_met"] == 3.0 and v["n_transits"] == 1
-    assert v["resolution"] == 500 and v["mag_system"] == "vega" and v["band"] == "J"
+    assert v["resolution"] == 500 and v["mag_system"] == "vega"
     joined = " ".join(res.warnings)
-    for name in ("teff", "log_met", "n_transits", "resolution", "mag_system", "band"):
+    for name in ("teff", "log_met", "n_transits", "resolution", "mag_system"):
         assert name in joined
 
 
@@ -99,3 +99,8 @@ def test_report_flags_saturation():
     assert s["noise_validated"] is False
     assert any("saturat" in c for c in s["caveats"])
     assert {r["label"]: r for r in s["derived"]}["saturated pixels"]["cls"] == "bad"
+
+
+def test_band_accepts_sncosmo_names():
+    res = forms.parse({"mag": "10", "band": "sdssr"})
+    assert res.errors == [] and res.values["band"] == "sdssr"
