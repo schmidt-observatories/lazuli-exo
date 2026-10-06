@@ -5,10 +5,6 @@
 # lazuli-exo
 Exoplanet transmission spectroscopy simulator for the Lazuli IFS
 
-![lazuli-exo web applet](docs/applet.png)
-*Screenshot of the local web applet: showcase planet, binned model spectrum with
-one noisy realization, transit light curve, template S/N and readout diagnostics.*
-
 lazuli-exo returns the model transmission spectrum of a transiting planet binned
 to the Lazuli IFS, with photon/read-noise error bars for a chosen number of
 transits, plus a spectral-template S/N. Two ways in:
