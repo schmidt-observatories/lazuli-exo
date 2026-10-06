@@ -36,6 +36,16 @@ def instrument(monkeypatch):
         def change_detector(self, *, nmd):
             self.detector.nmd = nmd
 
+        def change_spectrograph(self, mode):
+            self.mode = mode
+
+        def update(self, **kw):
+            if 'tframe' in kw:
+                self.observing_time = 60. * kw['tframe'] / 2.83
+
+        def get_parameter(self, name):
+            return {'tframe': 2.83}[name]
+
         def get_snr(self):
             self.detector.nsaturated_detpx = int(self.mag < 8 or self.detector.nmd[0] > 4)
             result = np.full(500, 100. * 10**(-0.2 * (self.mag-10)))
@@ -201,3 +211,31 @@ def test_nonfinite_or_invalid_inputs_do_not_populate_cache(instrument, kwargs):
         run(**kwargs)
     assert target.calls == 0
     assert slicer._cached_native_noise.cache_info().currsize == 0
+
+
+def test_setup_is_part_of_the_cache_key(instrument):
+    Target, _, _ = instrument
+    run()
+    run(nmd=(4, 2, 0))
+    run(nmd=(4, 2, 0))                       # hit
+    run(tframe=0.7)
+    run(spectrograph_mode='narrow')
+    assert slicer._cached_native_noise.cache_info().currsize == 4
+    assert Target.calls == 4
+
+
+def test_fixed_nmd_bypasses_desaturation_and_is_reported(instrument):
+    # the fake saturates whenever groups > 4: auto halves 8 -> 4, fixed keeps 8
+    _, _, auto = run(mag=10.)
+    _, _, fixed = run(mag=10., nmd=(8, 2, 0))
+    assert auto['readout_mode'] == 'auto' and auto['nmd_used'] == [4, 2, 0] and auto['fully_desaturated']
+    assert fixed['readout_mode'] == 'fixed' and fixed['nmd_used'] == [8, 2, 0]
+    assert fixed['nsaturated_detpx'] == 1 and fixed['fully_desaturated'] is False
+    assert fixed['tframe_s'] == 2.83 and fixed['spectrograph_mode'] is None
+
+
+def test_setup_values_are_normalized_before_keying(instrument):
+    Target, _, _ = instrument
+    run(nmd=[4, 2, 0], tframe=1, spectrograph_mode='WIDE')
+    run(nmd=(4.0, 2.0, 0.0), tframe=1.0, spectrograph_mode='wide')   # same setup -> hit
+    assert Target.calls == 1

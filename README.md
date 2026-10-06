@@ -21,7 +21,7 @@ grid), so a showcase planet and the same numbers typed by hand give the same
 spectrum.
 
 The runtime is numpy-only with its lookup tables shipped as package data.
-These are isothermal, equilibrium-chemistry toy models with statistical noise
+These are isothermal, equilibrium-chemistry model atmospheres (gray cloud deck, power-law haze) with statistical noise
 only: comparison material, not calibrated detection significances. Details,
 physics and caveats: [docs/MODEL.md](docs/MODEL.md).
 

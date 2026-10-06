@@ -61,6 +61,16 @@ the eleven unsaturated hosts; the three bright hosts that sit at the readout
 floor (HAT-P-11 b now desaturated, HD 189733 b and HD 209458 b still flagged)
 are saturation-limited and essentially unchanged.
 
+**Instrument setup.** By default the readout is slicersim's and is shortened
+(groups, then frames halved) until the host no longer saturates; the metadata
+records `readout_mode = "auto"`, `default_nmd` and `nmd_used`. A caller that
+shows this result next to its own single-exposure ETC can instead pass the
+same observation: `depth_error(..., nmd=(N, M, D), tframe=, spectrograph_mode=,
+guiding_sigma=, zodi_ab_mag=)` (also as keywords of `simulate`). A given `nmd`
+is used as is and its saturation is *reported*, not removed
+(`readout_mode = "fixed"`, `fully_desaturated`, `nsaturated_detpx`). The
+native-noise cache keys on the setup, so the knobs are free to vary per call.
+
 ### Live instrument-noise cache
 
 `simulate()` reuses up to 32 native slicersim results per process and caches
