@@ -56,3 +56,33 @@ def test_unknown_instrument_is_a_valueerror(sun):
 def test_eol_instrument_builds_via_overlay(sun):
     _, err, info = slicer.depth_error(*sun, mag=10.0, t14_s=7200.0, instrument="lazuli_eol")
     assert np.all(np.isfinite(err)) and info["instrument"] == "lazuli_eol"
+
+
+@pytest.mark.parametrize('mag,instrument', [
+    (6.0, 'lazuli_cbe'), (10.0, 'lazuli_cbe'), (10.0, 'lazuli_eol')])
+def test_cached_noise_matches_live_uncached(sun, mag, instrument):
+    slicer.clear_noise_cache()
+    kwargs = dict(mag=mag, instrument=instrument, t14_s=3600., n_transits=3)
+    cached = slicer.depth_error(*sun, **kwargs)
+    hit = slicer.depth_error(*sun, **kwargs)
+    reference = slicer.depth_error(*sun, **kwargs, use_cache=False)
+    for actual in (cached, hit):
+        np.testing.assert_array_equal(actual[0], reference[0])
+        np.testing.assert_array_equal(actual[1], reference[1])
+        assert actual[2] == reference[2]
+
+
+def test_clear_noise_cache_invalidates_magnitude_zero_points(monkeypatch):
+    slicer.clear_noise_cache()
+    original = slicer._sncosmo_band
+    calls = []
+    def counted(band):
+        calls.append(band)
+        return original(band)
+    monkeypatch.setattr(slicer, '_sncosmo_band', counted)
+    first = slicer.vega_to_ab_offset('J')
+    assert slicer.vega_to_ab_offset('J') == first
+    assert calls == ['J']
+    slicer.clear_noise_cache()
+    assert slicer.vega_to_ab_offset('J') == first
+    assert calls == ['J', 'J']
