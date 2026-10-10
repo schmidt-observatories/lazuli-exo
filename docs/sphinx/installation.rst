@@ -16,6 +16,9 @@ Extra         Pulls in / needed for
 ``test``      ``pytest`` — the test suite
 ``web``       ``flask`` — the local Plotly demo UI under ``webapp/``
 ``docs``      Sphinx, nbsphinx, the RTD theme — building these docs
+``transit``   ``astropy``, ``pandas``, ``jaxoplanet`` — :mod:`lazuli_exo.transit` models
+``archive``   ``astroquery`` — :func:`~lazuli_exo.transit.download_exoplanet_archive`
+``pandora``   ``pandoramoon`` — :class:`~lazuli_exo.transit.MoonTransitModel`
 ============  =====================================================
 
 The parametric model (:func:`lazuli_exo.simulate`) additionally needs

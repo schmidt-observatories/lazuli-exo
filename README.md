@@ -39,7 +39,8 @@ pip install -e .
 ```
 
 Optional extras: `pip install -e ".[plot,web,test,docs]"` (matplotlib for
-`.plot()`, Flask for the applet, pytest, Sphinx). The parametric model's live
+`.plot()`, Flask for the applet, pytest, Sphinx), and `[transit]` /
+`[archive]` / `[pandora]` for the transit models below. The parametric model's live
 noise needs `slicersim` and `sncosmo` installed in the same environment; the
 showcase tables do not.
 
@@ -65,6 +66,24 @@ Parameter names for `simulate`: `T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun, teff_K,
 logg, feh, mag, band (J/H/Ks/V), mag_system ("vega" default or "ab"), t14_s,
 log_met, c_to_o, mu (None = chemistry), log_P_cloud_bar (None = clear),
 log_a_haze (None = no haze), haze_slope`.
+
+# Transit light-curve models
+
+`lazuli_exo.transit` (formerly the standalone `lazuli-transit` package) holds
+the instrument-agnostic transit models the Lazuli simulators share. The WCC
+ETC (`wcc_etc`) consumes them through `relative_flux(time)`.
+
+```python
+from lazuli_exo.transit import TransitModel, download_exoplanet_archive
+
+model = TransitModel(per=1.09, rp=0.117, a=3.04, inc=83.3, u=(0.1, 0.3))
+flux = model.relative_flux(time_days)                 # [transit]: jaxoplanet
+
+df = download_exoplanet_archive()                     # [archive]: astroquery, cached in ~/.lazuli_exo/
+model = TransitModel.from_planet("WASP-12 b", df=df)
+```
+
+`MoonTransitModel` (exomoon transits) needs the `[pandora]` extra.
 
 # Tutorial
 See the `notebooks/` directory:

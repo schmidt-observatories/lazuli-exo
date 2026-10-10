@@ -4,13 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lazuli-exo"
-version = "0.1.0"
+version = "0.2.0"
 description = "Lazuli IFS exoplanet transmission spectroscopy simulator (lookup-table runtime)"
 requires-python = ">=3.10"
 dependencies = ["numpy"]
 
 [project.optional-dependencies]
 plot = ["matplotlib"]
+# lazuli_exo.transit: jaxoplanet-backed TransitModel and the Exoplanet Archive
+# cache. The subpackage imports with numpy only; these are what its models need.
+transit = ["astropy", "pandas", "jaxoplanet"]
+archive = ["astroquery"]
+pandora = ["pandoramoon"]
 test = ["pytest"]
 web = ["flask"]
 # Building the docs also needs a pandoc binary on the build machine

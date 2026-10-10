@@ -53,6 +53,14 @@ Parametric model
    presets
    orbit
 
+Transit models
+--------------
+
+.. toctree::
+   :maxdepth: 2
+
+   transit
+
 Web layer
 ---------
 

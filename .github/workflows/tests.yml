@@ -16,5 +16,5 @@ jobs:
         with:
           python-version: '3.11'
       # slicersim and sncosmo are not on PyPI; the tests that need them skip.
-      - run: pip install -e .[test,plot,web]
+      - run: pip install -e .[test,plot,web,transit]
       - run: pytest
