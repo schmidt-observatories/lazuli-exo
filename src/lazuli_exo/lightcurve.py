@@ -7,16 +7,24 @@ per-sample flux noise at cadence c by
 
     sigma_point = sigma_band * sqrt(t14 / (2 c)),
 
-so recombining the light curve recovers exactly the depth error bar shown
-on the spectrum (the native integration time cancels).
+so a depth + baseline fit to the light curve recovers the depth error bar
+shown on the spectrum to ~10 % depending on the template (0.83-1.07x
+measured over the registry; the native integration time cancels). With
+the baseline held fixed the fit is 1/sqrt(2) "too good" by construction,
+since the sqrt(2) in the tables is the out-of-transit baseline.
 
 Transit shape: when the planet is in the frozen target registry
 (lazuli_exo.targets) and has a limb-darkening table
 (precompute/make_ld_tables.py), the model is a quadratically limb-darkened
-transit with the real geometry — b from a/R*, cos i and the eccentricity
-factor, z(t) along a local circular arc of radius r_c = a (1 - e^2) /
-(1 + e sin w) (the conjunction star-planet distance, so z(0) = b) traversed
-at the Keplerian conjunction sky speed. Per-band (u1, u2) interpolate
+transit with the real geometry: z(t) is the exact sky-projected separation
+of a Keplerian orbit (orbit.projected_separation; Kepler's equation solved
+by Newton iteration, mid-transit at inferior conjunction so z(0) = b with
+the eccentricity factor). The registry t14_s is the measured archive
+duration and sets the noise and the window, but the geometric duration
+t14_geom from (P, a/R*, k, i, e, w) can differ (HAT-P-11 b: 7184 s vs
+8480 s), so the time fed to the orbit is scaled by t14_geom / t14_s and
+the model's first-to-fourth-contact duration equals t14_s
+(meta["t14_geom_s"], meta["time_stretch"]). Per-band (u1, u2) interpolate
 the LD table at the band's bin centers. Otherwise (synthetic planets,
 missing LD table) it falls back to a trapezoid for a central transit
 (b = 0, no limb darkening) with ingress t14 * k / (1 + k), k = sqrt(depth).
@@ -27,7 +35,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from . import tables
+from . import orbit, tables
 
 
 @dataclass
@@ -58,8 +66,8 @@ def transit_flux(z, k, u1, u2, n_r=1601):
     r = c - h*cos(psi) absorbs the square-root behavior at both band edges
     (planet edge and stellar limb). Measured against the analytic
     uniform-source solution, the maximum absolute flux error at the default
-    n_r is <= 1e-6 for k <= 0.2 (~1e-6 at k = 0.3); it grows roughly as k^2
-    and shrinks as n_r grows. Flux is evaluated at exposure centers by the
+    n_r is <= 1e-6 for k <= 0.2 (1.7e-6 at k = 0.3); it grows roughly as
+    k^2 and shrinks as n_r^-1.5. Flux is evaluated at exposure centers by the
     caller — there is no exposure-time integration.
     """
     z = np.atleast_1d(np.asarray(z, float))
@@ -122,17 +130,20 @@ def light_curves(obs, n_groups=1, seed=None, max_points=2000):
     if geo is not None:
         target, wl_ld, u1_ld, u2_ld = geo
         e = 0.0 if target["ecc"] is None else target["ecc"]
-        w = np.radians(90.0 if target["w_deg"] is None else target["w_deg"])
-        a_rs, inc = target["a_over_rs"], np.radians(target["inc_deg"])
-        f_e = (1.0 + e * np.sin(w)) / np.sqrt(1.0 - e**2)
-        # star-planet distance at conjunction; the local circular arc has
-        # this radius, so z(0) = b exactly, and its angular speed is scaled
-        # by a/r_c to keep the Keplerian sky-plane conjunction velocity
-        r_c = a_rs * (1.0 - e**2) / (1.0 + e * np.sin(w))
-        b = r_c * np.cos(inc)
-        theta = (2.0 * np.pi * time_s * f_e * (a_rs / r_c)
-                 / (target["period_d"] * 86400.0))
-        z = r_c * np.hypot(np.sin(theta), np.cos(inc) * np.cos(theta))
+        w_deg = 90.0 if target["w_deg"] is None else target["w_deg"]
+        a_rs, inc_deg, period = (target["a_over_rs"], target["inc_deg"],
+                                 target["period_d"])
+        b = (a_rs * np.cos(np.radians(inc_deg)) * (1.0 - e**2)
+             / (1.0 + e * np.sin(np.radians(w_deg))))
+        # t14_s is the measured archive duration (noise + window); stretch
+        # the orbit's clock so the model transit lasts t14_s as well
+        k_white = np.sqrt(max(_band_combine(obs.depth, obs.depth_err, 1)[1][0],
+                              0.0))
+        t14_geom = orbit.transit_duration_s(period, a_rs, k_white, inc_deg,
+                                            e, w_deg)
+        stretch = t14_geom / t14 if t14_geom > 0 else 1.0
+        z = orbit.projected_separation(time_s * stretch, period, a_rs,
+                                       inc_deg, e, w_deg)
 
         u1 = np.array([np.interp(obs.wavelength[g], wl_ld, u1_ld).mean()
                        for g in groups])
@@ -142,7 +153,8 @@ def light_curves(obs, n_groups=1, seed=None, max_points=2000):
             transit_flux(z, np.sqrt(max(d, 0.0)), u1[i], u2[i])
             for i, d in enumerate(depth)])
         meta.update(shape="quadratic-ld", b=float(b),
-                    a_over_rs=float(a_rs))
+                    a_over_rs=float(a_rs), t14_geom_s=float(t14_geom),
+                    time_stretch=float(stretch))
     else:
         # trapezoid fallback: central transit (b=0), no limb darkening
         u1 = u2 = None
