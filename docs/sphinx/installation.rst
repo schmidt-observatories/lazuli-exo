@@ -37,7 +37,7 @@ Clone the repository and install in *editable* mode so local changes to
 
 .. code-block:: bash
 
-   git clone git@github.com:gummiks/lazuli-exo.git
+   git clone git@github.com:schmidt-observatories/lazuli-exo.git
    cd lazuli-exo
    pip install -e ".[plot,test]"
 

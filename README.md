@@ -29,7 +29,7 @@ physics and caveats: [docs/MODEL.md](docs/MODEL.md).
 
 ## **1. Clone the repository**
 ```sh
-git clone git@github.com:gummiks/lazuli-exo.git
+git clone git@github.com:schmidt-observatories/lazuli-exo.git
 cd lazuli-exo
 ```
 
@@ -65,7 +65,8 @@ obs = lazuli_exo.simulate(p, R=100, n_transits=5)
 Parameter names for `simulate`: `T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun, teff_K,
 logg, feh, mag, band (J/H/Ks/V), mag_system ("vega" default or "ab"), t14_s,
 log_met, c_to_o, mu (None = chemistry), log_P_cloud_bar (None = clear),
-log_a_haze (None = no haze), haze_slope`.
+log_a_haze (None = no haze), haze_slope, f_spot, T_spot_K, f_fac, T_fac_K
+(stellar contamination, default off)`.
 
 # Transit light-curve models
 
