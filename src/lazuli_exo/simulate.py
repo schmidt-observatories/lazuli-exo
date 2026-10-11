@@ -1,4 +1,6 @@
 """Assemble a parametric simulation into the existing SimulatedSpectrum."""
+import numpy as np
+
 from . import binning
 from .atmosphere import R_J, R_SUN, grid_wavelengths, transmission_depth
 from .observe import SimulatedSpectrum
@@ -53,9 +55,13 @@ def simulate(params, R=100, n_transits=1, tables_dir=None,
         mag_system=p.get("mag_system", "vega"), t14_s=p["t14_s"],
         n_transits=n_transits, instrument=instrument, **setup)
 
-    edges = binning.constant_R_edges(wl_n.min(), wl_n.max(), R)
-    depth = binning.bin_model(wl_model, depth_model, edges)
-    sigma = binning.bin_sigma(wl_n, err, edges)
+    # within-pixel photon weighting from the R=1000 PHOENIX SED (coarser than
+    # the R=10,000 star tables observe() uses); F_lambda -> photons: x lambda
+    wl_s = wl_A * 1e-4
+    edges, depth, sigma, info_i = binning.bin_observation(
+        wl_model, depth_model, wl_n, err, R, noise_meta=info_n,
+        f_phot=lambda lam: np.interp(lam, wl_s, flam * wl_s))
+    info_i["photon_weighting"] = "phoenix_sed R=1000"
     keep = (wl_model >= edges[0]) & (wl_model <= edges[-1])
     return SimulatedSpectrum(
         planet=str(p.get("name", "custom")),
@@ -65,5 +71,5 @@ def simulate(params, R=100, n_transits=1, tables_dir=None,
         model_wavelength=wl_model[keep], model_depth=depth_model[keep],
         flat_depth=float((p["R_p_RJ"] * R_J / (p["R_s_RSun"] * R_SUN)) ** 2),
         meta={"atmosphere": info_a, "star": info_s, "noise": info_n,
-              "params": dict(p),
+              "instrument_response": info_i, "params": dict(p),
               "tables_dir": str(tables_dir) if tables_dir else None})

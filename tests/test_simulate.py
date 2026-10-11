@@ -47,6 +47,19 @@ def test_simulate_returns_simulated_spectrum(both_grids, monkeypatch):
     np.testing.assert_allclose(obs1.depth_err / obs.depth_err, 2.0)
 
 
+def test_simulate_instrument_response(both_grids, monkeypatch):
+    import warnings
+    monkeypatch.setattr(sim_mod, "depth_error", fake_depth_error)
+    with pytest.warns(UserWarning, match="exceeds the instrument resolving power"):
+        lazuli_exo.simulate(PARAMS, R=300, tables_dir=both_grids)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        obs = lazuli_exo.simulate(PARAMS, R=50, tables_dir=both_grids)
+    ir = obs.meta["instrument_response"]
+    assert ir["photon_weighting"] == "phoenix_sed R=1000" and ir["edges_snapped"]
+    assert 140 < ir["R_instr_min"] < 160
+
+
 def test_missing_required_key_raises(both_grids, monkeypatch):
     monkeypatch.setattr(sim_mod, "depth_error", fake_depth_error)
     with pytest.raises(ValueError, match="t14_s"):
