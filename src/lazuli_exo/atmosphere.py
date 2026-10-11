@@ -8,8 +8,9 @@ x_p = 0.5 ln[(R_p H)/(R_p,0 H_0)] - ln(T_eq/T_chem):
 
     s(lam)  = (zeta_1 - zeta_0) / (x_1 - x_0)        slant-column exponent, ~1/(1+a)
     zeta_p  = zeta_0 + s (x_p - x_0)                  linear in x, extrapolated
+            + 1.5 s [ln(r/R_p) - ln(r_0/R_fid)]       local column at r(lam), iterated
     zeta_g1 = zeta_p - s gamma_E                      gas tau_chord = 1 level
-    zeta_h1 = -ln P_haze                              haze tau_chord = 1 level
+    zeta_h1 = -ln P_haze + 1.5 ln(r/R_p)              haze tau_chord = 1 level
     tau(z)  = exp((zeta_g1 - z)/s) + exp(zeta_h1 - z)
     zeta    = zeta_d + int_0^inf [1 - exp(-tau(zeta_d + u))] du
     R(lam)  = R_p / (1 - (H / R_p) (zeta - median_band(zeta))),  depth = (R / R_s)^2
@@ -32,8 +33,14 @@ so R_p is the band-median transit radius and H = k T_eq / (mu m_H g(R_p)).
 The radius mapping is the exact isothermal hydrostatic solution with
 g ~ 1/r^2 (1/r is linear in ln P), which POSEIDON also integrates; its first-
 order form R_p + H dzeta under-predicts puffy atmospheres (H/R_p ~ 0.03 gives
-~30 % too little amplitude). Fidelity: isothermal, equilibrium chemistry,
-gray deck, power-law haze; no pressure-broadening correction.
+~30 % too little amplitude). The chord column sqrt(2 pi r H(r)) ~ r^1.5 is
+likewise evaluated at each wavelength's own radius r(lam) (fixed point in
+ln r, 2-4 steps), net of the curvature the fiducial already carries at its
+own r_0(lam); without it a 1 R_J, g = 1.7 m/s^2 planet (H/R_p = 0.033) came
+out 7 % low in amplitude. The residual 0.1-0.2 H there is the second-order
+sphericity term (tau sampled across r(z), not at r_eff). Fidelity: isothermal,
+equilibrium chemistry, gray deck, power-law haze; no pressure-broadening
+correction.
 """
 import numpy as np
 
@@ -189,29 +196,54 @@ def transmission_depth(wl_um, *, T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun,
     zeta_0 = _trilinear(g["zeta"][..., 0, :], axes, point)
     zeta_1 = _trilinear(g["zeta"][..., 1, :], axes, point)
     slope = np.clip((zeta_1 - zeta_0) / (x_nodes[1] - x_nodes[0]), *S_RANGE)
-    zeta = zeta_0 + slope * (shift - x_nodes[0])
+    zeta_p = zeta_0 + slope * (shift - x_nodes[0])
 
     zeta_d = None if log_P_cloud_bar is None else -log_P_cloud_bar * np.log(10.0)
+    zeta_h1 = None
     if log_a_haze is not None:
         kappa = 10.0 ** log_a_haze * SIGMA_H2_RAYLEIGH_350NM * (
             wl_grid / HAZE_LAMBDA0_UM) ** haze_slope          # m^2 per molecule
         P_haze_bar = K_B * T_eq_K / (kappa * np.sqrt(2 * np.pi * R_p * H)) / 1e5
-        # grid zeta is an effective-radius level (tau_chord = 1 + s gamma_E);
-        # the haze level is tau_chord = 1 with exponent 1: sum the two tau
-        # profiles at their tau = 1 levels and integrate the effective radius
-        zeta = _zeta_eff(zeta - slope * EULER_GAMMA, slope, -np.log(P_haze_bar), zeta_d)
-    elif zeta_d is not None:
-        with np.errstate(over="ignore"):      # _ein is analytic for large a
-            zeta = zeta_d + slope * _ein(np.exp((zeta - zeta_d) / slope - EULER_GAMMA))
+        zeta_h1 = -np.log(P_haze_bar)
+
+    def zeta_eff(dz_gas, dz_haze):
+        """Effective-radius zeta with the local-column corrections applied to the
+        gas (effective-radius level zeta_p) and haze (tau_chord = 1 level)."""
+        zg = zeta_p + dz_gas
+        if zeta_h1 is not None:
+            # grid zeta is an effective-radius level (tau_chord = 1 + s gamma_E);
+            # the haze level is tau_chord = 1 with exponent 1: sum the two tau
+            # profiles at their tau = 1 levels and integrate the effective radius
+            return _zeta_eff(zg - slope * EULER_GAMMA, slope, zeta_h1 + dz_haze, zeta_d)
+        if zeta_d is not None:
+            with np.errstate(over="ignore"):      # _ein is analytic for large a
+                return zeta_d + slope * _ein(np.exp((zg - zeta_d) / slope - EULER_GAMMA))
+        return zg
 
     band = (wl_grid >= BAND_UM[0]) & (wl_grid <= BAND_UM[1])
-    zeta_ref = float(np.median(zeta[band]))
-    # 1/r linear in ln P (isothermal, g ~ r^-2); the denominator only
-    # approaches 0 for an unbound atmosphere (H/R_p * dzeta -> 1).
-    denom = 1.0 - (H / R_p) * (zeta - zeta_ref)
-    if denom.min() <= 0.1:
-        raise ValueError(
-            f"atmosphere is unbound for this (T_eq, mu, g): H/R_p = {H / R_p:.3f}")
+    # Local slant column: the chord column at wavelength lambda is
+    # sqrt(2 pi r H(r)) ~ r^1.5 at that wavelength's own radius r(lambda), not
+    # at R_p, so zeta_g1 gains 1.5 s ln(r/R_p) and zeta_h1 gains 1.5 ln(r/R_p).
+    # The grid already carries the fiducial's own curvature, 1.5 s ln(r_0/R_fid)
+    # with r_0 = r(zeta_0) through the same mapping, which is subtracted so it
+    # is not counted twice (a planet on the node gets no correction; constant
+    # offsets drop out in the band median). Fixed point in ln r: the
+    # contraction factor is ~1.5 s H/R_p, so thin planets converge in 2 steps.
+    ln_r0 = -np.log1p(-(H_fid / fid["R_p_m"]) * (zeta_0 - np.median(zeta_0[band])))
+    ln_r = ln_r0                                  # start from the fiducial's shape
+    for n_iter in range(1, 9):
+        dz_gas, dz_haze = 1.5 * slope * (ln_r - ln_r0), 1.5 * ln_r
+        zeta = zeta_eff(dz_gas, dz_haze)
+        zeta_ref = float(np.median(zeta[band]))
+        # 1/r linear in ln P (isothermal, g ~ r^-2); the denominator only
+        # approaches 0 for an unbound atmosphere (H/R_p * dzeta -> 1).
+        denom = 1.0 - (H / R_p) * (zeta - zeta_ref)
+        if denom.min() <= 0.1:
+            raise ValueError(
+                f"atmosphere is unbound for this (T_eq, mu, g): H/R_p = {H / R_p:.3f}")
+        ln_r, ln_r_prev = -np.log(denom), ln_r
+        if np.abs(ln_r - ln_r_prev).max() < 1e-4:
+            break
     radius = R_p / denom
     depth_grid = (radius / R_s) ** 2
     depth = np.interp(wl_um, wl_grid, depth_grid)
@@ -222,6 +254,9 @@ def transmission_depth(wl_um, *, T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun,
             "T_chem_K": T_chem, "T_clamped": bool(T_clamped),
             "zeta_ref": zeta_ref, "zeta_shift": float(shift),
             "column_slope_median": float(np.median(slope[band])),
+            "column_iterations": n_iter,
+            "column_correction_max_H": float(max(
+                np.abs(dz_gas).max(), 0.0 if zeta_h1 is None else np.abs(dz_haze).max())),
             "feature_amplitude_ppm": float(np.ptp(depth_grid[band]) * 1e6),
             "band_um": list(BAND_UM)}
     return depth, info
