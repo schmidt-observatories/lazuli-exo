@@ -20,7 +20,7 @@ def test_cool_spot_is_darker_and_bluer():
     """Shipped grid: spot on a 3100 K star raises depth, more so in the blue."""
     eps, info = star.contamination(WL, 3100.0, 5.0, 0.0, f_spot=0.03)
     assert (eps > 1).all() and eps[0] > eps[-1]
-    assert info["blackbody_fallback"] == [] and info["eps_max"] > info["eps_min"]
+    assert info["clamped_teff"] == [] and info["eps_max"] > info["eps_min"]
     _, info_fgk = star.contamination(WL, 5000.0, 4.5, 0.0, f_spot=0.03)
     assert info_fgk["T_spot_K"] == pytest.approx(4000.0)
 
@@ -37,7 +37,7 @@ def test_blackbody_floor_warns(phoenix_fixture):
     with pytest.warns(UserWarning, match="PHOENIX"):
         _, info = star.contamination(WL, 2100.0, 5.0, 0.0, f_spot=0.1,
                                      tables_dir=phoenix_fixture)
-    assert info["blackbody_fallback"] == ["spot"]
+    assert info["clamped_teff"] == ["spot"]
 
 
 def test_gj1214b_giant_spots_via_observe():

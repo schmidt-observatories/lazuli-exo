@@ -6,49 +6,38 @@ import numpy as np
 from . import tables
 from .atmosphere import _trilinear
 
-H_PLANCK, C_LIGHT, K_B = 6.62607015e-34, 2.99792458e8, 1.380649e-23
-
-
-def _blackbody_flam(wl_um, T):
-    """pi * B_lambda in erg s^-1 cm^-2 A^-1 (surface flux)."""
-    lam = wl_um * 1e-6
-    B = (2 * H_PLANCK * C_LIGHT ** 2 / lam ** 5
-         / np.expm1(H_PLANCK * C_LIGHT / (lam * K_B * T)))
-    return np.pi * B * 1e-7            # W m^-2 m^-1 -> erg s^-1 cm^-2 A^-1
-
 
 def phoenix_sed(teff_K, logg, feh, tables_dir=None):
     """(wavelength [A], F_lambda [erg s-1 cm-2 A-1], info) for a star.
 
-    Trilinear in (log T_eff, log g, [Fe/H]). log g and [Fe/H] clamp to the
-    grid edges (reported in info["clamped"]); T_eff below the grid floor
-    returns a blackbody (info["fallback"] == "blackbody"); above the ceiling
-    raises ValueError. Absolute flux scale is irrelevant downstream
-    (slicersim renormalizes to the magnitude).
+    Trilinear in (log T_eff, log g, [Fe/H]) on the solar-metallicity grid
+    (2000-12000 K, log g 3.5-5.5, [Fe/H] = 0 only; issue #34). T_eff below
+    the floor, log g outside its range and any non-zero [Fe/H] clamp to the
+    nearest node and are reported in info["clamped"][name] = (requested,
+    used); T_eff above the ceiling raises ValueError. info["fallback"] is
+    always None (kept for report.py). Absolute flux scale is irrelevant
+    downstream (slicersim renormalizes to the magnitude).
     """
     if not (np.isfinite(teff_K) and teff_K > 0):
         raise ValueError(f"T_eff must be > 0 K, got {teff_K}")
     g = tables.load_phoenix_grid(tables_dir)
-    wl_um = g["wavelength_um"]
     teff_axis = g["teff_K"]
-    info = {"fallback": None, "clamped": {}, "teff_K": float(teff_K),
-            "logg_used": float(logg), "feh_used": float(feh), "grid": "phoenix"}
     if teff_K > teff_axis.max():
         raise ValueError(f"T_eff={teff_K} K above the PHOENIX grid ceiling "
                          f"{teff_axis.max():.0f} K")
-    if teff_K < teff_axis.min():
-        info["fallback"] = "blackbody"
-        info["grid"] = "blackbody"
-        return wl_um * 1e4, _blackbody_flam(wl_um, float(teff_K)), info
-    for name, x, axis in (("logg", logg, g["logg"]), ("feh", feh, g["feh"])):
+    info = {"fallback": None, "clamped": {}, "teff_K": float(teff_K),
+            "teff_used": float(teff_K), "logg_used": float(logg),
+            "feh_used": float(feh), "grid": "phoenix"}
+    for name, x, axis in (("teff", teff_K, teff_axis), ("logg", logg, g["logg"]),
+                          ("feh", feh, g["feh"])):
         xc = float(np.clip(x, axis.min(), axis.max()))
         if xc != float(x):
             info["clamped"][name] = (float(x), xc)
             info[f"{name}_used"] = xc
     axes = (np.log10(teff_axis), g["logg"], g["feh"])
-    point = (np.log10(teff_K), info["logg_used"], info["feh_used"])
+    point = (np.log10(info["teff_used"]), info["logg_used"], info["feh_used"])
     log_flam = _trilinear(g["log_flam"], axes, point)
-    return wl_um * 1e4, 10.0 ** log_flam, info
+    return g["wavelength_um"] * 1e4, 10.0 ** log_flam, info
 
 
 # Covering fractions from the literature, for use as `f_spot`/`f_fac` inputs.
@@ -87,7 +76,7 @@ def contamination(wl_um, teff_K, logg, feh, f_spot=0.0, T_spot_K=None,
     T_fac = T_eff + 100 K. Returns (eps on `wl_um`, info). With
     f_spot = f_fac = 0 returns exactly ones without touching the grid.
     Warns (UserWarning) if a component falls below the PHOENIX floor, where
-    phoenix_sed substitutes a blackbody that has no molecular bands.
+    phoenix_sed clamps T_eff to the 2000 K node (info["clamped_teff"]).
     See TLSE_PRESETS for literature covering fractions.
     """
     wl_um = np.asarray(wl_um, dtype=float)
@@ -101,14 +90,14 @@ def contamination(wl_um, teff_K, logg, feh, f_spot=0.0, T_spot_K=None,
         T_fac_K = teff_K + 100.0
     info = {"f_spot": f_spot, "T_spot_K": float(T_spot_K), "f_fac": f_fac,
             "T_fac_K": float(T_fac_K), "teff_K": float(teff_K),
-            "eps_min": 1.0, "eps_max": 1.0, "blackbody_fallback": []}
+            "eps_min": 1.0, "eps_max": 1.0, "clamped_teff": []}
     if f_spot == 0.0 and f_fac == 0.0:
         return np.ones_like(wl_um), info
 
     def sed(name, T):
         wl_A, flam, i = phoenix_sed(T, logg, feh, tables_dir=tables_dir)
-        if i["fallback"] == "blackbody":
-            info["blackbody_fallback"].append(name)
+        if "teff" in i["clamped"]:
+            info["clamped_teff"].append(name)
         return wl_A / 1e4, flam
 
     wl_g, F_phot = sed("phot", teff_K)
@@ -118,10 +107,10 @@ def contamination(wl_um, teff_K, logg, feh, f_spot=0.0, T_spot_K=None,
     if f_fac > 0:
         term += f_fac * (1 - sed("fac", T_fac_K)[1] / F_phot)
     eps_g = 1.0 / (1.0 - term)
-    if info["blackbody_fallback"]:
+    if info["clamped_teff"]:
         warnings.warn(
-            f"contamination: {info['blackbody_fallback']} below the PHOENIX "
-            "grid floor; blackbody fallback has no molecular bands",
+            f"contamination: {info['clamped_teff']} below the PHOENIX grid "
+            "floor; T_eff clamped to the coolest node",
             UserWarning, stacklevel=2)
     band = (wl_g >= 0.40) & (wl_g <= 1.70)
     info["eps_min"] = float(eps_g[band].min())

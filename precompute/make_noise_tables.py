@@ -7,6 +7,10 @@ Vega -> AB conversion of the archive J magnitude (slicersim normalizes in AB),
 the readout desaturation loop for bright hosts (see its docstring), and the
 equal-baseline depth-error formula. Residual saturation at the ramp floor is
 recorded in the table meta, never hidden.
+
+The SED comes from star.phoenix_sed (the same solar-metallicity PHOENIX grid
+simulate() uses), so observe() and simulate() share one SED by construction
+(issue #34). The POSEIDON star tables (star/<slug>.npz) are validation data.
 """
 import warnings
 from datetime import date
@@ -24,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 from lazuli_exo import tables  # noqa: E402
 from lazuli_exo.slicer import depth_error  # noqa: E402
+from lazuli_exo.star import phoenix_sed  # noqa: E402
 from lazuli_exo.targets import PLANET_NAMES, get_target  # noqa: E402
 
 TABLES = tables.resolve_tables_dir(None)
@@ -34,15 +39,15 @@ BAND = "J"            # 2MASS J; archive J magnitudes are Vega
 
 def run_planet(name):
     t = get_target(name)
-    wl_star_um, f_star, star_meta = tables.load_star(TABLES, name)
-    wl_um, err, info = depth_error(wl_star_um * 1.0e4, f_star, mag=t["J_mag"],
+    wl_star_A, f_star, star_info = phoenix_sed(t["T_eff_K"], t["log_g_star"], t["Met_star"])
+    wl_um, err, info = depth_error(wl_star_A, f_star, mag=t["J_mag"],
                                    band=BAND, mag_system="vega",
                                    t14_s=t["t14_s"], instrument=INSTRUMENT)
     tables.write_noise_table(
         TABLES, name, wl_um, err,
         meta={"generator": "make_noise_tables.py", "created": str(date.today()),
               "J_mag": t["J_mag"], "norm_band": info["sncosmo_band"],
-              "stellar_grid": star_meta.get("stellar_grid", "phoenix"),
+              "stellar_grid": "phoenix_grid.npz solar [Fe/H]", "star": star_info,
               **info})
     sat = ("" if info["fully_desaturated"]
            else f"  RESIDUAL SATURATION nsat={info['nsaturated_detpx']}")
