@@ -69,9 +69,18 @@ def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None):
             "uncertainties are unvalidated — do not use for quantitative "
             "forecasts", UserWarning, stacklevel=2)
 
-    edges = binning.constant_R_edges(wl_n.min(), wl_n.max(), R)
-    depth = binning.bin_model(wl_m, d_m, edges)
-    err = binning.bin_sigma(wl_n, e_n, edges) / np.sqrt(n_transits)
+    # within-pixel photon weighting from the R=10,000 star table (F_lambda ->
+    # photons: x lambda; absolute scale cancels); uniform if the table is absent
+    try:
+        wl_s, f_s, _ = tables.load_star(tdir, p["name"])
+        f_phot, weighting = (lambda lam: np.interp(lam, wl_s, f_s * wl_s),
+                             "star table R=10000")
+    except FileNotFoundError:
+        f_phot, weighting = None, "uniform (no star table)"
+    edges, depth, err, info_i = binning.bin_observation(
+        wl_m, d_m, wl_n, e_n, R, f_phot=f_phot, noise_meta=meta_n)
+    err = err / np.sqrt(n_transits)
+    info_i["photon_weighting"] = weighting
 
     keep = (wl_m >= edges[0]) & (wl_m <= edges[-1])
     return SimulatedSpectrum(
@@ -80,5 +89,6 @@ def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None):
         depth_err=err, model_wavelength=wl_m[keep], model_depth=d_m[keep],
         flat_depth=float((p["R_p_RJ"] * R_J / (p["R_s_RSun"] * R_SUN)) ** 2),
         meta={"atmosphere": info_a, "noise": meta_n, "params": p,
+              "instrument_response": info_i,
               "k_source": "archive R_p / R_s (registry R_p_RJ, R_s_RSun)",
               "tables_dir": str(tdir)})

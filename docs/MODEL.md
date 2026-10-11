@@ -61,6 +61,35 @@ the eleven unsaturated hosts; the three bright hosts that sit at the readout
 floor (HAT-P-11 b now desaturated, HD 189733 b and HD 209458 b still flagged)
 are saturation-limited and essentially unchanged.
 
+**Instrument response (binning, GH #5).** A noise-table channel is one
+detector pixel column (525 px, 0.400-1.699 um); slicersim's LSF is a Gaussian
+of sigma = 1.15 px, constant in pixel space (resolution element 2.3 px,
+`config/lazuli_cbe.toml` `dispersion_resolution`), so the physical resolving
+power is `R_instr = lambda / (2.3 dlambda_px)` = 101 (0.99 um) to 369
+(0.40 um), median 156 (`binning.R_instr`). `binning.instrument_response`
+puts the R=10,000 model and the stellar photon flux on a fine grid uniform in
+pixel coordinate (100 points/px), convolves `F (1 - d)` and `F` with the LSF,
+integrates per pixel and returns `1 - sum_in/sum_out` per channel; the
+within-pixel photon weight is the R=10,000 star table on the `observe()` path
+(uniform if the table is missing) and the R=1000 `phoenix_sed` on the
+`simulate()` path (coarser; ~76 ppm for GJ 1214 b at R=100 per the review).
+The constant-R bin edges are snapped to channel edges so every bin is an
+integer group of pixels, and the per-channel depths are combined with the
+same `1/sigma^2` weights whose uncertainty `bin_sigma` returns, so `depth`
+and `depth_err` describe the same estimator (this removes the 0.87-1.18
+`depth_err` sawtooth at R=100). Before this, the unconvolved, unweighted mean
+overshot the Na/K cores by 2-4 sigma per bin at R >= 100 (HD 189733 b R=200
+3.7 sigma, WASP-39 b R=100 3.0 sigma); against the review's full forward
+model the residual is now <= 0.1 sigma. Requesting `R > R_instr.min()` over
+the binned range emits a `UserWarning` (not an error): the bins are then
+narrower than a resolution element and their depths are correlated by the
+LSF, which is fine for oversampled display but not for a statistical
+forecast. `meta["instrument_response"]` records `lsf_sigma_px`,
+`resolution_px`, `R_instr_min/max`, `photon_weighting` and `edges_snapped`;
+the LSF constants are read from the noise-table meta when present
+(`lsf_sigma_px`, `resolution_px`, to be written on the next table
+regeneration, #31) and default to 1.15 / 2.3 otherwise.
+
 **Instrument setup.** By default the readout is slicersim's and is shortened
 (groups, then frames halved) until the host no longer saturates; the metadata
 records `readout_mode = "auto"`, `default_nmd` and `nmd_used`. A caller that
