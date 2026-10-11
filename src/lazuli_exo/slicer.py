@@ -286,7 +286,7 @@ def clear_noise_cache():
 
 def depth_error(wl_A, f_lambda, *, mag, band="J", mag_system="vega", t14_s,
                 n_transits=1, instrument="lazuli_cbe", use_cache=True,
-                nmd=None, tframe=None, spectrograph_mode=None,
+                nmd=None, tframe=None, spectrograph_mode="narrow",
                 guiding_sigma=None, zodi_ab_mag=None, n_reset_frames=1):
     """Per-channel 1-sigma transit-depth uncertainty for `n_transits` transits.
 
@@ -304,11 +304,14 @@ def depth_error(wl_A, f_lambda, *, mag, band="J", mag_system="vega", t14_s,
     reset overhead): t_obs = (nframes + n_reset_frames) * tframe * nramps,
     while info["t_int_s"] is slicersim's nframes * tframe * nramps.
 
-    Instrument setup (all optional, None = slicersim's default; see
+    Instrument setup (optional, None = slicersim's default; see
     normalize_setup): ``nmd`` fixes the MACC readout and reports its saturation
     instead of shortening the ramp (info["readout_mode"] == "fixed"); ``tframe``
     [s], ``spectrograph_mode`` ('narrow'|'wide'), ``guiding_sigma`` [arcsec] and
-    ``zodi_ab_mag`` [AB mag/arcsec^2] are applied before the readout. An ETC
+    ``zodi_ab_mag`` [AB mag/arcsec^2] are applied before the readout. The field
+    defaults to 'narrow' rather than to slicersim's default because slicersim
+    >= 1.3.3 builds a LazuliTarget without rescaling it to any field (half the
+    throughput); the noise tables were computed in the narrow field. An ETC
     that shows this result next to its own single-exposure result should pass
     the same setup so the two describe one observation.
 
