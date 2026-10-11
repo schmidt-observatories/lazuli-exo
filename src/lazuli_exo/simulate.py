@@ -3,12 +3,13 @@ from . import binning
 from .atmosphere import R_J, R_SUN, grid_wavelengths, transmission_depth
 from .observe import SimulatedSpectrum
 from .slicer import depth_error
-from .star import phoenix_sed
+from .star import contamination, phoenix_sed
 
 REQUIRED = ("T_eq_K", "R_p_RJ", "M_p_MJ", "R_s_RSun", "teff_K", "logg", "feh",
             "mag", "t14_s")
 ATMO_DEFAULTS = dict(log_met=0.0, c_to_o=0.55, mu=None, log_P_cloud_bar=None,
                      log_a_haze=None, haze_slope=-4.0)
+TLSE_DEFAULTS = dict(f_spot=0.0, T_spot_K=None, f_fac=0.0, T_fac_K=None)
 
 
 def simulate(params, R=100, n_transits=1, tables_dir=None,
@@ -17,7 +18,9 @@ def simulate(params, R=100, n_transits=1, tables_dir=None,
 
     Required keys: T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun, teff_K, logg, feh, mag,
     t14_s. Optional: name, scenario, band ("J"), mag_system ("vega"),
-    log_met, c_to_o, mu, log_P_cloud_bar, log_a_haze, haze_slope. Needs
+    log_met, c_to_o, mu, log_P_cloud_bar, log_a_haze, haze_slope, and the
+    stellar-contamination keys f_spot, T_spot_K, f_fac, T_fac_K
+    (star.contamination; default 0 = immaculate photosphere). Needs
     slicersim + sncosmo at call time (not at import).
 
     ``**setup`` is the optional instrument setup forwarded to
@@ -29,7 +32,7 @@ def simulate(params, R=100, n_transits=1, tables_dir=None,
         raise ValueError(f"simulate() params missing {missing}")
     if n_transits < 1:
         raise ValueError("n_transits must be >= 1")
-    p = {**ATMO_DEFAULTS, **params}
+    p = {**ATMO_DEFAULTS, **TLSE_DEFAULTS, **params}
 
     wl_model = grid_wavelengths(tables_dir)
     depth_model, info_a = transmission_depth(
@@ -38,6 +41,11 @@ def simulate(params, R=100, n_transits=1, tables_dir=None,
         mu=p["mu"], log_P_cloud_bar=p["log_P_cloud_bar"],
         log_a_haze=p["log_a_haze"], haze_slope=p["haze_slope"],
         tables_dir=tables_dir)
+    eps, info_a["tlse"] = contamination(
+        wl_model, p["teff_K"], p["logg"], p["feh"], f_spot=p["f_spot"],
+        T_spot_K=p["T_spot_K"], f_fac=p["f_fac"], T_fac_K=p["T_fac_K"],
+        tables_dir=tables_dir)
+    depth_model = depth_model * eps
     wl_A, flam, info_s = phoenix_sed(p["teff_K"], p["logg"], p["feh"],
                                      tables_dir=tables_dir)
     wl_n, err, info_n = depth_error(

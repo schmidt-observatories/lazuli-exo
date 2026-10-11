@@ -6,6 +6,7 @@ import numpy as np
 
 from . import binning, presets, tables
 from .atmosphere import R_J, R_SUN, grid_wavelengths, transmission_depth
+from .star import contamination
 
 # keys transmission_depth() takes from a showcase/simulate params dict
 ATMO_KEYS = ("T_eq_K", "R_p_RJ", "M_p_MJ", "R_s_RSun", "log_met", "c_to_o",
@@ -44,7 +45,8 @@ class SimulatedSpectrum:
         return plot_spectrum(self, ax=ax, **kwargs)
 
 
-def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None):
+def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None,
+            f_spot=0.0, T_spot_K=None, f_fac=0.0, T_fac_K=None):
     """Simulate observing showcase `planet` under `scenario` for `n_transits`.
 
     The spectrum is the parametric model evaluated at the frozen registry
@@ -52,6 +54,9 @@ def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None):
     and one radius convention: the archive R_p is the band-median transit
     radius and H uses the true T_eq. The per-bin 1-sigma uncertainties come
     from the precomputed slicersim noise table, scaled by 1/sqrt(n_transits).
+    `f_spot, T_spot_K, f_fac, T_fac_K` add stellar contamination
+    (star.contamination, registry T_eff/log g/[Fe/H]); default off.
+    `flat_depth` stays the geometric (R_p/R_s)^2.
     """
     if n_transits < 1:
         raise ValueError("n_transits must be >= 1")
@@ -60,6 +65,10 @@ def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None):
     wl_m = grid_wavelengths(tdir)
     d_m, info_a = transmission_depth(
         wl_m, **{k: p[k] for k in ATMO_KEYS}, tables_dir=tdir)
+    eps, info_a["tlse"] = contamination(
+        wl_m, p["teff_K"], p["logg"], p["feh"], f_spot=f_spot,
+        T_spot_K=T_spot_K, f_fac=f_fac, T_fac_K=T_fac_K, tables_dir=tdir)
+    d_m = d_m * eps
     wl_n, e_n, meta_n = tables.load_noise(tdir, planet)
 
     if meta_n.get("fully_desaturated") is False:
