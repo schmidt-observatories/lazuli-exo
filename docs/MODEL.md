@@ -53,6 +53,23 @@ depth baseline `k = R_p/R_s` is taken from the registry radii (`R_p_RJ`,
 `R_s_RSun`) on both paths and recorded as `meta["k_source"]`; the registry
 `depth` field (archive `pl_ratror^2`) is informational.
 
+**Stellar SED.** `star.phoenix_sed(teff_K, logg, feh)` interpolates the
+pysynphot PHOENIX `phoenixm00` folder (2000-12000 K, log g 3.5-5.5, R = 1000
+storage, trilinear in log F / log T_eff). It is **solar metallicity by
+construction**: the non-solar pysynphot folders are a different, low-resolution
+(R ~ 741) product with missing log g columns and cool-star spectra wrong by
+1-3 mag in V-J, and Gaia XP prefers the solar node for every metal-rich FGK
+host (issue #34). The `feh` argument is accepted for API stability but any
+non-zero value is clamped to 0 and reported in `info["clamped"]["feh"]`; T_eff
+below 2000 K and log g outside 3.5-5.5 clamp to the edge node the same way
+(`info["clamped"]["teff"/"logg"]`), T_eff above 12000 K raises. log g 5.5 is
+only tabulated below 5100 K and log g 5.0 below 10200 K; hotter nodes repeat
+the nearest available column (`meta["filled_from_nearest_logg"]`).
+`precompute/make_noise_tables.py` builds the noise tables from this same SED,
+so `observe()` and `simulate()` share one stellar spectrum (the committed
+noise tables are regenerated in a separate pass, issue #34); the POSEIDON
+star tables `star/<slug>.npz` are validation data only.
+
 **Magnitudes.** slicersim normalizes in AB; archive J magnitudes are Vega.
 `lazuli_exo.slicer.depth_error` converts (J: +0.90 mag via sncosmo) and reports
 the offset in `info`. The committed noise tables were regenerated with this
@@ -128,7 +145,7 @@ POSEIDON_input_data=$HOME/inputs/ PYSYN_CDBS=$HOME/inputs/stellar_grids \
 
 # 4. parametric grids (zeta: poseidon env, ~14 min, 6 GB; PHOENIX: poseidon env, ~1 min)
 POSEIDON_input_data=$HOME/inputs/ ~/anaconda3/envs/poseidon/bin/python precompute/make_zeta_grid.py
-PYSYN_CDBS=$HOME/inputs/stellar_grids ~/anaconda3/envs/poseidon/bin/python precompute/make_phoenix_grid.py
+PYSYN_CDBS=$HOME/inputs/stellar_grids PYTHONPATH=src python precompute/make_phoenix_grid.py   # numpy + astropy only
 ~/anaconda3/envs/py313/bin/python precompute/validate_zeta_grid.py   # 14 x 5 vs POSEIDON tables
 
 # 5. limb-darkening tables (py313 env; needs exotic-ld, network on first run;
@@ -177,6 +194,11 @@ repo/package.
   Per-point noise is derived from the band's depth precision via
   sigma_pt = sigma_band * sqrt(t14 / 2c), consistent with the noise tables'
   equal out-of-transit baseline assumption.
+- **Stellar SED is solar metallicity, PHOENIX only**: see "Stellar SED"
+  above. For M-dwarf hosts PHOENIX is 15-25 % too bright at 0.45 um and up to
+  2x in the 0.60 um TiO bins against Gaia XP, so blue-end noise for GJ 1214 b,
+  LHS 1140 b, GJ 3470 b and TRAPPIST-1 e is optimistic by ~10-25 % in sigma
+  (review 2026-10-10, F4).
 - **Cold-planet temperature floor**: the fastchem equilibrium-chemistry grid
   has a hard floor at 300 K. K2-18 b (T_eq ~ 284 K), LHS 1140 b (~226 K), and
   TRAPPIST-1 e (~250 K) are clamped to 300 K for both the isotherm and the
