@@ -35,6 +35,8 @@ order form R_p + H dzeta under-predicts puffy atmospheres (H/R_p ~ 0.03 gives
 ~30 % too little amplitude). Fidelity: isothermal, equilibrium chemistry,
 gray deck, power-law haze; no pressure-broadening correction.
 """
+import warnings
+
 import numpy as np
 
 from . import tables
@@ -51,6 +53,8 @@ BAND_UM = (0.40, 1.70)
 EULER_GAMMA = 0.5772156649015329
 
 S_RANGE = (0.25, 1.5)            # physical range of the slant-column exponent
+MU_MAX_SOLAR = 15.0              # warn above: user mu with solar H2/He opacities (#39)
+T_HOT_K = 2000.0                 # warn above: no TiO/VO/H-/Fe/Mg optical opacities (#38)
 
 # Ein(a) = int_0^a (1 - e^-s)/s ds, tabulated once on a log grid (numpy only);
 # Ein(a) = gamma + ln a + E1(a) with E1(50) ~ 5e-24, so a > 50 is analytic.
@@ -224,4 +228,22 @@ def transmission_depth(wl_um, *, T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun,
             "column_slope_median": float(np.median(slope[band])),
             "feature_amplitude_ppm": float(np.ptp(depth_grid[band]) * 1e6),
             "band_um": list(BAND_UM)}
+    # validity warnings (#39); the depth is still returned
+    if T_clamped and T_eq_K < T_chem:
+        warnings.warn(
+            f"T_eq={T_eq_K:.0f} K is below the chemistry grid floor ({T_chem:.0f} K): "
+            f"abundances are evaluated at {T_chem:.0f} K, the scale height at {T_eq_K:.0f} K; "
+            "K2-18 b-like amplitudes are 0.74-0.93 of a 300 K atmosphere (see MODEL.md)",
+            UserWarning, stacklevel=2)
+    if mu is not None and mu_used > MU_MAX_SOLAR:
+        warnings.warn(
+            f"mu={mu_used:g} with solar-composition H2/He opacities: secondary (N2/CO2/H2O) "
+            "atmospheres are out of scope; the spectrum is a solar gas with a small scale "
+            "height, 5-10x larger than published N2/CO2 forecasts for TRAPPIST-1 e-like planets",
+            UserWarning, stacklevel=2)
+    if T_eq_K > T_HOT_K:
+        warnings.warn(
+            f"T_eq={T_eq_K:.0f} K: optical opacities incomplete above {T_HOT_K:.0f} K "
+            "(no TiO/VO/H-/Fe/Mg, #38); the 0.4-1.0 um shape and the Na/K band S/N are unreliable",
+            UserWarning, stacklevel=2)
     return depth, info
