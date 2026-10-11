@@ -97,13 +97,24 @@ so `observe()` and `simulate()` share one stellar spectrum (the committed
 noise tables are regenerated in a separate pass, issue #34); the POSEIDON
 star tables `star/<slug>.npz` are validation data only.
 
+**Spectrograph field.** `depth_error` rescales the slicersim target to the
+narrow field by default (`spectrograph_mode="narrow"`) instead of relying on
+slicersim's default: from slicersim 1.3.3 a freshly built `LazuliTarget` is
+left un-rescaled, with half the narrow-field throughput, which made the live
+path 1.4x noisier than the committed tables (built in the narrow field with
+slicersim 1.0.0). Pass `spectrograph_mode="wide"` for the wide field.
+
 **Magnitudes.** slicersim normalizes in AB; archive J magnitudes are Vega.
 `lazuli_exo.slicer.depth_error` converts (J: +0.90 mag via sncosmo) and reports
 the offset in `info`. The committed noise tables were regenerated with this
 conversion on 2026-10-04 and are 1.4-1.5x more conservative than before for
-the eleven unsaturated hosts; the three bright hosts that sit at the readout
-floor (HAT-P-11 b now desaturated, HD 189733 b and HD 209458 b still flagged)
-are saturation-limited and essentially unchanged.
+the eleven hosts slicersim reported as unsaturated. That report was wrong for
+12 of the 14 hosts (saturation was tested at the (n-1)-group signal, see
+"Known approximations"); the committed tables still carry it until the
+regeneration tracked in #31, which will also apply the pixel-averaged SED and
+the ramp reset overhead below (median `depth_err` x1.09-1.13 for GJ 1214 b,
+TRAPPIST-1 e and WASP-39 b, x1.6-1.9 at 0.45 um; x1.14-1.30 for the three
+bright hosts at the 0.7 s subframe).
 
 **Instrument response (binning, GH #5).** A noise-table channel is one
 detector pixel column (525 px, 0.400-1.699 um); slicersim's LSF is a Gaussian
@@ -135,8 +146,12 @@ the LSF constants are read from the noise-table meta when present
 regeneration, #31) and default to 1.15 / 2.3 otherwise.
 
 **Instrument setup.** By default the readout is slicersim's and is shortened
-(groups, then frames halved) until the host no longer saturates; the metadata
-records `readout_mode = "auto"`, `default_nmd` and `nmd_used`. A caller that
+(groups, then frames halved, then the 0.7 s rapid subframe `tframe` unless
+the caller fixed it) until no detector pixel exceeds the full well at the
+last read of the ramp; the metadata records `readout_mode = "auto"`,
+`default_nmd`, `nmd_used` and `tframe_s`. Before slicersim sees the SED it
+is box-averaged over each instrument pixel (`slicer.pixel_average_sed`),
+because slicersim point-samples the spectrum at the pixel centres. A caller that
 shows this result next to its own single-exposure ETC can instead pass the
 same observation: `depth_error(..., nmd=(N, M, D), tframe=, spectrograph_mode=,
 guiding_sigma=, zodi_ab_mag=)` (also as keywords of `simulate`). A given `nmd`
@@ -322,15 +337,41 @@ repo/package.
   | HAT-P-11 b | 0.03 / 0.08 | 60 / 172 |
   | HD 189733 b | 0.03 / 0.08 | 450 / 1283 |
 
-- **Residual detector saturation on bright hosts**: for HAT-P-11 b,
-  HD 189733 b, and HD 209458 b, slicersim's detector ramp cannot be fully
-  de-saturated even at the minimal MACC configuration (2 groups x 1 frame).
-  The residual `nsaturated_detpx` is recorded in the noise table's `meta`
-  rather than silently ignored, and `observe()` raises a `UserWarning` for
-  these hosts: their uncertainties are **unvalidated** (saturation can bias
-  extraction weights, nonlinearity, and wavelength dependence in either
-  direction), so treat their forecasts as indicative only until an
-  unsaturated readout strategy or an injection/recovery validation exists.
+- **Saturation is tested at the last read, not by slicersim's count**:
+  slicersim 1.0.0 flags a pixel on `rate * (n-1)(m+d) * tframe`, the slope
+  signal between group means, while the last read of the ramp accumulates
+  `rate * nframes * tframe` — every (2, m, 0) ramp is tested at half its
+  real charge (#33, upstream #6). `slicer._nsat_lastread` recomputes the
+  count at the last read from slicersim's own projected cube (same pixel
+  rate: cube / anamorphose x QE + effective dark) and drives the readout
+  ladder and `fully_desaturated`; slicersim's own count is kept as
+  `nsaturated_detpx_slicersim`. The committed tables predate this fix.
+- **Residual detector saturation on bright hosts**: for HD 189733 b the
+  ramp still saturates ~320 px at the (2, 1, 0) floor with the 0.7 s
+  subframe (HD 209458 b and HAT-P-11 b are clean there). The residual
+  `nsaturated_detpx` is recorded in the noise table's `meta` rather than
+  silently ignored, and `observe()` raises a `UserWarning` for such hosts:
+  their uncertainties are **unvalidated** (saturation can bias extraction
+  weights, nonlinearity, and wavelength dependence in either direction), so
+  treat their forecasts as indicative only until an unsaturated readout
+  strategy (e.g. the wide field) or an injection/recovery validation exists.
+  Whether a 0.7 s subframe exists for the full IFS field is a Pearl question.
+- **Ramp reset overhead**: slicersim's observing time is `nframes * tframe *
+  nramps` with no dead time between ramps. `depth_error` assumes one reset
+  frame per MACC ramp (`n_reset_frames=1`, JWST-style accounting), so the
+  wall clock entering the `sqrt(t14 / t_obs)` scaling is `(nframes + 1) *
+  tframe * nramps` (`info["t_obs_s"]`; slicersim's value is `t_int_s`):
+  x1.22 on `depth_err` for (2, 1, 0), x1.06 for (2, 4, 0), x1.03 for
+  (2, 8, 0). Pearl should confirm the H4RG MACC reset accounting; set
+  `n_reset_frames=0` to reproduce slicersim's zero-overhead timing.
+- **SED pixel averaging**: slicersim samples the input SED at the pixel
+  centres (`np.interp`). With the R=10,000 star tables (~28 samples per
+  pixel) that is one sample of a spectrum with structure inside the pixel:
+  the per-channel signal of an M dwarf was off by ~14 % rms and the R=100
+  binned sigma by up to 33 % (#37). `depth_error` now box-averages the SED
+  over each pixel first (exact for the piecewise-linear SED; a SED coarser
+  than a pixel is unchanged), so slicersim's centre sample is the pixel
+  mean and its LSF is applied once.
 
 ## Deployment notes
 

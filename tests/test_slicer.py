@@ -149,3 +149,19 @@ def test_any_sncosmo_band_is_accepted(sun):
 def test_unknown_sncosmo_band_raises():
     with pytest.raises(ValueError, match="sncosmo"):
         slicer._sncosmo_band("nope")
+
+
+def test_gj1214b_desaturates_at_the_last_read_to_2_4_0():
+    # review 2026-10-10 (#33): the committed (2,8,0) table saturates 284 px at
+    # the last read; (2,4,0) is the smallest clean ramp of the ladder
+    from lazuli_exo import tables
+    from lazuli_exo.targets import TARGETS
+    t = TARGETS["GJ 1214 b"]
+    wl_um, f, _ = tables.load_star(tables.resolve_tables_dir(None), "GJ 1214 b")
+    _, err, info = slicer.depth_error(wl_um * 1e4, f, mag=t["J_mag"], band="J",
+                                      t14_s=t["t14_s"], use_cache=False)
+    assert info["nmd_used"] == [2, 4, 0] and info["fully_desaturated"]
+    assert info["nsaturated_detpx"] == info["nsaturated_detpx_slicersim"] == 0
+    assert info["tframe_s"] == pytest.approx(2.83) and info["nframes"] == 8
+    assert info["t_obs_s"] == pytest.approx(info["t_int_s"] * 9 / 8)
+    assert np.all(np.isfinite(err))
