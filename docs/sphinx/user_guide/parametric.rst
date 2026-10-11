@@ -32,8 +32,15 @@ Inputs
      - POSEIDON MacMad17 haze: enhancement over H2 Rayleigh at 0.35 µm (log)
        and power-law slope :math:`\gamma`; ``log_a_haze=None`` = no haze.
    * - ``teff_K``, ``logg``, ``feh``
-     - Star for the PHOENIX SED (2000–8000 K; below → blackbody fallback,
-       log g / [Fe/H] clamp to the grid and say so).
+     - Star for the PHOENIX SED (solar metallicity only, 2000–12000 K,
+       log g 3.5–5.5; out-of-range T_eff, log g and any non-zero [Fe/H]
+       clamp to the nearest node and are reported in ``info["clamped"]``).
+   * - ``f_spot``, ``T_spot_K``, ``f_fac``, ``T_fac_K``
+     - Unocculted spots and faculae (transit light source effect, Rackham et
+       al. 2018 eq. 2): the model depth is multiplied by
+       :math:`\epsilon(\lambda)` from PHOENIX fluxes at the three
+       temperatures. Default off (``f_spot = f_fac = 0``);
+       ``star.TLSE_PRESETS`` holds literature covering fractions.
    * - ``mag``, ``band`` (J/H/Ks/V), ``mag_system`` (``"vega"`` default, ``"ab"``)
      - Normalisation magnitude. slicersim normalises in AB; archive
        magnitudes are Vega and are converted through sncosmo.
@@ -104,8 +111,9 @@ planets agree with the model's clear spectra to 0.99 and 1.00. The notebook
 What it cannot do
 -----------------
 
-Non-isothermal profiles, disequilibrium chemistry, patchy clouds, stellar
-contamination, red noise, and light curves for custom stars (no
-limb-darkening tables). Changing ``mu`` by hand does not change the
+Non-isothermal profiles, disequilibrium chemistry, patchy clouds, red
+noise, and light curves for custom stars (no limb-darkening tables).
+Stellar contamination is a user-supplied covering fraction, not a prediction
+of the host's activity. Changing ``mu`` by hand does not change the
 opacities, which stay at the chemistry implied by ``log_met`` and
 ``c_to_o``.

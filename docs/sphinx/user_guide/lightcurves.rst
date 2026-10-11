@@ -53,10 +53,15 @@ rather than assumed:
 
 - :math:`b` from :math:`a/R_\star` and :math:`\cos i`, with an eccentricity
   factor :math:`f_e = (1 + e\sin\omega)/\sqrt{1-e^2}`.
-- :math:`z(t)` traced along a **local circular arc** of radius
-  :math:`r_c = a(1-e^2)/(1 + e\sin\omega)`, the conjunction star–planet
-  distance — so :math:`z(0) = b` exactly, and the arc is traversed at the
-  Keplerian conjunction sky-plane velocity.
+- :math:`z(t)` is the exact sky-projected separation of the Keplerian
+  orbit (Kepler's equation solved by Newton iteration), with mid-transit at
+  inferior conjunction so :math:`z(0) = b` exactly.
+- The registry :math:`t_{14}` is the measured archive duration and sets the
+  noise and the window; the geometric duration from
+  :math:`(P, a/R_\star, k, i, e, \omega)` can differ (HAT-P-11 b: 7184 s vs
+  8480 s), so the orbit clock is scaled by their ratio and the model's
+  first-to-fourth-contact duration equals :math:`t_{14}`
+  (``meta["t14_geom_s"]``, ``meta["time_stretch"]``).
 
 Limb-darkening coefficients come from per-planet tables computed with
 exotic-ld (PHOENIX grid, trilinear interpolation, 48 wavelength chunks),
