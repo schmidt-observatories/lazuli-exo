@@ -207,6 +207,35 @@ repo/package.
   baseline exposure equal to the in-transit one, i.e.
   `sigma_depth = sqrt(1/SNR_in^2 + 1/SNR_out^2)` with `SNR_in == SNR_out`,
   not an optimized or telescope-time-constrained baseline.
+- **Stellar contamination (transit light source effect)**: off by default,
+  i.e. forecasts for M/K hosts assume an immaculate photosphere unless
+  `f_spot`/`f_fac` are set; with f_spot >= 0.03 the stellar signal is >= 1
+  sigma per bin for every M/K showcase host and >= 10 % of the H2O amplitude
+  for M dwarfs. `star.contamination` implements Rackham et al. 2018
+  (AJ 853, 122) eq. 2,
+  `eps = 1 / (1 - f_spot (1 - F_spot/F_phot) - f_fac (1 - F_fac/F_phot))`,
+  with the PHOENIX surface fluxes from `star.phoenix_sed` at the host
+  log g / [Fe/H]; defaults T_spot = 0.86 T_eff (T_eff < 4000 K, Rackham 2018)
+  or 0.80 T_eff (Rackham 2019, FGK), T_fac = T_eff + 100 K. `simulate()` and
+  `observe()` multiply the native-resolution depth by eps before binning
+  (`meta["atmosphere"]["tlse"]` records the temperatures, fractions and the
+  eps range over 0.40-1.70 um); `flat_depth` stays the geometric
+  (R_p/R_s)^2, so the observed flat depth is eps-weighted. Literature
+  covering fractions are in `star.TLSE_PRESETS` (data, not defaults).
+  Contamination amplitude depth x (eps - 1), peak-to-peak 0.4-1.7 um, R=100,
+  clear scenario, 1 transit (2026-10-10 review):
+
+  | host | f_spot | ptp (ppm) |
+  |---|---|---|
+  | TRAPPIST-1 e | 0.03 / 0.39 | 103 / 2393 |
+  | GJ 1214 b | 0.03 / 0.12 | 283 / 1274 |
+  | LHS 1140 b | 0.03 / 0.12 | 108 / 490 |
+  | K2-18 b | 0.03 / 0.10 | 50 / 184 |
+  | GJ 3470 b | 0.03 / 0.10 | 108 / 393 |
+  | WASP-107 b | 0.03 / 0.08 | 337 / 956 |
+  | HAT-P-11 b | 0.03 / 0.08 | 60 / 172 |
+  | HD 189733 b | 0.03 / 0.08 | 450 / 1283 |
+
 - **Residual detector saturation on bright hosts**: for HAT-P-11 b,
   HD 189733 b, and HD 209458 b, slicersim's detector ramp cannot be fully
   de-saturated even at the minimal MACC configuration (2 groups x 1 frame).
