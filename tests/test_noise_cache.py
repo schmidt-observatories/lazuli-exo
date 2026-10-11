@@ -15,9 +15,42 @@ def instrument(monkeypatch):
     package.__version__ = 'test-1'
     lazuli = ModuleType('slicersim.lazuli')
 
+    class Detector:
+        """slicersim's ramp timing; the full well is 10 frame-charges of a
+        mag-10 source (rate * tframe = 1 at mag 10), so (8,2,0) saturates
+        at the last read (16) and (4,2,0) does not (8)."""
+        min_group = 2
+        gain = 1.
+        saturation = 10.
+
+        def __init__(self):
+            self.nmd, self.tframe, self.nsaturated_detpx = (8, 2, 0), 2.83, 0
+
+        @property
+        def nframes(self):
+            n, m, d = self.nmd
+            return n * (m + d) - d
+
+        @property
+        def integration_time(self):
+            n, m, d = self.nmd
+            return (n - 1) * (m + d) * self.tframe
+
+        @property
+        def exposure_time(self):
+            return self.nframes * self.tframe
+
+        def get_qe(self, lbda):
+            return np.ones(len(lbda))
+
+        def get_effective_dark(self):
+            return 0.
+
     class Target:
         calls = 0
         fail = False
+        nramps = 1
+        saturation = 10.
 
         def __init__(self, wl, flux, *, mag, band, instrument):
             Target.calls += 1
@@ -25,13 +58,19 @@ def instrument(monkeypatch):
                 raise RuntimeError('configuration unavailable')
             self.mag = mag
             self.simulation = self
-            self.detector = SimpleNamespace(nmd=(8, 2, 0), min_group=2,
-                                            nsaturated_detpx=0)
-            self.observing_time = 60.
-            self.extraction = {'nramps': 1}
+            self.detector = Detector()
+            self.detector.saturation = Target.saturation
+            self.spectrograph = SimpleNamespace(_ANAMORPHOSE=2, lbda=self.get_lbda())
+            self.scene = SimpleNamespace(pointsource=SimpleNamespace(position=(0, 0)))
+            self.config_scale = 1.
+            self.extraction = {'nramps': Target.nramps}
+
+        @property
+        def observing_time(self):
+            return self.detector.exposure_time * self.extraction['nramps'] * self.config_scale
 
         def change_configuration(self, instrument):
-            self.observing_time = 80.
+            self.config_scale = 80. / 60.
 
         def change_detector(self, *, nmd):
             self.detector.nmd = nmd
@@ -39,15 +78,31 @@ def instrument(monkeypatch):
         def change_spectrograph(self, mode):
             self.mode = mode
 
+        def change_pointsource(self, pointsource):
+            self.pointsource = pointsource
+
         def update(self, **kw):
             if 'tframe' in kw:
-                self.observing_time = 60. * kw['tframe'] / 2.83
+                self.detector.tframe = kw['tframe']
 
         def get_parameter(self, name):
-            return {'tframe': 2.83}[name]
+            return {'tframe': self.detector.tframe}[name]
+
+        def rate(self):
+            """e-/s/pixel of the brightest pixel: one frame-charge per 2.83 s at mag 10."""
+            return 10**(-0.4 * (self.mag - 10)) / 2.83
+
+        def pixels(self):
+            """Relative pixel rates: one PSF-core pixel, the rest 1 % of it."""
+            return np.r_[1., np.full(499, 0.01)]
+
+        def get_projected_scene(self, in_photons=True):
+            return 2 * self.rate() * self.pixels()[:, None, None]      # ph/s/voxel, 2 px per voxel
 
         def get_snr(self):
-            self.detector.nsaturated_detpx = int(self.mag < 8 or self.detector.nmd[0] > 4)
+            det = self.detector
+            charge = self.rate() * self.pixels() * det.integration_time * det.gain
+            det.nsaturated_detpx = int(np.count_nonzero(charge > det.saturation))
             result = np.full(500, 100. * 10**(-0.2 * (self.mag-10)))
             result[-1] = np.nan
             return result
@@ -55,9 +110,19 @@ def instrument(monkeypatch):
         def get_lbda(self):
             return np.geomspace(4000., 17000., 500)
 
+    class PointSource:
+        @classmethod
+        def from_spectrum(cls, wl, flux, **kw):
+            return SimpleNamespace(wl=wl, flux=flux, **kw)
+
+    scene = ModuleType('slicersim.scene')
+    pointsource = ModuleType('slicersim.scene.pointsource')
+    pointsource.PointSource = PointSource
     lazuli.LazuliTarget = Target
     monkeypatch.setitem(sys.modules, 'slicersim', package)
     monkeypatch.setitem(sys.modules, 'slicersim.lazuli', lazuli)
+    monkeypatch.setitem(sys.modules, 'slicersim.scene', scene)
+    monkeypatch.setitem(sys.modules, 'slicersim.scene.pointsource', pointsource)
     monkeypatch.setattr(slicer, 'vega_to_ab_offset', lru_cache(maxsize=32)(lambda band: 0.9))
     slicer.clear_noise_cache()
     yield Target, package, lazuli
@@ -239,3 +304,70 @@ def test_setup_values_are_normalized_before_keying(instrument):
     run(nmd=[4, 2, 0], tframe=1, spectrograph_mode='WIDE')
     run(nmd=(4.0, 2.0, 0.0), tframe=1.0, spectrograph_mode='wide')   # same setup -> hit
     assert Target.calls == 1
+
+
+def test_saturation_is_tested_at_the_last_read(instrument):
+    # (8,2,0): charge 14 at slicersim's (n-1)-group test, 16 at the last read
+    Target, _, _ = instrument
+    Target.saturation = 15.
+    _, _, fixed = run(nmd=(8, 2, 0))
+    assert fixed['nsaturated_detpx_slicersim'] == 0
+    assert fixed['nsaturated_detpx'] == 1 and fixed['fully_desaturated'] is False
+    _, _, auto = run()
+    assert auto['nmd_used'] == [4, 2, 0] and auto['fully_desaturated']
+
+
+def test_subframe_rung_after_the_floor_unless_tframe_is_fixed(instrument):
+    # mag 7: (2,1,0) holds 31.7 > 10 at 2.83 s, 7.8 at the 0.7 s subframe
+    _, _, auto = run(mag=7.)
+    assert auto['nmd_used'] == [2, 1, 0] and auto['tframe_s'] == 0.7
+    assert auto['fully_desaturated'] and auto['readout_mode'] == 'auto'
+    _, _, fixed_tframe = run(mag=7., tframe=2.83)
+    assert fixed_tframe['tframe_s'] == 2.83 and fixed_tframe['nsaturated_detpx'] == 1
+    _, _, hopeless = run(mag=5.)       # 2 * 100 * 0.7 / 2.83 = 49 > 10: still reported
+    assert hopeless['tframe_s'] == 0.7 and hopeless['fully_desaturated'] is False
+
+
+def test_t_obs_includes_the_reset_frame(instrument):
+    Target, _, _ = instrument
+    _, e1, i1 = run()                                   # (4,2,0): 8 frames of 2.83 s
+    assert i1['nframes'] == 8 and i1['t_int_s'] == pytest.approx(8 * 2.83)
+    assert i1['t_obs_s'] == pytest.approx(9 * 2.83) and i1['n_reset_frames'] == 1
+    _, e0, i0 = run(n_reset_frames=0)
+    assert i0['t_obs_s'] == i0['t_int_s']
+    np.testing.assert_allclose(e1 / e0, np.sqrt(9 / 8))
+    Target.nramps = 3
+    _, e3, i3 = run(use_cache=False)
+    assert i3['t_int_s'] == pytest.approx(3 * i1['t_int_s'])
+    assert i3['t_obs_s'] == pytest.approx(3 * i1['t_obs_s'])
+    with pytest.raises(ValueError, match='n_reset_frames'):
+        run(n_reset_frames=-1)
+
+
+def test_pixel_average_spreads_a_narrow_line_over_its_pixel():
+    centres = np.geomspace(4000., 17000., 525)
+    wl = np.arange(3000., 20000., 0.5)
+    flux = np.ones_like(wl)
+    k = 300
+    width = 4.
+    line = (wl > centres[k] - width / 2) & (wl < centres[k] + width / 2)
+    flux[line] = 11.                                    # top-hat 4 A wide, 10 above continuum
+    wl_px, f_px = slicer.pixel_average_sed(wl, flux, centres)
+    pixel = np.sqrt(centres[k] * centres[k + 1]) - np.sqrt(centres[k] * centres[k - 1])
+    assert width < pixel
+    excess = np.sum(0.5 * ((flux - 1)[1:] + (flux - 1)[:-1]) * np.diff(wl))   # line integral
+    sampled = np.interp(centres, wl_px, f_px)          # what slicersim does
+    assert sampled[k] == pytest.approx(1 + excess / pixel, rel=1e-6)
+    assert 2. < sampled[k] < 3.
+    assert np.allclose(np.delete(sampled, k), 1.)
+    # the grid continues geometrically to cover the SED (band normalization), with smooth spacing
+    assert wl_px[0] < 3000. * 1.006 and wl_px[-1] > 20000. / 1.006    # within 2 pixels of the SED ends
+    assert np.allclose(np.diff(np.log(wl_px)), np.log(centres[1] / centres[0]), rtol=1e-3)
+    # a SED coarser than a pixel is unchanged (to the pixel containing its kink)
+    coarse_wl, coarse_f = np.array([3000., 8000., 20000.]), np.array([1., 3., 2.])
+    wl_px, f_px = slicer.pixel_average_sed(coarse_wl, coarse_f, centres)
+    np.testing.assert_allclose(np.interp(centres, wl_px, f_px),
+                               np.interp(centres, coarse_wl, coarse_f), rtol=1e-3)
+    # pixels the SED does not fully cover are dropped, not extrapolated
+    wl_px, f_px = slicer.pixel_average_sed(wl[wl >= centres[10]], flux[wl >= centres[10]], centres)
+    assert wl_px[0] == centres[11]

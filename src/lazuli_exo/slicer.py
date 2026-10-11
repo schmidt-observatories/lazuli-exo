@@ -121,41 +121,93 @@ def _apply_setup(target, setup):
         sim.scene.background.update(scale=zodi_scale_from_ab_mag(zodi_ab_mag))
 
 
+def _nsat_lastread(sim):
+    """Detector pixels whose charge at the LAST read of the ramp exceeds the
+    full well.
+
+    slicersim (detector.py estimate_pixel_signal) tests the slope signal
+    `rate * integration_time`, with integration_time = (n-1)(m+d) tframe, but
+    the last read is at exposure_time = nframes * tframe: a (2, m, 0) ramp is
+    tested at half its real charge (#33). Same pixel rate as slicersim: the
+    projected cube [ph/s/voxel] split over the anamorphose pixels, times QE,
+    plus the effective dark."""
+    det, sp = sim.detector, sim.spectrograph
+    cube = np.asarray(sim.get_projected_scene(in_photons=True), float)   # (nlbda, y, x), LSF applied
+    qe = np.reshape(np.asarray(det.get_qe(lbda=sp.lbda), float), (-1, 1, 1))
+    rate = cube / sp._ANAMORPHOSE * qe + det.get_effective_dark()        # e-/s/pixel
+    return int(np.count_nonzero(rate * det.exposure_time * det.gain > det.saturation))
+
+
 def _fixed_readout(target, nmd):
     """Apply the caller's readout as is and report its saturation; the
     counterpart of _desaturate for a readout the observer chose."""
     sim = target.simulation
     target.change_detector(nmd=tuple(nmd))
     snr = np.asarray(sim.get_snr(), dtype=float)
-    nsat = sim.detector.nsaturated_detpx or 0
-    return snr, tuple(int(x) for x in nmd), int(nsat)
+    return snr, tuple(int(x) for x in nmd), _nsat_lastread(sim)
 
 
-def _desaturate(target):
-    """Shrink the MACC ramp (groups, then frames/group) until the point
-    source stops saturating, or the 2x1 floor is reached.
+RAPID_TFRAME_S = 0.7      # H4RG rapid subframe tried after the (min_group, 1, d) floor
+
+
+def _desaturate(target, try_subframe=True):
+    """Shrink the MACC ramp (groups, then frames/group, then the frame time)
+    until the point source stops saturating at the last read.
 
     slicersim's default readout (one long ramp regardless of brightness)
     partially saturates the PSF core of bright hosts and silently degrades
     the extracted SNR. `max_group` has no setter, so `nmd` is the only
-    knob. Residual saturation at the floor is reported, never hidden.
+    knob below the frame time; when the (min_group, 1, d) floor still
+    saturates and the caller did not fix tframe, the RAPID_TFRAME_S subframe
+    is tried. Residual saturation after that is reported, never hidden.
     """
     sim = target.simulation
     n, m, d = sim.detector.nmd
     min_group = sim.detector.min_group
-    snr = np.asarray(sim.get_snr(), dtype=float)
-    nsat = sim.detector.nsaturated_detpx or 0
+
+    def run(nmd):
+        target.change_detector(nmd=nmd)
+        return np.asarray(sim.get_snr(), dtype=float), _nsat_lastread(sim)
+
+    snr, nsat = np.asarray(sim.get_snr(), dtype=float), _nsat_lastread(sim)
     while nsat > 0 and n > min_group:
         n = max(min_group, n // 2)
-        target.change_detector(nmd=(n, m, d))
-        snr = np.asarray(sim.get_snr(), dtype=float)
-        nsat = sim.detector.nsaturated_detpx or 0
+        snr, nsat = run((n, m, d))
     while nsat > 0 and m > 1:
         m = max(1, m // 2)
-        target.change_detector(nmd=(n, m, d))
-        snr = np.asarray(sim.get_snr(), dtype=float)
-        nsat = sim.detector.nsaturated_detpx or 0
+        snr, nsat = run((n, m, d))
+    if nsat > 0 and try_subframe and sim.detector.tframe > RAPID_TFRAME_S:
+        sim.update(tframe=RAPID_TFRAME_S)
+        snr, nsat = run((n, m, d))
     return snr, (int(n), int(m), int(d)), int(nsat)
+
+
+def pixel_average_sed(wl, flux, centres):
+    """Box-average the SED over the instrument pixels so that slicersim's
+    point sampling at the pixel centres returns the pixel mean (#37).
+
+    Pixel edges are the geometric midpoints of `centres` (0.1 % of a pixel
+    from slicersim's own edges). The channel grid is continued geometrically
+    beyond the instrument range to cover the whole SED, so the band used for
+    the magnitude normalization stays covered and the grid spacing is smooth
+    (sncosmo's bin-edge recovery rejects a spacing jump). The average is
+    exact for the piecewise-linear SED, so a SED coarser than a pixel is
+    unchanged. Pixels the SED does not fully cover are dropped (slicersim
+    then trims those channels). Returns (wavelength, flux) on the centres."""
+    wl, flux, c = (np.asarray(a, float) for a in (wl, flux, centres))
+    r_lo, r_hi = c[1] / c[0], c[-1] / c[-2]
+    n_lo = max(0, int(np.ceil(np.log(c[0] / wl[0]) / np.log(r_lo))))
+    n_hi = max(0, int(np.ceil(np.log(wl[-1] / c[-1]) / np.log(r_hi))))
+    c = np.concatenate((c[0] * r_lo ** -np.arange(n_lo, 0, -1), c,
+                        c[-1] * r_hi ** np.arange(1, n_hi + 1)))
+    inner = np.sqrt(c[1:] * c[:-1])
+    edges = np.concatenate(([c[0] ** 2 / inner[0]], inner, [c[-1] ** 2 / inner[-1]]))
+    grid = np.union1d(wl, edges[(edges >= wl[0]) & (edges <= wl[-1])])
+    f = np.interp(grid, wl, flux)
+    cum = np.concatenate(([0.0], np.cumsum(0.5 * (f[1:] + f[:-1]) * np.diff(grid))))
+    mean = np.diff(np.interp(edges, grid, cum, left=np.nan, right=np.nan)) / np.diff(edges)
+    ok = np.isfinite(mean)
+    return c[ok], mean[ok]
 
 
 def _compute_native_noise(wl_bytes, flux_bytes, mag_ab, sn_band, instrument,
@@ -163,14 +215,17 @@ def _compute_native_noise(wl_bytes, flux_bytes, mag_ab, sn_band, instrument,
     """Instrument result before duration and transit-count scaling.
 
     ``setup`` is a normalize_setup() tuple; its nmd, when given, is used as is
-    (readout_mode 'fixed'), otherwise the ramp is desaturated ('auto')."""
+    (readout_mode 'fixed'), otherwise the ramp is desaturated ('auto'). The SED
+    is pixel-averaged onto the instrument channels before the noise run."""
+    from slicersim.scene.pointsource import PointSource
+
+    wl = np.frombuffer(wl_bytes, dtype=np.float64).copy()
+    flux = np.frombuffer(flux_bytes, dtype=np.float64).copy()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         warnings.simplefilter("ignore", FutureWarning)
         try:
-            target = target_class(np.frombuffer(wl_bytes, dtype=np.float64).copy(),
-                                  np.frombuffer(flux_bytes, dtype=np.float64).copy(),
-                                  mag=mag_ab, band=sn_band, instrument="lazuli_cbe")
+            target = target_class(wl, flux, mag=mag_ab, band=sn_band, instrument="lazuli_cbe")
             if instrument != "lazuli_cbe":
                 # the eol/bol tomls are partial overlays on the cbe config
                 target.change_configuration(instrument.removeprefix("lazuli_"))
@@ -179,24 +234,30 @@ def _compute_native_noise(wl_bytes, flux_bytes, mag_ab, sn_band, instrument,
         except Exception as e:      # missing/broken instrument config -> user-facing error
             raise ValueError(f"slicersim could not build instrument {instrument!r}: "
                              f"{type(e).__name__}: {e}") from e
+        wl_px, flux_px = pixel_average_sed(wl, flux, sim.get_lbda())
+        sim.change_pointsource(PointSource.from_spectrum(
+            wl_px, flux_px, mag=mag_ab, band=sn_band,
+            position=sim.scene.pointsource.position, meta={}))
         default_nmd = tuple(int(x) for x in sim.detector.nmd)
         nmd_fixed = setup[0]
         if nmd_fixed is not None:
             snr, nmd_used, nsat = _fixed_readout(target, nmd_fixed)
         else:
-            snr, nmd_used, nsat = _desaturate(target)
+            snr, nmd_used, nsat = _desaturate(target, try_subframe=setup[1] is None)
+        nsat_slicersim = int(sim.detector.nsaturated_detpx or 0)
         wl_um = np.asarray(sim.get_lbda(), float) / ANGSTROM_PER_UM
-        t_obs = float(sim.observing_time)
+        t_int = float(sim.observing_time)
         nramps = sim.extraction.get("nramps")
         tframe_s = _get_parameter(sim, "tframe")
 
     info = {"slicersim_version": slicersim_version, "instrument": instrument,
-            "t_obs_s": t_obs, "default_nmd": list(default_nmd),
+            "t_int_s": t_int, "default_nmd": list(default_nmd),
             "nmd_used": list(nmd_used), "nramps": nramps,
             "readout_mode": "fixed" if nmd_fixed is not None else "auto",
             "tframe_s": tframe_s, "spectrograph_mode": setup[2],
             "guiding_sigma": setup[3], "zodi_ab_mag": setup[4],
-            "nsaturated_detpx": nsat, "fully_desaturated": nsat == 0}
+            "nsaturated_detpx": nsat, "fully_desaturated": nsat == 0,
+            "nsaturated_detpx_slicersim": nsat_slicersim}
     # Own the cached arrays; upstream objects may otherwise retain views.
     return wl_um.copy(), snr.copy(), info
 
@@ -226,12 +287,22 @@ def clear_noise_cache():
 def depth_error(wl_A, f_lambda, *, mag, band="J", mag_system="vega", t14_s,
                 n_transits=1, instrument="lazuli_cbe", use_cache=True,
                 nmd=None, tframe=None, spectrograph_mode=None,
-                guiding_sigma=None, zodi_ab_mag=None):
+                guiding_sigma=None, zodi_ab_mag=None, n_reset_frames=1):
     """Per-channel 1-sigma transit-depth uncertainty for `n_transits` transits.
 
     depth_err = sqrt(2) / (SNR * sqrt(t14 / t_obs)) / sqrt(n_transits): equal
     in- and out-of-transit baselines, photon + read noise only. Returns
     (wavelength_um, depth_err, info) with non-finite channels trimmed.
+
+    The SED is box-averaged over each instrument pixel before slicersim sees
+    it (pixel_average_sed), because slicersim point-samples the spectrum at
+    the pixel centres; without this the per-channel signal of an M dwarf is
+    off by ~14 % rms (#37). Saturation is tested on the charge at the last
+    read of the ramp, not on slicersim's (n-1)-group slope signal (#33); the
+    auto readout shortens the ramp and then tries the RAPID_TFRAME_S subframe.
+    t_obs counts ``n_reset_frames`` extra frame times per ramp (H4RG MACC
+    reset overhead): t_obs = (nframes + n_reset_frames) * tframe * nramps,
+    while info["t_int_s"] is slicersim's nframes * tframe * nramps.
 
     Instrument setup (all optional, None = slicersim's default; see
     normalize_setup): ``nmd`` fixes the MACC readout and reports its saturation
@@ -256,6 +327,8 @@ def depth_error(wl_A, f_lambda, *, mag, band="J", mag_system="vega", t14_s,
         raise ValueError("n_transits must be >= 1")
     if not np.isfinite(t14_s) or t14_s <= 0:
         raise ValueError("t14_s must be > 0")
+    if not np.isfinite(n_reset_frames) or n_reset_frames < 0:
+        raise ValueError("n_reset_frames must be >= 0")
     mag_system = str(mag_system).lower()
     if mag_system not in ("vega", "ab"):
         raise ValueError(f"mag_system must be 'vega' or 'ab', got {mag_system!r}")
@@ -281,7 +354,10 @@ def depth_error(wl_A, f_lambda, *, mag, band="J", mag_system="vega", t14_s,
         wl.tobytes(), flux.tobytes(), mag_ab, sn_band, instrument,
         getattr(slicersim, "__version__", "unknown"), LazuliTarget, setup)
     info = deepcopy(native_info)
-    t_obs = info["t_obs_s"]
+    n, m, d = info["nmd_used"]
+    nframes = n * (m + d) - d
+    # wall clock per ramp = (nframes + n_reset_frames) * tframe; slicersim counts nframes only
+    t_obs = info["t_int_s"] * (nframes + n_reset_frames) / nframes
 
     with np.errstate(divide="ignore", invalid="ignore"):
         snr_in = snr * np.sqrt(t14_s / t_obs)
@@ -290,7 +366,8 @@ def depth_error(wl_A, f_lambda, *, mag, band="J", mag_system="vega", t14_s,
     info.update({"band": band, "sncosmo_band": sn_band,
                  "mag_input": float(mag), "mag_system": mag_system,
                  "vega_ab_offset": offset, "mag_ab": mag_ab,
-                 "t14_s": float(t14_s),
+                 "t14_s": float(t14_s), "t_obs_s": float(t_obs),
+                 "nframes": int(nframes), "n_reset_frames": n_reset_frames,
                  "trimmed_channels": int((~good).sum()),
                  "assumption": "equal out-of-transit baseline; SNR ~ sqrt(t); "
                                + ("readout fixed by the caller (saturation reported, not removed)"
