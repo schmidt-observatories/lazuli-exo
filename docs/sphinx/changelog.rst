@@ -30,6 +30,11 @@ Physics review of 2026-10-10 (tracked in GitHub issue #31, milestone
   ``LazuliTarget`` to a field, which halved the throughput and left
   ``simulate`` 1.4x noisier than ``observe``'s tables; the tables themselves
   are unchanged and correct.
+- Live noise (``slicer.depth_error``, hence ``simulate``) pins the narrow
+  spectrograph field by default. slicersim >= 1.3.3 no longer rescales a new
+  ``LazuliTarget`` to a field, which halved the throughput and left
+  ``simulate`` 1.4x noisier than ``observe``'s tables; the tables themselves
+  are unchanged and correct.
 
 0.1.1 (2026-10-10)
 ------------------
