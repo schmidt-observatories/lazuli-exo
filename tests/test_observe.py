@@ -47,6 +47,21 @@ def test_r_too_high_raises(fixture_tables):
         lazuli_exo.observe(PLANET, R=2000, tables_dir=fixture_tables)
 
 
+def test_r_above_instrument_resolution_warns(fixture_tables):
+    # fixture channels: R_px ~ 345 -> R_instr ~ 150
+    import warnings
+    with pytest.warns(UserWarning, match="exceeds the instrument resolving power"):
+        obs = lazuli_exo.observe(PLANET, R=300, tables_dir=fixture_tables)
+    assert len(obs.wavelength) > 0
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        obs = lazuli_exo.observe(PLANET, R=50, tables_dir=fixture_tables)
+    ir = obs.meta["instrument_response"]
+    assert ir["edges_snapped"] and ir["lsf_sigma_px"] == 1.15
+    assert 140 < ir["R_instr_min"] < ir["R_instr_max"] < 160
+    assert ir["photon_weighting"] == "uniform (no star table)"
+
+
 def test_simulate_points_reproducible(fixture_tables):
     obs = lazuli_exo.observe(PLANET, R=50, tables_dir=fixture_tables)
     a = obs.simulate_points(seed=42)

@@ -63,11 +63,13 @@ def zeta_fixture(tmp_path):
 
 @pytest.fixture
 def phoenix_fixture(tmp_path):
-    """Analytic 'PHOENIX' grid: log_flam = log10(teff) + 0.1*logg + 0.01*feh - 2*log10(wl)."""
+    """Analytic 'PHOENIX' grid: log_flam = log10(teff) + 0.1*logg + 0.01*feh - 2*log10(wl).
+
+    Same axes as the shipped grid: solar [Fe/H] only, log g 3.5-5.5 (issue #34)."""
     tdir = tmp_path / "tables"
-    teff = np.array([2000.0, 3000.0, 4000.0, 6000.0, 8000.0])
-    logg = np.array([3.5, 4.0, 4.5, 5.0])
-    feh = np.array([-1.0, -0.5, 0.0, 0.3, 0.5])
+    teff = np.array([2000.0, 3000.0, 4000.0, 6000.0, 8000.0, 12000.0])
+    logg = np.array([3.5, 4.0, 4.5, 5.0, 5.5])
+    feh = np.array([0.0])
     wl = np.geomspace(0.3, 2.5, 300)
     lf = (np.log10(teff)[:, None, None, None] + 0.1 * logg[None, :, None, None]
           + 0.01 * feh[None, None, :, None] - 2 * np.log10(wl)[None, None, None, :])

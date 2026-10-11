@@ -4,6 +4,33 @@ Changelog
 The project is pre-release; there has been no tagged version yet, so the
 entries below group the development history by theme rather than by release.
 
+Unreleased
+----------
+
+Physics review of 2026-10-10 (tracked in GitHub issue #31, milestone
+"Quantitative atmospheres"):
+
+- Stellar contamination (transit light source effect, Rackham et al. 2018)
+  as ``f_spot``/``T_spot_K``/``f_fac``/``T_fac_K`` keywords of ``simulate``
+  and ``observe``; ``star.contamination`` and ``star.TLSE_PRESETS``. Default
+  off (#42).
+- Light curves use the exact Keplerian sky-projected separation
+  (``orbit.projected_separation``) and stretch the orbit clock so the
+  first-to-fourth-contact duration equals the registry :math:`t_{14}`;
+  removes a 1σ depth bias for WASP-12 b (#43).
+- PHOENIX grid rebuilt from the solar-metallicity folder only (the non-solar
+  pysynphot folders are R ≈ 740 and unreliable), log g to 5.5 and T_eff to
+  12000 K; the blackbody fallback is gone and every out-of-range input
+  clamps to the nearest node with ``info["clamped"]``. The live (``simulate``)
+  and table (``observe``) noise paths now agree to ≈ 3 % instead of
+  0.5–1.6× (#44, part of #34).
+- ``.readthedocs.yaml`` so the docs build on Read the Docs.
+- Live noise (``slicer.depth_error``, hence ``simulate``) pins the narrow
+  spectrograph field by default. slicersim >= 1.3.3 no longer rescales a new
+  ``LazuliTarget`` to a field, which halved the throughput and left
+  ``simulate`` 1.4x noisier than ``observe``'s tables; the tables themselves
+  are unchanged and correct.
+
 0.1.1 (2026-10-10)
 ------------------
 
@@ -39,7 +66,8 @@ Unreleased (0.1.0 development)
 - Tables moved into the package (``src/lazuli_exo/data/tables``) as package
   data; wheels and VCS pins ship them. Schema version 2.
 - Package renamed ``lazuli-exo`` (import ``lazuli_exo``); repository at
-  https://github.com/gummiks/lazuli-exo.
+  https://github.com/schmidt-observatories/lazuli-exo (moved from
+  ``gummiks`` in 2026-10).
 - Tutorials 06–09 and this documentation update.
 
 Documentation

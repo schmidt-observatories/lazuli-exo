@@ -101,21 +101,22 @@ for ax, scen in zip(axes.ravel(), ["clear", "cloudy", "high_metallicity", "hazy"
 for ax in axes[1]: ax.set_xlabel("wavelength [µm]")
 for ax in axes[:, 0]: ax.set_ylabel("depth [ppm]")
 fig.tight_layout(); fig.savefig(FIGS / "06_wasp39_validation.png", dpi=150)""" % (ATMO_KEYS,)),
-new_markdown_cell("## Validation table (all 14 planets)\n\nProduced by `precompute/validate_zeta_grid.py`. Acceptance: feature amplitude within 10 % (clear, high_metallicity) or 20 % (cloudy, hazy) after offset removal. For the three planets whose POSEIDON tables were computed with the isotherm clamped to 300 K, the like-for-like row (T_eq = 300 K in the parametric model too) is the gated one. One row (WASP-12 b cloudy) is a documented waiver; its reason is printed below and kept in the validation script."),
+new_markdown_cell("## Validation table (all 14 planets)\n\nProduced by `precompute/validate_zeta_grid.py` (issue #22 gate). At R = 100 after offset removal, against the single-transit per-bin sigma: worst bin < 1 sigma (G2), error template S/N < 3 (G5), template S/N ratio within 10 % (G3); `flat` is gated on its absolute amplitude. For the three planets whose POSEIDON tables were computed with the isotherm clamped to 300 K, the like-for-like row (T_eq = 300 K in the parametric model too) is the gated one. Expected failures are waivers in the script, each naming the gate and the issue that removes it (#35)."),
 new_code_cell("""import pandas as pd
-rows = json.loads(Path("figs/06_validation.json").read_text())
-df = pd.DataFrame(rows)[["planet", "scenario", "T_eq_used_K", "like_for_like", "H_over_Rp",
-                         "amp_table_ppm", "amp_model_ppm", "amp_ratio", "max_abs_dev_ppm", "passed", "waived"]]
+rows = json.loads(Path("figs/06_validation.json").read_text())["models"]
+df = pd.DataFrame(rows)[["planet", "scenario", "T_eq_used_K", "like_for_like", "gated", "H_over_Rp",
+                         "amp_table_ppm", "amp_model_ppm", "amp_ratio", "rms_ppm", "worst_sig", "err_snr", "snr_ratio", "failed", "waived"]]
 df["waived"] = df["waived"].notna()
-pd.set_option("display.max_rows", 100); pd.set_option("display.width", 160)
-print(df.round({"H_over_Rp": 4, "amp_table_ppm": 0, "amp_model_ppm": 0, "amp_ratio": 2, "max_abs_dev_ppm": 0}).to_string(index=False))
-gated = df[df.like_for_like | ~df.planet.isin(df[df.like_for_like].planet)]
-print(f"\\n{int(gated.passed.sum())}/{len(gated)} gated comparisons within tolerance; "
-      f"waived: {gated[~gated.passed & gated.waived][['planet', 'scenario']].values.tolist()}")
+pd.set_option("display.max_rows", 100); pd.set_option("display.width", 200)
+print(df.round({"H_over_Rp": 4, "amp_table_ppm": 0, "amp_model_ppm": 0, "amp_ratio": 2, "rms_ppm": 0, "worst_sig": 2, "err_snr": 1, "snr_ratio": 3}).to_string(index=False))
+gated = df[df.gated]
+passed = gated.failed.str.len() == 0
+print(f"\\n{int(passed.sum())}/{len(gated)} gated comparisons pass all gates; "
+      f"waived: {gated[~passed & gated.waived][['planet', 'scenario']].values.tolist()}")
 for r in rows:
-    if r["waived"] and not r["passed"]:
-        print("WAIVED", r["planet"], r["scenario"], "->", r["waived"])
-assert (gated.passed | gated.waived).all(), "validation gate failed"
+    if r["gated"] and r["waived"] and r["failed"]:
+        print("WAIVED", r["planet"], r["scenario"], r["failed"], "->", r["waived"])
+assert all(not r["unwaived"] for r in rows if r["gated"]), "validation gate failed"
 fig, ax = plt.subplots(figsize=(6, 3.5))
 for scen, m in zip(["clear", "cloudy", "high_metallicity", "hazy"], "osd^"):
     s = gated[gated.scenario == scen]
