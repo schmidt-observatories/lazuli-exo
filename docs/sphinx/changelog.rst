@@ -4,7 +4,7 @@ Changelog
 The project is pre-release; there has been no tagged version yet, so the
 entries below group the development history by theme rather than by release.
 
-Unreleased (0.2.0)
+0.1.1 (2026-10-10)
 ------------------
 
 - Absorbed the standalone ``lazuli-transit`` package as
