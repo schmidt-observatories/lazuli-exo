@@ -187,8 +187,10 @@ def main(argv=None):
             "R_model": int(round(1.0 / np.log(WL[1] / WL[0]))),
             "R_store": "native", "zeta_dtype": "float16",
             "mu_layers_bar": list(MU_LAYERS_BAR),
-            "zeta_definition": "-ln(P_tau=1 / 1 bar) at slant optical depth "
-                               "unity, via depth -> R -> r(P) column",
+            "zeta_definition": "effective-radius pressure (-ln P at the "
+                               "effective transit radius; tau_chord = e^-gamma_E "
+                               "for a constant-cross-section gas), via depth "
+                               "-> R -> r(P)",
             "out_of_column": out_of_column, "smoke": bool(args.smoke)}
     tables.write_zeta_grid(TABLES, T_K=T_K, log_met=log_met, c_to_o=c_to_o,
                            wavelength_um=wl_store, zeta=zeta, mu=mu, meta=meta,

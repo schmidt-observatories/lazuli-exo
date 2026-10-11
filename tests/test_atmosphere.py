@@ -171,3 +171,121 @@ def test_ein_limits_and_deck_transition(zeta_fixture):
     r_deck = R_J / (1 - h * (-logp * np.log(10.0) - info_d["zeta_ref"]))
     assert np.all(r_d >= r_deck * (1 - 1e-12))
     assert 0.3 < np.ptp(r_d) / np.ptp(r_c) < 0.7            # ~0.5 H of the 2 H survives
+
+
+# --- haze / deck effective radius (issue #23) -------------------------------
+
+def zeta_abs(depth, info, R_p_m):
+    """zeta_eff from the depth by inverting the exact hydrostatic mapping."""
+    return info["zeta_ref"] + (R_p_m / info["H_m"]) * (1 - R_p_m / radius_m(depth, 1.0))
+
+
+def ein_exact(a):
+    """Ein(a) = int_0^a (1 - e^-t)/t dt, Simpson on 20001 points (reference, numpy only)."""
+    a = np.atleast_1d(np.asarray(a, float))
+    t = np.linspace(0.0, 1.0, 20001)[None, :] * a[:, None]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        f = np.where(t > 0, -np.expm1(-t) / t, 1.0)
+    h = a / 20000
+    return h / 3 * (f[:, 0] + f[:, -1] + 4 * f[:, 1:-1:2].sum(1) + 2 * f[:, 2:-1:2].sum(1))
+
+
+def gas_levels(tdir, info):
+    """Effective-radius gas zeta and slant-column exponent as transmission_depth sees them."""
+    from lazuli_exo import tables
+    g = tables.load_zeta_grid(tdir)
+    x1 = g["meta"]["fiducials"][1]["x_column"]
+    node0 = g["zeta"][2, 1, 1, 0].astype(float)
+    node1 = g["zeta"][2, 1, 1, 1].astype(float)
+    slope = np.clip((node1 - node0) / x1, *atm.S_RANGE)
+    return node0 + slope * info["zeta_shift"], slope
+
+
+def test_haze_integral_reduces_to_old_formula_for_clear_and_gas_deck(zeta_fixture):
+    """log_a_haze=-40 routes through the integral with a negligible haze: it must
+    equal zeta_p (clear) and zeta_d + s Ein(exp((zeta_p - zeta_d)/s - gamma_E))
+    (gas + deck) to 1e-6 H; without the haze keyword the old paths are bit-for-bit."""
+    wl = atm.grid_wavelengths(zeta_fixture)
+    clear, info = atm.transmission_depth(wl, **HJ, tables_dir=zeta_fixture)
+    zeta_p, s = gas_levels(zeta_fixture, info)
+    np.testing.assert_allclose(zeta_abs(clear, info, R_J), zeta_p, atol=1e-6)
+    via_int, info_i = atm.transmission_depth(wl, **HJ, log_a_haze=-40.0, tables_dir=zeta_fixture)
+    np.testing.assert_allclose(zeta_abs(via_int, info_i, R_J), zeta_p, atol=1e-6)
+
+    logp = -4.0                              # deck inside the band's zeta range
+    zeta_d = -logp * np.log(10.0)
+    old = zeta_d + s * ein_exact(np.exp((zeta_p - zeta_d) / s - atm.EULER_GAMMA))
+    decked, info_d = atm.transmission_depth(wl, **HJ, log_P_cloud_bar=logp, tables_dir=zeta_fixture)
+    np.testing.assert_allclose(zeta_abs(decked, info_d, R_J), old, atol=1e-5)   # _ein table: 6e-6
+    old_table = zeta_d + s * atm._ein(np.exp((zeta_p - zeta_d) / s - atm.EULER_GAMMA))
+    np.testing.assert_allclose(zeta_abs(decked, info_d, R_J), old_table, atol=1e-9)
+    via_int, info_i = atm.transmission_depth(wl, **HJ, log_P_cloud_bar=logp, log_a_haze=-40.0,
+                                             tables_dir=zeta_fixture)
+    np.testing.assert_allclose(zeta_abs(via_int, info_i, R_J), old, atol=1e-6)
+
+
+def test_haze_dominated_effective_radius_sits_gamma_E_above_tau_one(zeta_fixture):
+    """Where the haze sets tau the effective radius is gamma_E H above its tau_chord = 1
+    level (exponential profile, exponent 1); logaddexp of the levels put it at tau = 1."""
+    wl = atm.grid_wavelengths(zeta_fixture)
+    hazy, info = atm.transmission_depth(wl, **HJ, log_a_haze=8.0, haze_slope=-4.0,
+                                        tables_dir=zeta_fixture)
+    kappa = 1e8 * atm.SIGMA_H2_RAYLEIGH_350NM * (wl / atm.HAZE_LAMBDA0_UM) ** -4.0
+    zeta_h1 = -np.log(K_B * 1000.0 / (kappa * np.sqrt(2 * np.pi * R_J * info["H_m"])) / 1e5)
+    zeta_p, _ = gas_levels(zeta_fixture, info)
+    dom = zeta_h1 - zeta_p > 10.0            # gas tau < e^-12 at the haze level
+    assert dom.sum() > 50
+    np.testing.assert_allclose(zeta_abs(hazy, info, R_J)[dom] - zeta_h1[dom],
+                               atm.EULER_GAMMA, atol=1e-4)
+    assert np.all(np.logaddexp(zeta_p, zeta_h1)[dom] - zeta_h1[dom] < 1e-4)   # the old formula
+
+
+def bruteforce_zeta_eff(R_ref, g_ref, T, mu, P_ref_bar, lnsig0, a, kappa, logP_cloud=None,
+                        dz=0.02, n_u=600, u_max=12.0):
+    """Exact chord integration (isothermal, hydrostatic, g ~ 1/r^2) of a gas with
+    sigma = sigma0 (P/bar)^a plus a grey haze kappa (both per molecule), R_eff^2 =
+    R_deck^2 + 2 int (1 - e^-tau) b db; returns -ln P(R_eff) and the thin-atmosphere
+    tau_chord = 1 levels (zeta_g1, zeta_h1). Minimal port of review A's bf.py."""
+    H0 = K_B * T / (mu * M_H * g_ref)
+    lnP_ref = np.log(P_ref_bar)
+    lnP = lambda r: lnP_ref + (R_ref / H0) * (R_ref / r - 1.0)                 # noqa: E731
+    r_of = lambda lnp: 1.0 / (1.0 / R_ref + (H0 / R_ref ** 2) * (lnp - lnP_ref))  # noqa: E731
+    lnn = np.log(1e5 / (K_B * T))                                           # molecules m^-3 per bar
+    col = 0.5 * np.log(2 * np.pi * R_ref * H0)
+    s = 1.0 / (1.0 + a)
+    zeta_g1 = s * (lnsig0 + lnn + col - 0.5 * np.log(1 + a))
+    zeta_h1 = np.log(kappa) + lnn + col
+    zeta_bot = max(zeta_g1 - 12 * s, zeta_h1 - 12) if logP_cloud is None else -logP_cloud * np.log(10.0)
+    zeta_b = np.arange(zeta_bot, max(zeta_g1 + 14 * s, zeta_h1 + 14), dz)
+    b = r_of(-zeta_b)[:, None]
+    l = np.sqrt(b * H0 * (b / R_ref) ** 2) * np.linspace(0.0, u_max, n_u)[None, :]
+    lnp = lnP(np.sqrt(b ** 2 + l ** 2))
+    I_gas = 2 * np.trapezoid(np.exp((1 + a) * lnp), l, axis=1)
+    I_haze = 2 * np.trapezoid(np.exp(lnp), l, axis=1)
+    tau = np.exp(lnsig0 + lnn) * I_gas + kappa * np.exp(lnn) * I_haze
+    assert tau[0] > 30 or logP_cloud is not None
+    assert tau[-1] < 1e-5
+    b = b[:, 0]
+    R_eff2 = b[0] ** 2 + 2 * np.trapezoid(-np.expm1(-tau) * b, b)
+    return -lnP(np.sqrt(R_eff2)), zeta_g1, zeta_h1
+
+
+@pytest.mark.parametrize("logP_cloud", [None, -2.0])
+def test_two_component_effective_radius_vs_bruteforce(logP_cloud):
+    """Gas with s = 0.6 plus haze (exponent 1) at comparable tau = 1 levels near 10 mbar,
+    with and without a 10 mbar deck: the model's zeta_eff matches exact chord
+    integration to < 0.05 H, which the old Ein-with-gas-exponent formula did not."""
+    T, mu, g_ref, R_ref, P_ref = 1000.0, 2.3, 25.0, R_J, 1e-2      # H/R ~ 0.002, R_ref near the photosphere
+    a = 1.0 / 0.6 - 1.0
+    H0 = K_B * T / (mu * M_H * g_ref)
+    lnn, col = np.log(1e5 / (K_B * T)), 0.5 * np.log(2 * np.pi * R_ref * H0)
+    lnsig0 = 4.3 / 0.6 - lnn - col + 0.5 * np.log(1 + a)           # zeta_g1 = 4.3 (14 mbar)
+    kappa = np.exp(4.6 - lnn - col)                                 # zeta_h1 = 4.6 (10 mbar)
+    bf, zeta_g1, zeta_h1 = bruteforce_zeta_eff(R_ref, g_ref, T, mu, P_ref, lnsig0, a, kappa, logP_cloud)
+    zeta_d = None if logP_cloud is None else -logP_cloud * np.log(10.0)
+    model = atm._zeta_eff(zeta_g1, 0.6, zeta_h1, zeta_d)[0]
+    assert abs(model - bf) < 0.05
+    zd = zeta_g1 - 20 if zeta_d is None else zeta_d
+    old = zd + 0.6 * atm._ein(np.exp((np.logaddexp(zeta_g1 + 0.6 * atm.EULER_GAMMA, zeta_h1) - zd)
+                                     / 0.6 - atm.EULER_GAMMA))
+    assert abs(old - bf) > abs(model - bf)
