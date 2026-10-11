@@ -186,6 +186,17 @@ repo/package.
   has a hard floor at 300 K. K2-18 b (T_eq ~ 284 K), LHS 1140 b (~226 K), and
   TRAPPIST-1 e (~250 K) are clamped to 300 K for both the isotherm and the
   chemistry lookup; this is recorded per-table as `T_clamped` in `meta`.
+  The three cold POSEIDON tables are therefore 300 K atmospheres; the
+  parametric model at the true T_eq gives 0.93 / 0.74 / 0.77 of their
+  amplitudes. TRAPPIST-1 e and LHS 1140 b are H2-rich limits only: the
+  opacities are solar-composition H2/He, so a `mu` override does not turn
+  them into N2/CO2 forecasts.
+- **Validity warnings** (`transmission_depth`, so `simulate()` and
+  `observe()` inherit them; #39): a `UserWarning` fires when
+  (1) T_eq is below the 300 K chemistry floor (`info["T_clamped"]`),
+  (2) a user `mu` override exceeds 15 (secondary atmospheres are out of
+  scope), or (3) T_eq exceeds 2000 K (no TiO/VO/H-/Fe/Mg optical
+  opacities, #38). The depth is still returned.
 - **"hazy" is deck_haze, not haze-alone**: POSEIDON's `cloud_type="haze"`
   alone is a no-op for a 1D model (it silently zeroes the cloudy-sector
   fraction, so the haze opacity is computed but never mixed into the

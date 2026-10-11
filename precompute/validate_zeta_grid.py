@@ -25,9 +25,14 @@ Deck convention: see DECK_REALIZED_LOG_OFFSET below.
 """
 import json
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
+
+# The cold (T_clamped) and ultra-hot showcase planets are compared on purpose
+# and T_clamped is reported per row; silence the #39 validity warnings here.
+warnings.filterwarnings("ignore", message=r"T_eq=.* K", category=UserWarning)
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))

@@ -46,7 +46,8 @@ def test_mu_default_and_override(zeta_fixture):
     wl = atm.grid_wavelengths(zeta_fixture)
     _, i0 = atm.transmission_depth(wl, **HJ, log_met=1.0, tables_dir=zeta_fixture)
     assert i0["mu_source"] == "chemistry" and abs(i0["mu_used"] - 2.8) < 1e-5
-    _, i1 = atm.transmission_depth(wl, **HJ, log_met=1.0, mu=18.0, tables_dir=zeta_fixture)
+    with pytest.warns(UserWarning, match="secondary"):     # mu > 15, see #39
+        _, i1 = atm.transmission_depth(wl, **HJ, log_met=1.0, mu=18.0, tables_dir=zeta_fixture)
     assert i1["mu_source"] == "user" and i1["mu_used"] == 18.0
     assert i1["H_m"] < i0["H_m"]
 
@@ -73,8 +74,9 @@ def test_haze_steepens_blue_end(zeta_fixture):
 
 def test_cold_planet_clamps_chemistry_but_not_H(zeta_fixture):
     wl = atm.grid_wavelengths(zeta_fixture)
-    _, info = atm.transmission_depth(wl, T_eq_K=250.0, R_p_RJ=0.2, M_p_MJ=0.03, R_s_RSun=0.4,
-                                     tables_dir=zeta_fixture)
+    with pytest.warns(UserWarning, match="grid floor"):
+        _, info = atm.transmission_depth(wl, T_eq_K=250.0, R_p_RJ=0.2, M_p_MJ=0.03, R_s_RSun=0.4,
+                                         tables_dir=zeta_fixture)
     assert info["T_clamped"] is True and info["T_chem_K"] == 300.0
     g = G * 0.03 * M_J / (0.2 * R_J) ** 2
     np.testing.assert_allclose(info["H_m"], K_B * 250.0 / (2.3 * M_H * g))
@@ -289,3 +291,35 @@ def test_two_component_effective_radius_vs_bruteforce(logP_cloud):
     old = zd + 0.6 * atm._ein(np.exp((np.logaddexp(zeta_g1 + 0.6 * atm.EULER_GAMMA, zeta_h1) - zd)
                                      / 0.6 - atm.EULER_GAMMA))
     assert abs(old - bf) > abs(model - bf)
+
+
+# --- validity warnings (#39) ----------------------------------------------
+
+def test_cold_planet_warns(zeta_fixture):
+    wl = atm.grid_wavelengths(zeta_fixture)
+    with pytest.warns(UserWarning, match="below the chemistry grid floor"):
+        atm.transmission_depth(wl, T_eq_K=226.0, R_p_RJ=0.2, M_p_MJ=0.03, R_s_RSun=0.4,
+                               tables_dir=zeta_fixture)
+
+
+def test_heavy_mu_override_warns(zeta_fixture):
+    wl = atm.grid_wavelengths(zeta_fixture)
+    with pytest.warns(UserWarning, match="secondary"):
+        atm.transmission_depth(wl, **HJ, mu=28.0, tables_dir=zeta_fixture)
+
+
+def test_ultra_hot_warns(zeta_fixture):
+    wl = atm.grid_wavelengths(zeta_fixture)
+    with pytest.warns(UserWarning, match="above 2000 K"):
+        atm.transmission_depth(wl, T_eq_K=2400.0, R_p_RJ=1.0, M_p_MJ=M_G10, R_s_RSun=1.0,
+                               tables_dir=zeta_fixture)
+
+
+def test_in_range_does_not_warn(zeta_fixture):
+    import warnings
+    wl = atm.grid_wavelengths(zeta_fixture)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        atm.transmission_depth(wl, **HJ, mu=2.3, tables_dir=zeta_fixture)
+        atm.transmission_depth(wl, T_eq_K=2000.0, R_p_RJ=1.0, M_p_MJ=M_G10, R_s_RSun=1.0,
+                               tables_dir=zeta_fixture)
