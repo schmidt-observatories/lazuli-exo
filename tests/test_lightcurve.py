@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from lazuli_exo import lightcurve, observe
+from lazuli_exo import lightcurve, observe, orbit
 
 from conftest import PLANET  # pytest puts tests/ on sys.path
 
@@ -205,3 +205,74 @@ def test_omega_zero_is_not_treated_as_missing(monkeypatch):
     expected_b = t["a_over_rs"] * np.cos(np.radians(t["inc_deg"])) \
         * (1.0 - 0.3**2)
     assert lc.meta["b"] == pytest.approx(expected_b)
+
+
+# --- exact Keplerian z(t) and duration consistency ------------------------
+
+def _z_reference(t_s, period_d, a_rs, inc_deg, ecc, w_deg):
+    """Independent z(t): Kepler's equation by fixed-point iteration,
+    Winn (2010) eqs. 2-5 with mid-transit at f = pi/2 - w."""
+    w, i = np.radians(w_deg), np.radians(inc_deg)
+    f_c = np.pi / 2.0 - w
+    e_c = 2.0 * np.arctan(np.sqrt((1.0 - ecc) / (1.0 + ecc))
+                          * np.tan(f_c / 2.0))
+    m = e_c - ecc * np.sin(e_c) + 2.0 * np.pi * t_s / (period_d * 86400.0)
+    ea = m.copy()
+    for _ in range(400):
+        ea = m + ecc * np.sin(ea)
+    f = 2.0 * np.arctan(np.sqrt((1.0 + ecc) / (1.0 - ecc)) * np.tan(ea / 2.0))
+    r = a_rs * (1.0 - ecc**2) / (1.0 + ecc * np.cos(f))
+    x = -r * np.cos(w + f)
+    y = -r * np.sin(w + f) * np.cos(i)
+    return np.hypot(x, y)
+
+
+def test_projected_separation_eccentric_matches_reference():
+    period_d, a_rs, inc_deg, ecc, w_deg = 4.888, 16.7, 89.03, 0.25, 28.0
+    t_s = np.linspace(-9000.0, 9000.0, 1201)
+    z = orbit.projected_separation(t_s, period_d, a_rs, inc_deg, ecc, w_deg)
+    ref = _z_reference(t_s, period_d, a_rs, inc_deg, ecc, w_deg)
+    np.testing.assert_allclose(z, ref, atol=1e-9)
+    # z(0) is the eccentric impact parameter
+    b = a_rs * np.cos(np.radians(inc_deg)) * (1.0 - ecc**2) \
+        / (1.0 + ecc * np.sin(np.radians(w_deg)))
+    assert orbit.projected_separation(0.0, period_d, a_rs, inc_deg, ecc,
+                                      w_deg) == pytest.approx(b, abs=1e-12)
+
+
+def test_projected_separation_circular_limit_is_the_arc():
+    period_d, a_rs, inc_deg = 3.5, 11.4, 87.3
+    t_s = np.linspace(-9000.0, 9000.0, 1201)
+    theta = 2.0 * np.pi * t_s / (period_d * 86400.0)
+    arc = a_rs * np.hypot(np.sin(theta),
+                          np.cos(np.radians(inc_deg)) * np.cos(theta))
+    z = orbit.projected_separation(t_s, period_d, a_rs, inc_deg, 0.0, 90.0)
+    np.testing.assert_allclose(z, arc, atol=1e-9)
+
+
+@pytest.mark.parametrize("planet", ["HAT-P-11 b", "WASP-12 b"])
+def test_flux_model_matches_jaxoplanet(planet):
+    pytest.importorskip("jaxoplanet")
+    from lazuli_exo.targets import TARGETS
+    from lazuli_exo.transit import TransitModel
+    obs = observe(planet, scenario="clear", n_transits=1, R=100)
+    lc = lightcurve.light_curves(obs, n_groups=1, seed=0)
+    t = TARGETS[planet]
+    ref = TransitModel(
+        t0=0.0, per=t["period_d"], rp=np.sqrt(lc.depth[0]),
+        a=t["a_over_rs"], inc=t["inc_deg"], ecc=t["ecc"], w=t["w_deg"],
+        u=(lc.u1[0], lc.u2[0]),
+    ).relative_flux(lc.time_hr / 24.0 * lc.meta["time_stretch"])
+    assert np.max(np.abs(lc.flux_model[0] - ref)) < 1e-6
+
+
+def test_model_duration_equals_registry_t14():
+    """The orbit clock is stretched so the model's first-to-fourth-contact
+    span equals the registry t14_s used by the noise and the window."""
+    obs = observe("HAT-P-11 b", scenario="clear", n_transits=1, R=100)
+    lc = lightcurve.light_curves(obs, n_groups=1, seed=0)
+    assert lc.meta["t14_geom_s"] < lc.t14_s          # 7184 s vs 8480 s
+    assert lc.meta["time_stretch"] == pytest.approx(
+        lc.meta["t14_geom_s"] / lc.t14_s)
+    n_in = np.count_nonzero(lc.flux_model[0] < 1.0 - 1e-9)
+    assert abs(n_in * lc.cadence_s - lc.t14_s) <= lc.cadence_s
