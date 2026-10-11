@@ -5,9 +5,7 @@ def test_top_level_exports():
     for name in (
         "FluxModel",
         "TransitModel",
-        "MoonTransitModel",
         "plot_flux_model",
-        "plot_moon_transit",
         "download_exoplanet_archive",
         "load_exoplanet_archive",
         "default_archive_path",

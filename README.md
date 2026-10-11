@@ -40,7 +40,7 @@ pip install -e .
 
 Optional extras: `pip install -e ".[plot,web,test,docs]"` (matplotlib for
 `.plot()`, Flask for the applet, pytest, Sphinx), and `[transit]` /
-`[archive]` / `[pandora]` for the transit models below. The parametric model's live
+`[archive]` for the transit models below. The parametric model's live
 noise needs `slicersim` and `sncosmo` installed in the same environment; the
 showcase tables do not.
 
@@ -82,8 +82,6 @@ flux = model.relative_flux(time_days)                 # [transit]: jaxoplanet
 df = download_exoplanet_archive()                     # [archive]: astroquery, cached in ~/.lazuli_exo/
 model = TransitModel.from_planet("WASP-12 b", df=df)
 ```
-
-`MoonTransitModel` (exomoon transits) needs the `[pandora]` extra.
 
 # Tutorial
 See the `notebooks/` directory:

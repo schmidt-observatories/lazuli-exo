@@ -16,7 +16,6 @@ plot = ["matplotlib"]
 # cache. The subpackage imports with numpy only; these are what its models need.
 transit = ["astropy", "pandas", "jaxoplanet"]
 archive = ["astroquery"]
-pandora = ["pandoramoon"]
 test = ["pytest"]
 web = ["flask"]
 # Building the docs also needs a pandoc binary on the build machine

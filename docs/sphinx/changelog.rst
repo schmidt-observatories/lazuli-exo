@@ -9,9 +9,10 @@ Unreleased (0.2.0)
 
 - Absorbed the standalone ``lazuli-transit`` package as
   :mod:`lazuli_exo.transit`: ``FluxModel``, ``TransitModel`` (jaxoplanet),
-  ``MoonTransitModel`` (pandoramoon), the NASA Exoplanet Archive cache
-  (``download_exoplanet_archive`` / ``load_exoplanet_archive``) and the
-  matplotlib helpers. New extras ``transit``, ``archive``, ``pandora``; the
+  the NASA Exoplanet Archive cache (``download_exoplanet_archive`` /
+  ``load_exoplanet_archive``) and the matplotlib helpers. The GPL-backed
+  ``MoonTransitModel`` was not moved; it stays in the private lazuli-transit
+  repo so this package remains BSD-clean. New extras ``transit``, ``archive``; the
   subpackage itself still imports with numpy only. The archive cache moved
   from ``~/.lazuli_transit/`` to ``~/.lazuli_exo/``. ``wcc_etc`` depends on
   ``lazuli-exo[transit]`` instead of vendoring a copy.

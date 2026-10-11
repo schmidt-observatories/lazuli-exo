@@ -7,8 +7,8 @@ simulator (the WCC ETC, the IFS) consumes a :class:`~lazuli_exo.transit.FluxMode
 through ``relative_flux(time)``; nothing here imports an instrument package.
 
 Needs the ``transit`` extra (astropy, pandas, jaxoplanet); the archive download
-needs ``archive`` (astroquery); :class:`~lazuli_exo.transit.MoonTransitModel`
-needs ``pandora`` (pandoramoon).
+needs ``archive`` (astroquery). Every backend is MIT/BSD licensed; the GPL
+exomoon model (pandoramoon) deliberately stays out of this package.
 
 .. automodule:: lazuli_exo.transit
    :members:

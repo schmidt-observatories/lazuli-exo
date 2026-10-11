@@ -30,26 +30,3 @@ def plot_flux_model(model, time, ax=None, **kw):
     ax.set_xlabel("Time (days)")
     ax.set_ylabel("Relative flux")
     return ax
-
-
-def plot_moon_transit(model, time=None, show_components=True, ax=None, **kw):
-    """Plot a MoonTransitModel light curve.
-
-    When ``time`` is None, uses ``model.default_time()``. With
-    ``show_components`` (default True) overlays planet-only and moon-only
-    curves from ``model.components`` so the moon's dip is visible.
-    Returns the Axes.
-    """
-    ax = _get_ax(ax)
-    if time is None:
-        time = model.default_time()
-    time = np.asarray(time, dtype=float)
-    total, planet, moon = model.components(time)
-    ax.plot(time, total, label="total (planet+moon)", **kw)
-    if show_components:
-        ax.plot(time, planet, "--", label="planet only")
-        ax.plot(time, moon, ":", label="moon only")
-        ax.legend()
-    ax.set_xlabel("Time (days)")
-    ax.set_ylabel("Relative flux")
-    return ax

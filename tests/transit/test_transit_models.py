@@ -11,7 +11,7 @@ import sys
 import numpy as np
 import pandas as pd
 import pytest
-from lazuli_exo.transit import FluxModel, MoonTransitModel, TransitModel
+from lazuli_exo.transit import FluxModel, TransitModel
 
 # batman 2.5.1: t0=0, per=1, rp=0.1, a=15, inc=87, ecc=0, w=90,
 # limb_dark="quadratic", u=(0.1, 0.3)
@@ -269,73 +269,3 @@ def test_from_planet_skips_check_when_tran_flag_absent():
     df = _df().drop(columns=["tran_flag"])
     m = TransitModel.from_planet("WASP-12 b", df=df)
     assert m.per == pytest.approx(1.0914)
-
-
-def _moon_kwargs():
-    # Hot-Jupiter-scale system with a Neptune-ish moon; produces a clear dip.
-    return dict(
-        R_star=1.0, u=(0.4089, 0.2556),
-        t0=0.0, per=10.0, Rp=11.2, a=0.092, b=0.3,
-        ecc=0.0, w=0.0, M_planet=318.0,
-        Rm=3.9, per_moon=2.5, M_moon=17.0,
-        tau=0.5, Omega=0.0, i_moon=90.0,
-    )
-
-
-def test_moon_relative_flux_matches_pandora_directly():
-    pandora = pytest.importorskip("pandoramoon")
-    import astropy.constants as const, astropy.units as u
-    t = np.linspace(-0.3, 0.3, 400)
-    kw = _moon_kwargs()
-    got = MoonTransitModel(**kw).relative_flux(t)
-
-    R_sun_m = const.R_sun.to(u.m).value
-    R_earth_m = const.R_earth.to(u.m).value
-    M_earth_kg = const.M_earth.to(u.kg).value
-    AU_m = (1 * u.au).to(u.m).value
-    R_star_m = kw["R_star"] * R_sun_m
-
-    p = pandora.model_params()
-    p.R_star = R_star_m
-    p.u1, p.u2 = kw["u"]
-    p.per_bary = kw["per"]
-    p.a_bary = kw["a"] * AU_m / R_star_m
-    p.r_planet = kw["Rp"] * R_earth_m / R_star_m
-    p.b_bary = kw["b"]
-    p.w_bary = kw["w"]
-    p.ecc_bary = kw["ecc"]
-    p.t0_bary = kw["t0"]
-    p.t0_bary_offset = 0.0
-    p.M_planet = kw["M_planet"] * M_earth_kg
-    p.r_moon = kw["Rm"] * R_earth_m / R_star_m
-    p.per_moon = kw["per_moon"]
-    p.tau_moon = kw["tau"]
-    p.Omega_moon = kw["Omega"]
-    p.i_moon = kw["i_moon"]
-    p.ecc_moon = kw["ecc_moon"] if "ecc_moon" in kw else 0.0
-    p.w_moon = kw["w_moon"] if "w_moon" in kw else 0.0
-    p.M_moon = kw["M_moon"] * M_earth_kg
-    p.epoch_distance = kw["per"]
-    p.supersampling_factor = 1
-    p.time = t
-    expected = pandora.moon_model(p).light_curve(t)[0]
-    np.testing.assert_allclose(got, expected, rtol=0, atol=0)
-
-
-def test_moon_components_consistency():
-    pytest.importorskip("pandoramoon")
-    t = np.linspace(-0.3, 0.3, 400)
-    m = MoonTransitModel(**_moon_kwargs())
-    total, planet, moon = m.components(t)
-    np.testing.assert_allclose(total, planet + moon - 1.0, rtol=0, atol=1e-12)
-    np.testing.assert_allclose(total, m.relative_flux(t), rtol=0, atol=0)
-
-
-def test_moon_deepens_dip_vs_planet_only():
-    pytest.importorskip("pandoramoon")
-    t = np.linspace(-0.3, 0.3, 400)
-    kw = _moon_kwargs()
-    with_moon = MoonTransitModel(**kw).relative_flux(t).min()
-    kw_no_moon = dict(kw, Rm=0.0, M_moon=1e-6)
-    planet_only = MoonTransitModel(**kw_no_moon).relative_flux(t).min()
-    assert with_moon < planet_only

@@ -11,19 +11,17 @@ from .archive import (
     download_exoplanet_archive,
     load_exoplanet_archive,
 )
-from .models import FluxModel, MoonTransitModel, TransitModel
+from .models import FluxModel, TransitModel
 
 # Safe to import eagerly only because plotting.py keeps matplotlib out of its
 # module top level (lazy-imported inside the functions). Keep it that way, or
 # `import lazuli_exo.transit` will start requiring matplotlib.
-from .plotting import plot_flux_model, plot_moon_transit
+from .plotting import plot_flux_model
 
 __all__ = [
     "FluxModel",
     "TransitModel",
-    "MoonTransitModel",
     "plot_flux_model",
-    "plot_moon_transit",
     "download_exoplanet_archive",
     "load_exoplanet_archive",
     "default_archive_path",
