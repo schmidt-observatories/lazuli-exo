@@ -50,8 +50,17 @@ POSEIDON tables put the archive radius at 10 bar, the parametric path puts
 it at the transit photosphere, ~10 scale heights higher; the validation
 therefore feeds the model each table's own band-median radius. The transit
 depth baseline `k = R_p/R_s` is taken from the registry radii (`R_p_RJ`,
-`R_s_RSun`) on both paths and recorded as `meta["k_source"]`; the registry
-`depth` field (archive `pl_ratror^2`) is informational.
+`R_s_RSun`) on both paths and recorded as `meta["k_source"]`. The registry
+freezes one radius ratio per planet (issue #7): `k` is the archive
+`pl_ratror` (fallback `pl_radj/st_rad`, see `k_source`), `R_p_RJ` is derived
+as `k R_s`, and `depth` is `k^2` by construction; the archive `pl_radj` is
+kept as the informational `R_p_archive_RJ` (WASP-39 b: 1.279 vs 1.331 R_J
+derived, a 7.7 % depth difference). `T_eq_K` is the archive `pl_eqt` as
+frozen, not recomputed, because the POSEIDON validation tables were built at
+those temperatures; `T_eq_conv_K = T_eff sqrt(R_s / 2a)` (A = 0, full
+redistribution) is stored alongside, and four planets deviate from it by
+more than 4 %: GJ 3470 b (0.87), HAT-P-11 b (1.04), WASP-107 b (0.955) and
+K2-18 b (1.06, via the registry a/R* of 83.83 rather than its T_eq).
 
 **Stellar SED.** `star.phoenix_sed(teff_K, logg, feh)` interpolates the
 pysynphot PHOENIX `phoenixm00` folder (2000-12000 K, log g 3.5-5.5, R = 1000
