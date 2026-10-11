@@ -266,7 +266,15 @@ repo/package.
   `meta["time_stretch"]`).
   LD coefficients come from per-planet tables (`src/lazuli_exo/data/tables/ld/`) computed
   by `precompute/make_ld_tables.py` with exotic-ld (PHOENIX grid, trilinear
-  interpolation, 48 wavelength chunks). Planets without a registry entry or
+  interpolation, 48 wavelength chunks, fit over mu >= 0.1); each chunk is
+  refitted under the Kipping (2013) constraints (u1 >= 0, u1 + u2 <= 1,
+  u1 + 2 u2 >= 0) so the limb intensity is never negative, with the affected
+  chunks listed in `meta["constrained_chunks"]` (only TRAPPIST-1 e, at
+  0.41-0.46 um and 0.74 um). TRAPPIST-1 e's (2566 K) LD is uncertain at the
+  0.1-0.4 level in u1 (it depends on the fit's mu_min and the grid vertex),
+  and a 0.1 error in u1 biases a fitted white-light k^2 by ~150 ppm =
+  6 sigma_band, so an empirical/JWST LD prior is recommended for that
+  target. Planets without a registry entry or
   LD table fall back to a b = 0 trapezoid; `meta["shape"]` records which.
   Per-point noise is derived from the band's depth precision via
   sigma_pt = sigma_band * sqrt(t14 / 2c), consistent with the noise tables'
