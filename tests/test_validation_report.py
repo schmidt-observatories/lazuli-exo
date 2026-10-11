@@ -1,20 +1,40 @@
-import json
+"""Run the model-vs-POSEIDON gate (issue #22) on the current code.
+
+Both reference sets are committed under precompute/tables; a missing file is
+a failure, not a skip. Runtime ~1 min for the 70 showcase cases.
+"""
+import importlib.util
 from pathlib import Path
 
-import pytest
+ROOT = Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location(
+    "validate_zeta_grid", ROOT / "precompute" / "validate_zeta_grid.py")
+vz = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(vz)
 
-REPORT = Path(__file__).resolve().parents[1] / "notebooks" / "figs" / "06_validation.json"
+
+def _assert_gate(rows):
+    unwaived, stale, _ = vz.summarize(rows)
+    assert unwaived == [], f"un-waived gate failures: {unwaived}"
+    assert stale == [], f"stale waivers (gate passes now, remove from WAIVED): {stale}"
 
 
-@pytest.mark.skipif(not REPORT.exists(), reason="run precompute/validate_zeta_grid.py")
-def test_validation_report_passes():
-    rows = json.loads(REPORT.read_text())
+def test_reference_sets_are_committed():
+    models = sorted((vz.MODELS / "models").glob("*.npz"))
+    assert len(models) == 14 * 5, f"expected 70 POSEIDON tables in {vz.MODELS / 'models'}"
+    assert vz.HOLDOUTS.exists(), f"{vz.HOLDOUTS} missing"
+
+
+def test_models_gate():
+    rows = vz.validate()
     assert sum(not r["like_for_like"] for r in rows) == 14 * 5
     flat = [r for r in rows if r["scenario"] == "flat"]
-    assert len(flat) >= 14 and all(r["amp_model_ppm"] <= 10.0 for r in flat)
-    gated = [r for r in rows if r["like_for_like"] or not r["T_clamped"]]
-    failed = [(r["planet"], r["scenario"], round(r["amp_ratio"], 2))
-              for r in gated if not r["passed"] and not r.get("waived")]
-    assert failed == []
-    waived = [(r["planet"], r["scenario"]) for r in gated if not r["passed"] and r.get("waived")]
-    assert waived == [("WASP-12 b", "cloudy")]     # the one documented exception
+    assert len(flat) >= 14 and all(r["amp_model_ppm"] < vz.FLAT_MAX_PPM for r in flat)
+    assert all(r["gates"] == ["G2", "G5", "G3"] for r in rows if r["scenario"] != "flat")
+    _assert_gate(rows)
+
+
+def test_holdouts_gate():
+    rows = vz.validate_holdouts()
+    assert len(rows) == 15
+    _assert_gate(rows)

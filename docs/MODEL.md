@@ -49,8 +49,21 @@ noise table, so the showcase and parametric paths share one model and one
 radius convention (issue #3). The 14 x 5 POSEIDON spectra in
 `precompute/tables/models/` are validation data only: isothermal, equilibrium
 chemistry, gray deck, power-law haze (MacMad17 form, anchored at 0.35 um).
-Validation is in `notebooks/06_parametric_model.ipynb`
-(`precompute/validate_zeta_grid.py`). Note the convention difference: the
+Validation is `precompute/validate_zeta_grid.py` (run by
+`tests/test_validation_report.py` against the committed reference sets; it
+fails, never skips, if they are missing). Each of the 70 showcase cases is
+binned to R = 100 over 0.40-1.70 um with the constant offset removed and
+gated against that planet's single-transit per-bin sigma: worst bin < 1 sigma
+(G2), error-spectrum template S/N `sqrt(sum (res/sigma)^2)` < 3 (G5),
+template S/N ratio model/table within 10 % (G3), and for the featureless
+`flat` scenario a model amplitude < 10 ppm. A second set,
+`precompute/tables/holdouts/zeta_holdouts.npz`, holds direct POSEIDON zeta
+and depths at 15 off-node points (T = 650/1100/2450 K midpoints, 567/736/
+1166 K, [M/H] 1.75, C/O 0.9, x = +0.63) so that grid interpolation itself is
+gated, not only the node values every showcase planet sits on. Expected
+failures are listed in `WAIVED` with the gate they waive and the issue that
+removes them (#35 grid regeneration); a waiver
+whose gate passes is itself an error. Note the convention difference: the
 POSEIDON tables put the archive radius at 10 bar, the parametric path puts
 it at the transit photosphere, ~10 scale heights higher; the validation
 therefore feeds the model each table's own band-median radius. The transit
