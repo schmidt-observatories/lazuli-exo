@@ -84,6 +84,13 @@ so `observe()` and `simulate()` share one stellar spectrum (the committed
 noise tables are regenerated in a separate pass, issue #34); the POSEIDON
 star tables `star/<slug>.npz` are validation data only.
 
+**Spectrograph field.** `depth_error` rescales the slicersim target to the
+narrow field by default (`spectrograph_mode="narrow"`) instead of relying on
+slicersim's default: from slicersim 1.3.3 a freshly built `LazuliTarget` is
+left un-rescaled, with half the narrow-field throughput, which made the live
+path 1.4x noisier than the committed tables (built in the narrow field with
+slicersim 1.0.0). Pass `spectrograph_mode="wide"` for the wide field.
+
 **Magnitudes.** slicersim normalizes in AB; archive J magnitudes are Vega.
 `lazuli_exo.slicer.depth_error` converts (J: +0.90 mag via sncosmo) and reports
 the offset in `info`. The committed noise tables were regenerated with this

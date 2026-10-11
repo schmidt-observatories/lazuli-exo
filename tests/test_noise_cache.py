@@ -21,6 +21,7 @@ def instrument(monkeypatch):
 
         def __init__(self, wl, flux, *, mag, band, instrument):
             Target.calls += 1
+            Target.last = self
             if Target.fail:
                 raise RuntimeError('configuration unavailable')
             self.mag = mag
@@ -219,7 +220,7 @@ def test_setup_is_part_of_the_cache_key(instrument):
     run(nmd=(4, 2, 0))
     run(nmd=(4, 2, 0))                       # hit
     run(tframe=0.7)
-    run(spectrograph_mode='narrow')
+    run(spectrograph_mode='wide')
     assert slicer._cached_native_noise.cache_info().currsize == 4
     assert Target.calls == 4
 
@@ -231,7 +232,7 @@ def test_fixed_nmd_bypasses_desaturation_and_is_reported(instrument):
     assert auto['readout_mode'] == 'auto' and auto['nmd_used'] == [4, 2, 0] and auto['fully_desaturated']
     assert fixed['readout_mode'] == 'fixed' and fixed['nmd_used'] == [8, 2, 0]
     assert fixed['nsaturated_detpx'] == 1 and fixed['fully_desaturated'] is False
-    assert fixed['tframe_s'] == 2.83 and fixed['spectrograph_mode'] is None
+    assert fixed['tframe_s'] == 2.83 and fixed['spectrograph_mode'] == 'narrow'
 
 
 def test_setup_values_are_normalized_before_keying(instrument):
@@ -239,3 +240,13 @@ def test_setup_values_are_normalized_before_keying(instrument):
     run(nmd=[4, 2, 0], tframe=1, spectrograph_mode='WIDE')
     run(nmd=(4.0, 2.0, 0.0), tframe=1.0, spectrograph_mode='wide')   # same setup -> hit
     assert Target.calls == 1
+
+
+def test_default_setup_pins_the_narrow_field(instrument):
+    # slicersim >= 1.3.3 no longer rescales a fresh LazuliTarget to a field
+    # (half the throughput, 1.4x the noise); the live path must not depend on
+    # that default, and the noise tables were built in the narrow field.
+    Target, _, _ = instrument
+    _, _, info = run()
+    assert info['spectrograph_mode'] == 'narrow'
+    assert Target.last.mode == 'narrow'
