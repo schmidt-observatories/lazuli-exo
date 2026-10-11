@@ -27,13 +27,18 @@ radius, which replaces the P_ref convention for this path. The physics is
 
     zeta(lambda) = -ln P_photo / bar      (tabulated: T, [M/H], C/O; two fiducials)
     zeta_p = zeta + 0.5 ln[(R_p H) / (R_p,fid H_fid)]   (blended between the fiducials)
-    zeta_eff = zeta_d + s Ein(exp((logaddexp(zeta_p, zeta_haze) - zeta_d)/s - gamma_E))
+    tau(z) = exp((zeta_p - s gamma_E - z)/s) + exp(zeta_haze - z)
+    zeta_eff = zeta_d + int_0^inf [1 - exp(-tau(zeta_d + u))] du
     R(lambda) = R_p / (1 - (H / R_p) (zeta_eff - median zeta_eff)),   depth = (R / R_s)^2
 
-(the deck line is the exact effective radius of an exponential tau profile
-over an opaque deck at zeta_d = -ln P_cloud, with s the slant-column exponent
-read off the two fiducials; the last line is the exact isothermal hydrostatic
-solution with g ~ 1/r^2; H = k T_eq / (mu m_H g) with g at R_p). zeta is stored at the model's native
+(zeta_p is an effective-radius level, s gamma_E above the gas tau_chord = 1
+level for an exponential tau profile with slant-column exponent s read off
+the two fiducials; zeta_haze = -ln P_haze is the haze tau_chord = 1 level
+with exponent 1; the integral is the thin-atmosphere effective radius of the
+summed profile over an opaque deck at zeta_d = -ln P_cloud, which for pure
+gas is zeta_d + s Ein(exp((zeta_p - zeta_d)/s - gamma_E)); the last line is
+the exact isothermal hydrostatic solution with g ~ 1/r^2; H = k T_eq /
+(mu m_H g) with g at R_p). zeta is stored at the model's native
 R = 10,000 so that a cloud deck clips individual line cores, as in POSEIDON,
 and on two fiducial planets (1 R_J at g = 10 m/s^2; 0.3 R_J at g = 30 m/s^2) so that the
 pressure dependence of the line cores is captured to first order.
