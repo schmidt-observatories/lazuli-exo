@@ -2,12 +2,19 @@
 
 Run (needs astroquery, network):
     ~/anaconda3/envs/py313/bin/python precompute/freeze_targets.py
+or offline from a saved TAP snapshot ({"pscomppars": [row, ...]} JSON):
+    python precompute/freeze_targets.py --nea nea.json
+
+Radius convention: one k = R_p/R_s per planet, frozen from the archive
+pl_ratror when available (else pl_radj/st_rad); R_p_RJ is derived from k so
+the runtime radius ratio and `depth` = k**2 cannot diverge (issue #7).
 """
 import math
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from lazuli_exo.atmosphere import R_J, R_SUN  # noqa: E402
 from lazuli_exo.orbit import transit_duration_s  # noqa: E402
 
 PLANETS = [
@@ -74,17 +81,40 @@ def build_entry(row, name):
     ov = OVERRIDES.get(name, {})
     g = lambda field, raw: ov.get(field, raw)
 
-    rp_ratio = val(row, "pl_ratror")
     a_rs = val(row, "pl_ratdor")
     inc = g("inc_deg", _default(val(row, "pl_orbincl"), 90.0))
     teff = g("T_eff_K", val(row, "st_teff"))
     per = g("period_d", val(row, "pl_orbper"))
-    ecc = g("ecc", _default(val(row, "pl_orbeccen"), 0.0))
-    w_deg = g("w_deg", _default(val(row, "pl_orblper"), 90.0))
+    r_s = g("R_s_RSun", val(row, "st_rad"))
+    r_p_archive = g("R_p_RJ", val(row, "pl_radj"))
 
+    # One radius ratio per planet (issue #7): prefer the archive's own
+    # k = pl_ratror; the runtime's R_p_RJ is derived from it.
+    rp_ratio = val(row, "pl_ratror")
+    if rp_ratio is not None:
+        k_source = "pl_ratror"
+    elif r_p_archive and r_s:
+        rp_ratio = r_p_archive * R_J / (r_s * R_SUN)
+        k_source = "pl_radj/st_rad"
+    else:
+        k_source = None
+    r_p = rp_ratio * r_s * R_SUN / R_J if rp_ratio and r_s else None
+
+    # A NULL omega with a nonzero e would put the transit at periastron
+    # (w = 90): treat the orbit as circular instead.
+    ecc = g("ecc", _default(val(row, "pl_orbeccen"), 0.0))
+    w_deg = g("w_deg", val(row, "pl_orblper"))
+    ecc_note = None
+    if w_deg is None:
+        ecc, w_deg = 0.0, 90.0
+        ecc_note = "w unavailable; circular assumed"
+
+    # T_eq stays the archive value (the POSEIDON validation tables were built
+    # at it); T_eq_conv_K is the A=0 full-redistribution value for reference.
+    t_eq_conv = teff * math.sqrt(0.5 / a_rs) if teff and a_rs else None
     t_eq = val(row, "pl_eqt")
-    if t_eq is None and teff and a_rs:
-        t_eq = teff * math.sqrt(0.5 / a_rs)
+    if t_eq is None:
+        t_eq = t_eq_conv
 
     t14 = val(row, "pl_trandur")          # hours in the archive
     t14_s = t14 * 3600.0 if t14 is not None else None
@@ -95,16 +125,19 @@ def build_entry(row, name):
     entry = {
         "name": name,
         "slug": name.lower().replace(" ", "-"),
-        "R_p_RJ": g("R_p_RJ", val(row, "pl_radj")),
+        "R_p_RJ": r_p,
+        "R_p_archive_RJ": r_p_archive,
+        "k_source": k_source,
         "M_p_MJ": g("M_p_MJ", val(row, "pl_bmassj")),
-        "R_s_RSun": g("R_s_RSun", val(row, "st_rad")),
+        "R_s_RSun": r_s,
         "T_eff_K": teff,
         "log_g_star": g("log_g_star", val(row, "st_logg")),
         "Met_star": g("Met_star", _default(val(row, "st_met"), 0.0)),
         "T_eq_K": g("T_eq_K", t_eq),
+        "T_eq_conv_K": t_eq_conv,
         "period_d": per,
         "t14_s": g("t14_s", t14_s),
-        "depth": g("depth", rp_ratio ** 2 if rp_ratio else None),
+        "depth": rp_ratio ** 2 if rp_ratio else None,
         "a_over_rs": g("a_over_rs", a_rs),
         "inc_deg": inc,
         "ecc": ecc,
@@ -116,11 +149,17 @@ def build_entry(row, name):
     missing = [k for k, v in entry.items() if v is None]
     if missing:
         raise SystemExit(f"{name}: missing {missing} — add to OVERRIDES")
+    if ecc_note:
+        entry["ecc_note"] = ecc_note
     return entry
 
 
-def main():
-    table = fetch()
+def main(argv=tuple(sys.argv[1:])):
+    if argv[:1] == ("--nea",):
+        import json
+        table = json.load(open(argv[1]))["pscomppars"]
+    else:
+        table = fetch()
     rows = {str(r["pl_name"]): r for r in table}
     targets = {}
     for name in PLANETS:
