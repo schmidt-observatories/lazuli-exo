@@ -1,7 +1,12 @@
 """Build <package>/data/tables/star/phoenix_grid.npz from the local pysynphot PHOENIX grid.
 
-Run: PYSYN_CDBS=$HOME/inputs/stellar_grids \
-     ~/anaconda3/envs/poseidon/bin/python precompute/make_phoenix_grid.py
+Run: PYSYN_CDBS=$HOME/inputs/stellar_grids PYTHONPATH=src python precompute/make_phoenix_grid.py
+
+Solar metallicity only (issue #34): the non-solar pysynphot folders
+(phoenixm10/m05/p03/p05) are a different, low-resolution (R~741) product with
+randomly missing log g columns and cool-star spectra that are wrong by 1-3 mag
+in V-J; Gaia XP prefers the solar node for every metal-rich FGK host. The
+[Fe/H] axis therefore has the single node 0.0 and star.phoenix_sed clamps to it.
 """
 import os
 import re
@@ -17,38 +22,20 @@ sys.path.insert(0, str(ROOT / "src"))
 from lazuli_exo import binning, tables  # noqa: E402
 
 CDBS = Path(os.environ.get("PYSYN_CDBS", Path.home() / "inputs" / "stellar_grids"))
-GRID = CDBS / "grid" / "phoenix"
+FOLDER = "phoenixm00"
+GRID = CDBS / "grid" / "phoenix" / FOLDER
 TABLES = tables.resolve_tables_dir(None)
-FEH = {-1.0: "phoenixm10", -0.5: "phoenixm05", 0.0: "phoenixm00",
-       0.3: "phoenixp03", 0.5: "phoenixp05"}
-LOGG = [3.5, 4.0, 4.5, 5.0]
-TEFF_MIN, TEFF_MAX = 2000, 8000
+LOGG = [3.5, 4.0, 4.5, 5.0, 5.5]
+TEFF_MIN, TEFF_MAX = 2000, 12000    # catalog spacing: 100 K to 7000, 200 K to 12000
 WL_MIN_UM, WL_MAX_UM, R_STORE = 0.30, 2.50, 1000
 FLOOR = 1e-30    # erg s-1 cm-2 A-1; keeps log10 finite in deep absorption
-# Native sampling differs per folder: phoenixm00 is R~13,700 (103,000 points),
-# the other metallicities are R~160 (5,000 points). Every spectrum is first
-# interpolated onto this fine constant-R grid, then bin-averaged to R_STORE,
-# so the stored grid is defined the same way everywhere. The per-folder
-# native resolution is recorded in meta["native_R"].
+# Native sampling is R~13,700; every spectrum is first interpolated onto this
+# fine constant-R grid, then bin-averaged to R_STORE.
 R_FINE = 20000
-# The low-resolution folders carry corrupt cool-star models (issue #16): their
-# box V-J scatters by 1-2 mag around the solar-metallicity node at the same
-# (T_eff, log g). A node whose V-J differs from the solar node by more than
-# VJ_TOL is replaced by that solar node and listed in meta["filled_from_solar_feh"].
-VJ_TOL = 0.3     # mag
-V_BAND, J_BAND = (0.50, 0.60), (1.17, 1.33)    # um, box filters
 
 
 def teff_of(path):
     return int(re.findall(r"_(\d+)\.fits$", path.name)[0])
-
-
-def box_vj(wl_um, log_flam):
-    """Box-filter V-J colour of log_flam[..., wavelength]."""
-    f = 10.0 ** log_flam
-    v = f[..., (wl_um >= V_BAND[0]) & (wl_um <= V_BAND[1])].mean(-1)
-    j = f[..., (wl_um >= J_BAND[0]) & (wl_um <= J_BAND[1])].mean(-1)
-    return -2.5 * np.log10(v / j)
 
 
 def main():
@@ -56,61 +43,51 @@ def main():
     wl_store = binning.bin_centers(edges)
     wl_fine = binning.bin_centers(
         binning.constant_R_edges(WL_MIN_UM * 0.99, WL_MAX_UM * 1.01, R_FINE))
-    native_R = {}
-    filled = {}      # "folder_teff_logg" -> logg actually used (all-zero placeholder models)
-    files0 = sorted(GRID.joinpath(FEH[0.0]).glob("*.fits"), key=teff_of)
-    teffs = [teff_of(p) for p in files0 if TEFF_MIN <= teff_of(p) <= TEFF_MAX]
-    fehs = sorted(FEH)
-    log_flam = np.full((len(teffs), len(LOGG), len(fehs), len(wl_store)), np.nan)
-    for k, feh in enumerate(fehs):
-        for i, teff in enumerate(teffs):
-            path = GRID / FEH[feh] / f"{FEH[feh]}_{teff}.fits"
-            with fits.open(path) as h:
-                d = h[1].data
-                wl_um = np.asarray(d["WAVELENGTH"], float) / 1e4
-                sel = (wl_um >= WL_MIN_UM * 0.98) & (wl_um <= WL_MAX_UM * 1.02)
-                native_R.setdefault(FEH[feh], float(np.median(
-                    wl_um[sel][1:] / np.diff(wl_um[sel]))))
-                cols = {g: f"g{int(round(g * 10)):02d}" for g in LOGG}
-                missing = [c for c in cols.values() if c not in d.columns.names]
-                if missing:
-                    raise SystemExit(f"{path.name}: no column(s) {missing}")
-                nonzero = [g for g in LOGG if np.any(np.asarray(d[cols[g]], float)[sel] > 0)]
-                if not nonzero:
-                    raise SystemExit(f"{path.name}: every log g column is all-zero")
-                for j, g in enumerate(LOGG):
-                    g_use = g if g in nonzero else min(nonzero, key=lambda x: abs(x - g))
-                    if g_use != g:
-                        filled[f"{FEH[feh]}_{teff}_{g}"] = g_use
-                    flux = np.asarray(d[cols[g_use]], float)[sel]
-                    fine = np.interp(wl_fine, wl_um[sel], flux)
-                    binned = binning.bin_model(wl_fine, fine, edges)
-                    log_flam[i, j, k] = np.log10(np.maximum(binned, FLOOR))
-        print(f"[Fe/H]={feh:+.1f}: {len(teffs)} T_eff files done", flush=True)
+    native_R = None
+    filled = {}      # "teff_logg" -> logg actually used (missing or all-zero column)
+    files = sorted(GRID.glob("*.fits"), key=teff_of)
+    teffs = [teff_of(p) for p in files if TEFF_MIN <= teff_of(p) <= TEFF_MAX]
+    cols = {g: f"g{int(round(g * 10)):02d}" for g in LOGG}
+    log_flam = np.full((len(teffs), len(LOGG), 1, len(wl_store)), np.nan)
+    for i, teff in enumerate(teffs):
+        with fits.open(GRID / f"{FOLDER}_{teff}.fits") as h:
+            d = h[1].data
+            wl_um = np.asarray(d["WAVELENGTH"], float) / 1e4
+            sel = (wl_um >= WL_MIN_UM * 0.98) & (wl_um <= WL_MAX_UM * 1.02)
+            if native_R is None:
+                native_R = float(np.median(wl_um[sel][1:] / np.diff(wl_um[sel])))
+            # The hot files drop the high-log g columns (g55 above 5000 K, g50
+            # above 10000 K); treat a missing column like an all-zero one.
+            nonzero = [g for g in LOGG if cols[g] in d.columns.names
+                       and np.any(np.asarray(d[cols[g]], float)[sel] > 0)]
+            if not nonzero:
+                raise SystemExit(f"{FOLDER}_{teff}.fits: every log g column is missing or all-zero")
+            for j, g in enumerate(LOGG):
+                g_use = g if g in nonzero else min(nonzero, key=lambda x: abs(x - g))
+                if g_use != g:
+                    filled[f"{teff}_{g}"] = g_use
+                flux = np.asarray(d[cols[g_use]], float)[sel]
+                fine = np.interp(wl_fine, wl_um[sel], flux)
+                binned = binning.bin_model(wl_fine, fine, edges)
+                log_flam[i, j, 0] = np.log10(np.maximum(binned, FLOOR))
     assert np.isfinite(log_flam).all()
-    k0 = fehs.index(0.0)
-    dvj = box_vj(wl_store, log_flam)
-    dvj -= dvj[:, :, [k0]]
-    bad = np.abs(dvj) > VJ_TOL
-    filled_feh = {f"{FEH[fehs[k]]}_{teffs[i]}_{LOGG[j]}": round(float(dvj[i, j, k]), 2)
-                  for i, j, k in zip(*np.nonzero(bad))}
-    log_flam[bad] = np.broadcast_to(log_flam[:, :, [k0]], log_flam.shape)[bad]
     tables.write_phoenix_grid(
-        TABLES, teff_K=teffs, logg=LOGG, feh=fehs, wavelength_um=wl_store,
+        TABLES, teff_K=teffs, logg=LOGG, feh=[0.0], wavelength_um=wl_store,
         log_flam=log_flam,
         meta={"generator": "make_phoenix_grid.py", "created": str(date.today()),
-              "source": "pysynphot PHOENIX (STScI CDBS grid/phoenix)",
+              "source": f"pysynphot PHOENIX (STScI CDBS grid/phoenix/{FOLDER})",
+              "folder": FOLDER,
               "units": "log10 F_lambda [erg s-1 cm-2 A-1] at the stellar "
                        "surface, bin-averaged at constant R",
-              "R_store": R_STORE, "R_fine": R_FINE,
-              "native_R": {k: round(v) for k, v in native_R.items()},
+              "R_store": R_STORE, "R_fine": R_FINE, "native_R": round(native_R),
               "filled_from_nearest_logg": filled,
-              "vj_tol_mag": VJ_TOL, "v_band_um": V_BAND, "j_band_um": J_BAND,
-              "filled_from_solar_feh": filled_feh,
-              "folders": {str(k): v for k, v in FEH.items()}})
+              "metallicity": "solar by construction: the non-solar pysynphot "
+                             "folders are an unreliable low-resolution product "
+                             "(issue #34); phoenix_sed clamps [Fe/H] to 0.0"})
     tables.rebuild_index(TABLES)
-    print(f"filled {len(filled)} all-zero placeholder models from the nearest log g")
-    print(f"filled {len(filled_feh)} nodes with |d(V-J)| > {VJ_TOL} mag from the solar-[Fe/H] node")
+    print(f"{len(teffs)} T_eff x {len(LOGG)} log g nodes, {teffs[0]}-{teffs[-1]} K, native R~{native_R:.0f}")
+    print(f"filled {len(filled)} missing/all-zero log g columns from the nearest log g: "
+          + ", ".join(f"{k}<-{v}" for k, v in filled.items()))
     print("wrote", TABLES / tables.PHOENIX_GRID)
 
 

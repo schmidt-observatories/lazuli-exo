@@ -40,7 +40,12 @@ def test_observe_matches_simulate():
     pytest.importorskip("sncosmo")
     obs = lazuli_exo.observe("WASP-39 b", scenario="clear", R=100)
     sim = lazuli_exo.simulate(lazuli_exo.presets.showcase("WASP-39 b", "clear"), R=100)
-    np.testing.assert_allclose(obs.depth, sim.depth, rtol=1e-12)
+    np.testing.assert_allclose(obs.model_depth, sim.model_depth, rtol=1e-12)
+    # binned depths differ only through the within-pixel photon weights (star
+    # table R=10000 vs phoenix_sed R=1000) and the channel 1/sigma^2 weights
+    np.testing.assert_allclose(obs.depth, sim.depth, rtol=2e-3)
+    assert obs.meta["instrument_response"]["photon_weighting"] == "star table R=10000"
+    assert sim.meta["instrument_response"]["photon_weighting"] == "phoenix_sed R=1000"
     assert obs.flat_depth == pytest.approx(sim.flat_depth)
     # noise: precomputed table (POSEIDON star) vs live slicersim (PHOENIX grid)
     ratio = np.median(obs.depth_err / sim.depth_err)

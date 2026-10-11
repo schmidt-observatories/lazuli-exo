@@ -27,13 +27,18 @@ radius, which replaces the P_ref convention for this path. The physics is
 
     zeta(lambda) = -ln P_photo / bar      (tabulated: T, [M/H], C/O; two fiducials)
     zeta_p = zeta + 0.5 ln[(R_p H) / (R_p,fid H_fid)]   (blended between the fiducials)
-    zeta_eff = zeta_d + s Ein(exp((logaddexp(zeta_p, zeta_haze) - zeta_d)/s - gamma_E))
+    tau(z) = exp((zeta_p - s gamma_E - z)/s) + exp(zeta_haze - z)
+    zeta_eff = zeta_d + int_0^inf [1 - exp(-tau(zeta_d + u))] du
     R(lambda) = R_p / (1 - (H / R_p) (zeta_eff - median zeta_eff)),   depth = (R / R_s)^2
 
-(the deck line is the exact effective radius of an exponential tau profile
-over an opaque deck at zeta_d = -ln P_cloud, with s the slant-column exponent
-read off the two fiducials; the last line is the exact isothermal hydrostatic
-solution with g ~ 1/r^2; H = k T_eq / (mu m_H g) with g at R_p). zeta is stored at the model's native
+(zeta_p is an effective-radius level, s gamma_E above the gas tau_chord = 1
+level for an exponential tau profile with slant-column exponent s read off
+the two fiducials; zeta_haze = -ln P_haze is the haze tau_chord = 1 level
+with exponent 1; the integral is the thin-atmosphere effective radius of the
+summed profile over an opaque deck at zeta_d = -ln P_cloud, which for pure
+gas is zeta_d + s Ein(exp((zeta_p - zeta_d)/s - gamma_E)); the last line is
+the exact isothermal hydrostatic solution with g ~ 1/r^2; H = k T_eq /
+(mu m_H g) with g at R_p). zeta is stored at the model's native
 R = 10,000 so that a cloud deck clips individual line cores, as in POSEIDON,
 and on two fiducial planets (1 R_J at g = 10 m/s^2; 0.3 R_J at g = 30 m/s^2) so that the
 pressure dependence of the line cores is captured to first order.
@@ -44,14 +49,53 @@ noise table, so the showcase and parametric paths share one model and one
 radius convention (issue #3). The 14 x 5 POSEIDON spectra in
 `precompute/tables/models/` are validation data only: isothermal, equilibrium
 chemistry, gray deck, power-law haze (MacMad17 form, anchored at 0.35 um).
-Validation is in `notebooks/06_parametric_model.ipynb`
-(`precompute/validate_zeta_grid.py`). Note the convention difference: the
+Validation is `precompute/validate_zeta_grid.py` (run by
+`tests/test_validation_report.py` against the committed reference sets; it
+fails, never skips, if they are missing). Each of the 70 showcase cases is
+binned to R = 100 over 0.40-1.70 um with the constant offset removed and
+gated against that planet's single-transit per-bin sigma: worst bin < 1 sigma
+(G2), error-spectrum template S/N `sqrt(sum (res/sigma)^2)` < 3 (G5),
+template S/N ratio model/table within 10 % (G3), and for the featureless
+`flat` scenario a model amplitude < 10 ppm. A second set,
+`precompute/tables/holdouts/zeta_holdouts.npz`, holds direct POSEIDON zeta
+and depths at 15 off-node points (T = 650/1100/2450 K midpoints, 567/736/
+1166 K, [M/H] 1.75, C/O 0.9, x = +0.63) so that grid interpolation itself is
+gated, not only the node values every showcase planet sits on. Expected
+failures are listed in `WAIVED` with the gate they waive and the issue that
+removes them (#35 grid regeneration); a waiver
+whose gate passes is itself an error. Note the convention difference: the
 POSEIDON tables put the archive radius at 10 bar, the parametric path puts
 it at the transit photosphere, ~10 scale heights higher; the validation
 therefore feeds the model each table's own band-median radius. The transit
 depth baseline `k = R_p/R_s` is taken from the registry radii (`R_p_RJ`,
-`R_s_RSun`) on both paths and recorded as `meta["k_source"]`; the registry
-`depth` field (archive `pl_ratror^2`) is informational.
+`R_s_RSun`) on both paths and recorded as `meta["k_source"]`. The registry
+freezes one radius ratio per planet (issue #7): `k` is the archive
+`pl_ratror` (fallback `pl_radj/st_rad`, see `k_source`), `R_p_RJ` is derived
+as `k R_s`, and `depth` is `k^2` by construction; the archive `pl_radj` is
+kept as the informational `R_p_archive_RJ` (WASP-39 b: 1.279 vs 1.331 R_J
+derived, a 7.7 % depth difference). `T_eq_K` is the archive `pl_eqt` as
+frozen, not recomputed, because the POSEIDON validation tables were built at
+those temperatures; `T_eq_conv_K = T_eff sqrt(R_s / 2a)` (A = 0, full
+redistribution) is stored alongside, and four planets deviate from it by
+more than 4 %: GJ 3470 b (0.87), HAT-P-11 b (1.04), WASP-107 b (0.955) and
+K2-18 b (1.06, via the registry a/R* of 83.83 rather than its T_eq).
+
+**Stellar SED.** `star.phoenix_sed(teff_K, logg, feh)` interpolates the
+pysynphot PHOENIX `phoenixm00` folder (2000-12000 K, log g 3.5-5.5, R = 1000
+storage, trilinear in log F / log T_eff). It is **solar metallicity by
+construction**: the non-solar pysynphot folders are a different, low-resolution
+(R ~ 741) product with missing log g columns and cool-star spectra wrong by
+1-3 mag in V-J, and Gaia XP prefers the solar node for every metal-rich FGK
+host (issue #34). The `feh` argument is accepted for API stability but any
+non-zero value is clamped to 0 and reported in `info["clamped"]["feh"]`; T_eff
+below 2000 K and log g outside 3.5-5.5 clamp to the edge node the same way
+(`info["clamped"]["teff"/"logg"]`), T_eff above 12000 K raises. log g 5.5 is
+only tabulated below 5100 K and log g 5.0 below 10200 K; hotter nodes repeat
+the nearest available column (`meta["filled_from_nearest_logg"]`).
+`precompute/make_noise_tables.py` builds the noise tables from this same SED,
+so `observe()` and `simulate()` share one stellar spectrum (the committed
+noise tables are regenerated in a separate pass, issue #34); the POSEIDON
+star tables `star/<slug>.npz` are validation data only.
 
 **Magnitudes.** slicersim normalizes in AB; archive J magnitudes are Vega.
 `lazuli_exo.slicer.depth_error` converts (J: +0.90 mag via sncosmo) and reports
@@ -64,6 +108,35 @@ regeneration tracked in #31, which will also apply the pixel-averaged SED and
 the ramp reset overhead below (median `depth_err` x1.09-1.13 for GJ 1214 b,
 TRAPPIST-1 e and WASP-39 b, x1.6-1.9 at 0.45 um; x1.14-1.30 for the three
 bright hosts at the 0.7 s subframe).
+
+**Instrument response (binning, GH #5).** A noise-table channel is one
+detector pixel column (525 px, 0.400-1.699 um); slicersim's LSF is a Gaussian
+of sigma = 1.15 px, constant in pixel space (resolution element 2.3 px,
+`config/lazuli_cbe.toml` `dispersion_resolution`), so the physical resolving
+power is `R_instr = lambda / (2.3 dlambda_px)` = 101 (0.99 um) to 369
+(0.40 um), median 156 (`binning.R_instr`). `binning.instrument_response`
+puts the R=10,000 model and the stellar photon flux on a fine grid uniform in
+pixel coordinate (100 points/px), convolves `F (1 - d)` and `F` with the LSF,
+integrates per pixel and returns `1 - sum_in/sum_out` per channel; the
+within-pixel photon weight is the R=10,000 star table on the `observe()` path
+(uniform if the table is missing) and the R=1000 `phoenix_sed` on the
+`simulate()` path (coarser; ~76 ppm for GJ 1214 b at R=100 per the review).
+The constant-R bin edges are snapped to channel edges so every bin is an
+integer group of pixels, and the per-channel depths are combined with the
+same `1/sigma^2` weights whose uncertainty `bin_sigma` returns, so `depth`
+and `depth_err` describe the same estimator (this removes the 0.87-1.18
+`depth_err` sawtooth at R=100). Before this, the unconvolved, unweighted mean
+overshot the Na/K cores by 2-4 sigma per bin at R >= 100 (HD 189733 b R=200
+3.7 sigma, WASP-39 b R=100 3.0 sigma); against the review's full forward
+model the residual is now <= 0.1 sigma. Requesting `R > R_instr.min()` over
+the binned range emits a `UserWarning` (not an error): the bins are then
+narrower than a resolution element and their depths are correlated by the
+LSF, which is fine for oversampled display but not for a statistical
+forecast. `meta["instrument_response"]` records `lsf_sigma_px`,
+`resolution_px`, `R_instr_min/max`, `photon_weighting` and `edges_snapped`;
+the LSF constants are read from the noise-table meta when present
+(`lsf_sigma_px`, `resolution_px`, to be written on the next table
+regeneration, #31) and default to 1.15 / 2.3 otherwise.
 
 **Instrument setup.** By default the readout is slicersim's and is shortened
 (groups, then frames halved, then the 0.7 s rapid subframe `tframe` unless
@@ -136,7 +209,7 @@ POSEIDON_input_data=$HOME/inputs/ PYSYN_CDBS=$HOME/inputs/stellar_grids \
 
 # 4. parametric grids (zeta: poseidon env, ~14 min, 6 GB; PHOENIX: poseidon env, ~1 min)
 POSEIDON_input_data=$HOME/inputs/ ~/anaconda3/envs/poseidon/bin/python precompute/make_zeta_grid.py
-PYSYN_CDBS=$HOME/inputs/stellar_grids ~/anaconda3/envs/poseidon/bin/python precompute/make_phoenix_grid.py
+PYSYN_CDBS=$HOME/inputs/stellar_grids PYTHONPATH=src python precompute/make_phoenix_grid.py   # numpy + astropy only
 ~/anaconda3/envs/py313/bin/python precompute/validate_zeta_grid.py   # 14 x 5 vs POSEIDON tables
 
 # 5. limb-darkening tables (py313 env; needs exotic-ld, network on first run;
@@ -174,17 +247,30 @@ repo/package.
 - **Light-curve shape** (`lazuli_exo.lightcurve`): quadratically
   limb-darkened transit (numpy-only numerical disk integration, validated
   against the analytic uniform-disk and small-planet limits) with geometry
-  from the frozen NEA registry (b from a/R*, cos i and the eccentricity
-  factor; z(t) along a local circular arc of radius a(1-e^2)/(1+e sin w),
-  the conjunction star-planet distance, so z(0) = b, traversed at the
-  Keplerian conjunction sky speed).
+  from the frozen NEA registry: z(t) is the exact sky-projected separation
+  of the Keplerian orbit (`orbit.projected_separation`, Kepler's equation
+  by Newton iteration, mid-transit at inferior conjunction so z(0) = b with
+  the eccentricity factor; agrees with jaxoplanet to < 0.02 ppm in flux for
+  every registry planet). The registry `t14_s` is the measured archive
+  duration and sets the noise and the window, but the geometric duration
+  from (P, a/R*, k, i, e, w) can differ (HAT-P-11 b: 7184 s vs 8480 s), so
+  the orbit's clock is scaled by `t14_geom / t14_s` and the model's
+  first-to-fourth-contact span equals `t14_s` (`meta["t14_geom_s"]`,
+  `meta["time_stretch"]`).
   LD coefficients come from per-planet tables (`src/lazuli_exo/data/tables/ld/`) computed
   by `precompute/make_ld_tables.py` with exotic-ld (PHOENIX grid, trilinear
   interpolation, 48 wavelength chunks). Planets without a registry entry or
   LD table fall back to a b = 0 trapezoid; `meta["shape"]` records which.
   Per-point noise is derived from the band's depth precision via
   sigma_pt = sigma_band * sqrt(t14 / 2c), consistent with the noise tables'
-  equal out-of-transit baseline assumption.
+  equal out-of-transit baseline assumption; a depth + baseline fit to the
+  light curve recovers sigma_band to ~10 % depending on the template
+  (0.83-1.07x measured), and to 1/sqrt(2) with the baseline held fixed.
+- **Stellar SED is solar metallicity, PHOENIX only**: see "Stellar SED"
+  above. For M-dwarf hosts PHOENIX is 15-25 % too bright at 0.45 um and up to
+  2x in the 0.60 um TiO bins against Gaia XP, so blue-end noise for GJ 1214 b,
+  LHS 1140 b, GJ 3470 b and TRAPPIST-1 e is optimistic by ~10-25 % in sigma
+  (review 2026-10-10, F4).
 - **Cold-planet temperature floor**: the fastchem equilibrium-chemistry grid
   has a hard floor at 300 K. K2-18 b (T_eq ~ 284 K), LHS 1140 b (~226 K), and
   TRAPPIST-1 e (~250 K) are clamped to 300 K for both the isotherm and the
@@ -215,6 +301,35 @@ repo/package.
   baseline exposure equal to the in-transit one, i.e.
   `sigma_depth = sqrt(1/SNR_in^2 + 1/SNR_out^2)` with `SNR_in == SNR_out`,
   not an optimized or telescope-time-constrained baseline.
+- **Stellar contamination (transit light source effect)**: off by default,
+  i.e. forecasts for M/K hosts assume an immaculate photosphere unless
+  `f_spot`/`f_fac` are set; with f_spot >= 0.03 the stellar signal is >= 1
+  sigma per bin for every M/K showcase host and >= 10 % of the H2O amplitude
+  for M dwarfs. `star.contamination` implements Rackham et al. 2018
+  (AJ 853, 122) eq. 2,
+  `eps = 1 / (1 - f_spot (1 - F_spot/F_phot) - f_fac (1 - F_fac/F_phot))`,
+  with the PHOENIX surface fluxes from `star.phoenix_sed` at the host
+  log g / [Fe/H]; defaults T_spot = 0.86 T_eff (T_eff < 4000 K, Rackham 2018)
+  or 0.80 T_eff (Rackham 2019, FGK), T_fac = T_eff + 100 K. `simulate()` and
+  `observe()` multiply the native-resolution depth by eps before binning
+  (`meta["atmosphere"]["tlse"]` records the temperatures, fractions and the
+  eps range over 0.40-1.70 um); `flat_depth` stays the geometric
+  (R_p/R_s)^2, so the observed flat depth is eps-weighted. Literature
+  covering fractions are in `star.TLSE_PRESETS` (data, not defaults).
+  Contamination amplitude depth x (eps - 1), peak-to-peak 0.4-1.7 um, R=100,
+  clear scenario, 1 transit (2026-10-10 review):
+
+  | host | f_spot | ptp (ppm) |
+  |---|---|---|
+  | TRAPPIST-1 e | 0.03 / 0.39 | 103 / 2393 |
+  | GJ 1214 b | 0.03 / 0.12 | 283 / 1274 |
+  | LHS 1140 b | 0.03 / 0.12 | 108 / 490 |
+  | K2-18 b | 0.03 / 0.10 | 50 / 184 |
+  | GJ 3470 b | 0.03 / 0.10 | 108 / 393 |
+  | WASP-107 b | 0.03 / 0.08 | 337 / 956 |
+  | HAT-P-11 b | 0.03 / 0.08 | 60 / 172 |
+  | HD 189733 b | 0.03 / 0.08 | 450 / 1283 |
+
 - **Saturation is tested at the last read, not by slicersim's count**:
   slicersim 1.0.0 flags a pixel on `rate * (n-1)(m+d) * tframe`, the slope
   signal between group means, while the last read of the ramp accumulates

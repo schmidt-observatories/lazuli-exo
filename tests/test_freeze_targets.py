@@ -5,6 +5,9 @@ from pathlib import Path
 
 import pytest
 
+from lazuli_exo import targets
+from lazuli_exo.atmosphere import R_J, R_SUN
+
 SPEC = importlib.util.spec_from_file_location(
     "freeze_targets",
     Path(__file__).resolve().parents[1] / "precompute" / "freeze_targets.py")
@@ -31,9 +34,57 @@ def test_omega_zero_is_not_replaced_by_default():
     assert entry["w_deg"] == 0.0
 
 
-def test_missing_omega_defaults_to_90():
-    entry = freeze_targets.build_entry(_row(pl_orblper=NAN), "Testar-1 b")
+def test_missing_omega_forces_circular_orbit():
+    """NULL w with nonzero e would put the transit at periastron (#7)."""
+    entry = freeze_targets.build_entry(
+        _row(pl_orblper=NAN, pl_orbeccen=0.3), "Testar-1 b")
     assert entry["w_deg"] == 90.0
+    assert entry["ecc"] == 0.0
+    assert entry["ecc_note"] == "w unavailable; circular assumed"
+    assert "ecc_note" not in freeze_targets.build_entry(_row(), "Testar-1 b")
+
+
+def test_k_frozen_from_pl_ratror():
+    entry = freeze_targets.build_entry(_row(), "Testar-1 b")
+    assert entry["k_source"] == "pl_ratror"
+    assert entry["R_p_RJ"] == pytest.approx(0.1 * R_SUN / R_J)
+    assert entry["R_p_archive_RJ"] == 1.0
+    assert entry["depth"] == pytest.approx(0.01)
+    assert entry["T_eq_conv_K"] == pytest.approx(5700.0 * math.sqrt(0.5 / 9.0))
+    assert entry["T_eq_K"] == 1200.0           # archive value kept
+
+
+def test_k_falls_back_to_archive_radii():
+    entry = freeze_targets.build_entry(_row(pl_ratror=NAN), "Testar-1 b")
+    assert entry["k_source"] == "pl_radj/st_rad"
+    assert entry["R_p_RJ"] == pytest.approx(1.0)
+    assert entry["depth"] == pytest.approx((R_J / R_SUN) ** 2)
+
+
+def _k(t):
+    return t["R_p_RJ"] * R_J / (t["R_s_RSun"] * R_SUN)
+
+
+@pytest.mark.parametrize("name", targets.PLANET_NAMES)
+def test_registry_depth_is_k_squared(name):
+    t = targets.get_target(name)
+    assert t["depth"] == pytest.approx(_k(t) ** 2, rel=1e-12)
+    assert t["k_source"] == "pl_ratror"
+    assert t["T_eq_conv_K"] == pytest.approx(
+        t["T_eff_K"] * math.sqrt(0.5 / t["a_over_rs"]))
+
+
+def test_registry_wasp39b_uses_pl_ratror():
+    t = targets.get_target("WASP-39 b")
+    assert _k(t) == pytest.approx(0.1457, abs=1e-3)
+    assert t["R_p_archive_RJ"] == 1.279
+    assert t["R_p_RJ"] == pytest.approx(0.1457 * 0.939 * R_SUN / R_J)
+
+
+def test_registry_lhs1140b_circular():
+    t = targets.get_target("LHS 1140 b")
+    assert t["ecc"] == 0.0 and t["w_deg"] == 90.0
+    assert t["ecc_note"] == "w unavailable; circular assumed"
 
 
 def test_fallback_duration_uses_eccentric_formula():
