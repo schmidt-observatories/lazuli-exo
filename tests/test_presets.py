@@ -6,7 +6,9 @@ from lazuli_exo import presets
 def test_showcase_maps_registry_and_scenario():
     p = presets.showcase("WASP-39 b", "hazy")
     assert p["name"] == "WASP-39 b" and p["scenario"] == "hazy"
-    assert p["R_p_RJ"] == 1.279 and p["teff_K"] == 5485.0 and p["mag"] == 10.663
+    # R_p_RJ is the k-derived registry radius (1.331), not the archive pl_radj (1.279)
+    assert p["R_p_RJ"] == pytest.approx(1.3313, abs=1e-3)
+    assert p["teff_K"] == 5485.0 and p["mag"] == 10.663
     assert p["band"] == "J" and p["mag_system"] == "vega"
     assert p["log_a_haze"] == 2.0 and p["haze_slope"] == -6.0 and p["log_P_cloud_bar"] is None
 

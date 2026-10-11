@@ -101,7 +101,7 @@ for ax, scen in zip(axes.ravel(), ["clear", "cloudy", "high_metallicity", "hazy"
 for ax in axes[1]: ax.set_xlabel("wavelength [µm]")
 for ax in axes[:, 0]: ax.set_ylabel("depth [ppm]")
 fig.tight_layout(); fig.savefig(FIGS / "06_wasp39_validation.png", dpi=150)""" % (ATMO_KEYS,)),
-new_markdown_cell("## Validation table (all 14 planets)\n\nProduced by `precompute/validate_zeta_grid.py` (issue #22 gate). At R = 100 after offset removal, against the single-transit per-bin sigma: worst bin < 1 sigma (G2), error template S/N < 3 (G5), template S/N ratio within 10 % (G3); `flat` is gated on its absolute amplitude. For the three planets whose POSEIDON tables were computed with the isotherm clamped to 300 K, the like-for-like row (T_eq = 300 K in the parametric model too) is the gated one. Expected failures are waivers in the script, each naming the gate and the issue that removes it (#23, #35)."),
+new_markdown_cell("## Validation table (all 14 planets)\n\nProduced by `precompute/validate_zeta_grid.py` (issue #22 gate). At R = 100 after offset removal, against the single-transit per-bin sigma: worst bin < 1 sigma (G2), error template S/N < 3 (G5), template S/N ratio within 10 % (G3); `flat` is gated on its absolute amplitude. For the three planets whose POSEIDON tables were computed with the isotherm clamped to 300 K, the like-for-like row (T_eq = 300 K in the parametric model too) is the gated one. Expected failures are waivers in the script, each naming the gate and the issue that removes it (#35)."),
 new_code_cell("""import pandas as pd
 rows = json.loads(Path("figs/06_validation.json").read_text())["models"]
 df = pd.DataFrame(rows)[["planet", "scenario", "T_eq_used_K", "like_for_like", "gated", "H_over_Rp",

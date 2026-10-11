@@ -8,17 +8,25 @@ x_p = 0.5 ln[(R_p H)/(R_p,0 H_0)] - ln(T_eq/T_chem):
 
     s(lam)  = (zeta_1 - zeta_0) / (x_1 - x_0)        slant-column exponent, ~1/(1+a)
     zeta_p  = zeta_0 + s (x_p - x_0)                  linear in x, extrapolated
-    zeta_g  = logaddexp(zeta_p, zeta_haze)
-    zeta    = zeta_d + s Ein(exp((zeta_g - zeta_d)/s - gamma_E))
+    zeta_g1 = zeta_p - s gamma_E                      gas tau_chord = 1 level
+    zeta_h1 = -ln P_haze                              haze tau_chord = 1 level
+    tau(z)  = exp((zeta_g1 - z)/s) + exp(zeta_h1 - z)
+    zeta    = zeta_d + int_0^inf [1 - exp(-tau(zeta_d + u))] du
     R(lam)  = R_p / (1 - (H / R_p) (zeta - median_band(zeta))),  depth = (R / R_s)^2
 
 s < 1 where the opacity grows with pressure (tau ~ P^(1+a): CIA, Lorentz
 wings), so both the column scaling and the vertical tau scale height (s H)
-shrink. The deck term is the exact effective radius of an exponential tau
-profile above an opaque deck at zeta_d = -ln P_cloud (integral of 1 - e^-tau
-over impact parameter; Ein is the entire exponential integral): it tends to
-max(zeta, zeta_d) in both limits but keeps the partial absorption of gas
-whose tau = 1 level lies just below the deck, which a hard max() drops.
+shrink. The grid zeta is an effective-radius level (POSEIDON depth -> R ->
+r(P)), which for an exponential tau profile sits s gamma_E above the
+tau_chord = 1 level; the haze level is a tau_chord = 1 pressure with exponent
+1. Both are therefore taken back to tau = 1 and the thin-atmosphere effective
+radius of the summed profile above an opaque deck at zeta_d = -ln P_cloud
+(no deck: zeta_d deep enough that tau(zeta_d) >= e^12) is integrated
+numerically. For pure gas this is zeta_d + s Ein(exp((zeta_p - zeta_d)/s
+- gamma_E)) (Ein the entire exponential integral; the no-haze fast path),
+which tends to max(zeta_p, zeta_d) in both limits but keeps the partial
+absorption of gas whose tau = 1 level lies just below the deck; the integral
+also gives the haze its own tau scale height (H, not s H) where it dominates.
 
 so R_p is the band-median transit radius and H = k T_eq / (mu m_H g(R_p)).
 The radius mapping is the exact isothermal hydrostatic solution with
@@ -59,6 +67,34 @@ def _ein(a):
     out = np.interp(np.log(np.clip(a, 1e-300, None)), _EIN_LOG_A, _EIN_TABLE)
     out = np.where(a < _EIN_A[0], a, out)
     return np.where(a > _EIN_A[-1], EULER_GAMMA + np.log(np.clip(a, 1e-300, None)), out)
+
+
+def _zeta_eff(zeta_g1, s, zeta_h1, zeta_d=None, du=0.02, pad=16.0, chunk=2048):
+    """Effective-radius zeta of tau(z) = exp((zeta_g1 - z)/s) + exp(zeta_h1 - z)
+    above an opaque deck at zeta_d: zeta_d + int_0^inf [1 - exp(-tau)] du.
+
+    Trapezoid in u with the Euler-Maclaurin end correction (O(du^4); 1e-6
+    agreement with s Ein(...) for pure gas), up to where both components have
+    tau < e^-pad. Without a deck the bottom is placed where either component
+    has tau = e^12, which the result does not depend on.
+    """
+    zeta_g1, s, zeta_h1 = (np.asarray(np.atleast_1d(v), float) for v in (zeta_g1, s, zeta_h1))
+    if zeta_d is None:
+        zeta_d = np.maximum(zeta_g1 - 12.0 * s, zeta_h1 - 12.0)
+    zeta_g1, s, zeta_h1, zeta_d = np.broadcast_arrays(zeta_g1, s, zeta_h1, zeta_d)
+    top = np.maximum(zeta_g1 + pad * s, zeta_h1 + pad)
+    u = np.arange(0.0, max(float((top - zeta_d).max()), 0.0) + du, du)
+    out = np.empty(zeta_g1.shape)
+    for i in range(0, len(out), chunk):          # chunked: ~30 MB per temporary
+        sl = slice(i, i + chunk)
+        z = zeta_d[sl, None] + u[None, :]
+        tau_g = np.exp(np.minimum((zeta_g1[sl, None] - z) / s[sl, None], 350.0))
+        tau_h = np.exp(np.minimum(zeta_h1[sl, None] - z, 350.0))
+        f = -np.expm1(-(tau_g + tau_h))
+        df0 = -np.exp(-(tau_g[:, 0] + tau_h[:, 0])) * (tau_g[:, 0] / s[sl] + tau_h[:, 0])
+        out[sl] = (zeta_d[sl] + du * (f.sum(axis=1) - 0.5 * (f[:, 0] + f[:, -1]))
+                   + du ** 2 / 12.0 * df0)
+    return out
 
 
 def grid_wavelengths(tables_dir=None):
@@ -155,13 +191,16 @@ def transmission_depth(wl_um, *, T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun,
     slope = np.clip((zeta_1 - zeta_0) / (x_nodes[1] - x_nodes[0]), *S_RANGE)
     zeta = zeta_0 + slope * (shift - x_nodes[0])
 
+    zeta_d = None if log_P_cloud_bar is None else -log_P_cloud_bar * np.log(10.0)
     if log_a_haze is not None:
         kappa = 10.0 ** log_a_haze * SIGMA_H2_RAYLEIGH_350NM * (
             wl_grid / HAZE_LAMBDA0_UM) ** haze_slope          # m^2 per molecule
         P_haze_bar = K_B * T_eq_K / (kappa * np.sqrt(2 * np.pi * R_p * H)) / 1e5
-        zeta = np.logaddexp(zeta, -np.log(P_haze_bar))
-    if log_P_cloud_bar is not None:
-        zeta_d = -log_P_cloud_bar * np.log(10.0)
+        # grid zeta is an effective-radius level (tau_chord = 1 + s gamma_E);
+        # the haze level is tau_chord = 1 with exponent 1: sum the two tau
+        # profiles at their tau = 1 levels and integrate the effective radius
+        zeta = _zeta_eff(zeta - slope * EULER_GAMMA, slope, -np.log(P_haze_bar), zeta_d)
+    elif zeta_d is not None:
         with np.errstate(over="ignore"):      # _ein is analytic for large a
             zeta = zeta_d + slope * _ein(np.exp((zeta - zeta_d) / slope - EULER_GAMMA))
 

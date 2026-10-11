@@ -68,23 +68,12 @@ HOLDOUT_GATES = ("GZ", "G2", "G5")
 # A waiver is an expected failure: the row is still reported with its numbers,
 # and a waiver whose gates no longer fail is itself an error (remove it with
 # the fix that made it pass). Never widen a threshold instead.
-P23 = "pending #23 (haze effective radius)"
 P35_T = "pending #35 (T nodes across the alkali transition)"
 P35_X = "pending #35 (x extrapolation)"
 P35_CO = "pending #35 (C/O 0.9 node)"
 P35_MU = "pending #35 (log-mu interpolation at [M/H] 1.75)"
 WAIVED = {
-    ("WASP-107 b", "hazy"): dict(gates=("G2", "G5"), reason=f"{P23}; {P35_X}"),
-    ("HD 209458 b", "hazy"): dict(gates=("G2", "G5"), reason=P23),
-    ("WASP-39 b", "hazy"): dict(gates=("G5",), reason=P23),
-    ("WASP-121 b", "hazy"): dict(gates=("G5",), reason=P23),
-    ("HD 189733 b", "hazy"): dict(gates=("G5",), reason=P23),
-    ("GJ 3470 b", "hazy"): dict(gates=("G5",), reason=P23),
-    ("WASP-12 b", "hazy"): dict(gates=("G5",), reason=P23),
-    ("GJ 1214 b", "hazy"): dict(gates=("G5",), reason=P23),
-    ("TRAPPIST-1 e", "hazy"): dict(gates=("G5",), reason=P23),
-    ("HAT-P-11 b", "hazy"): dict(gates=("G5",), reason=P23),
-    ("WASP-96 b", "hazy"): dict(gates=("G5",), reason=P23),
+    ("WASP-107 b", "hazy"): dict(gates=("G2", "G5"), reason=P35_X),
     ("WASP-107 b", "clear"): dict(gates=("G2", "G5"), reason=P35_X),
     ("WASP-107 b", "cloudy"): dict(gates=("G2", "G5"), reason=P35_X),
     ("WASP-107 b", "high_metallicity"): dict(gates=("G2", "G5"), reason=P35_X),

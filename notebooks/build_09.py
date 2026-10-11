@@ -26,7 +26,7 @@ g = tables.load_phoenix_grid()
 print("PHOENIX grid:", g["log_flam"].shape, "| T_eff", g["teff_K"].min(), "-", g["teff_K"].max(), "K",
       "| log g", list(g["logg"]), "| [Fe/H]", list(g["feh"]))
 print("native resolution per folder:", g["meta"]["native_R"])"""),
-new_markdown_cell("## Stellar SEDs\n\nTrilinear interpolation in (log T_eff, log g, [Fe/H]). Below 2000 K the function falls back to a blackbody and says so; log g and [Fe/H] clamp to the grid edges and say so."),
+new_markdown_cell("## Stellar SEDs\n\nTrilinear interpolation in (log T_eff, log g, [Fe/H]). The shipped grid is solar metallicity only (2000–12000 K, log g 3.5–5.5; issue #34): out-of-range T_eff and log g and any non-zero [Fe/H] clamp to the nearest node and are reported in `info[\"clamped\"]`. Above 12000 K raises."),
 new_code_cell("""fig, ax = plt.subplots(figsize=(8, 4))
 for teff in (2566, 3400, 4300, 5778, 7000):
     wl_A, f, info = star.phoenix_sed(teff, 4.5, 0.0)
@@ -77,7 +77,7 @@ else:
     ax[1].plot(wl_c, common / err_c, lw=0.8); ax[1].set_xlabel("wavelength [µm]"); ax[1].set_ylabel("EOL / CBE error")
     fig.tight_layout()
     print(f"median EOL/CBE error ratio: {np.median(common / err_c):.2f}")"""),
-new_markdown_cell("## Summary\n\n- The PHOENIX mini-grid covers 2000–8000 K; outside it the code falls back or clamps and tells you.\n- Vega→AB is +0.90 mag in J; passing an archive J without it would make every error bar ~1.4× too optimistic.\n- Bright hosts (J ≲ 7) reach the readout floor and carry a residual-saturation flag; treat those error bars as indicative."),
+new_markdown_cell("## Summary\n\n- The PHOENIX mini-grid covers 2000–12000 K at solar metallicity; outside it the code clamps and tells you.\n- Vega→AB is +0.90 mag in J; passing an archive J without it would make every error bar ~1.4× too optimistic.\n- Bright hosts (J ≲ 7) reach the readout floor and carry a residual-saturation flag; treat those error bars as indicative."),
 ]
 nb = new_notebook(); nb["cells"] = cells
 nb["metadata"] = {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}}

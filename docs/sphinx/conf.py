@@ -22,7 +22,7 @@ try:
 
     release = _pkg_version("lazuli-exo")
 except Exception:  # pragma: no cover - docs should still build
-    release = "0.1.0"
+    release = "0.1.1"
 version = ".".join(release.split(".")[:2])
 
 # -- General configuration ---------------------------------------------------
