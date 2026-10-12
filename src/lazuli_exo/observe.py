@@ -41,8 +41,14 @@ class SimulatedSpectrum:
         return light_curves(self, n_groups=n_groups, seed=seed, **kwargs)
 
     def plot(self, ax=None, **kwargs):
+        """Model + one noisy realization; see plotting.plot_spectrum."""
         from .plotting import plot_spectrum
         return plot_spectrum(self, ax=ax, **kwargs)
+
+    def plot_noise(self, ax=None, **kwargs):
+        """Per-bin 1-sigma error vs wavelength; see plotting.plot_noise."""
+        from .plotting import plot_noise
+        return plot_noise(self, ax=ax, **kwargs)
 
 
 def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None,

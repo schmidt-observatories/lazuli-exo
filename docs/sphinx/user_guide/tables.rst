@@ -11,11 +11,17 @@ Layout
 
 .. code-block:: text
 
-   index.json                              # version, planets, scenarios
-   models/<planet-slug>__<scenario>.npz    # wavelength_um, transit_depth, meta
-   star/<planet-slug>.npz                  # wavelength_um, f_lambda, meta
+   index.json                              # version, planets, grids, sha256 manifest
+   atmo/zeta_grid.npz                      # parametric model: zeta(T, [M/H], C/O, fiducial, lambda), mu
+   star/phoenix_grid.npz                   # PHOENIX SEDs on (T_eff, log g, [Fe/H])
+   star/<planet-slug>.npz                  # wavelength_um, f_lambda, meta (R = 10 000 host SED)
    noise/<planet-slug>.npz                 # wavelength_um, depth_err_1transit, meta
    ld/<planet-slug>.npz                    # wavelength_um, u1, u2, meta
+
+Scenarios are not table files: they are presets of the parametric model
+(:mod:`lazuli_exo.presets`). The per-planet POSEIDON spectra that the
+presets are validated against live in ``precompute/tables/models/`` and are
+not shipped.
 
 All wavelengths are in micron. ``meta`` is a JSON dict stored as a string
 array, and every table has one — it is where the provenance and the caveat
@@ -28,8 +34,9 @@ non-alphanumeric characters collapsed to ``-`` (``"WASP-39 b"`` →
 The index
 ---------
 
-``index.json`` is the catalogue: a schema ``version`` plus, per planet, its
-slug, available scenarios, and whether noise and limb-darkening tables exist.
+``index.json`` is the catalogue: a schema ``version`` (currently 4), per
+planet its slug and whether noise and limb-darkening tables exist, which
+grids are present, and a sha256 manifest of every file.
 
 .. code-block:: python
 
@@ -38,8 +45,9 @@ slug, available scenarios, and whether noise and limb-darkening tables exist.
    tdir = tables.resolve_tables_dir(None)
    index = tables.load_index(tdir)
    index["planets"]["WASP-39 b"]
-   # {'has_ld': True, 'has_noise': True, 'slug': 'wasp-39-b',
-   #  'scenarios': ['clear', 'cloudy', 'flat', 'hazy', 'high_metallicity']}
+   # {'has_ld': True, 'has_noise': True, 'slug': 'wasp-39-b'}
+   index["files"]["noise/wasp-39-b.npz"]
+   # sha256 hex digest; tables.sha256_file(path) recomputes it
 
 :func:`~lazuli_exo.tables.load_index` **refuses a schema version mismatch**
 with a clear error rather than misreading tables. The index is regenerated
@@ -66,14 +74,19 @@ Resolving the tables directory
 Loading tables
 --------------
 
-Four loaders, each returning its arrays followed by ``meta``:
+Per-planet loaders return their arrays followed by ``meta``; the grid
+loaders return a dict:
 
 .. code-block:: python
 
-   wl, depth, meta = tables.load_model(tdir, "WASP-39 b", "clear")
    wl, f_lambda, meta = tables.load_star(tdir, "WASP-39 b")
    wl, sigma_1transit, meta = tables.load_noise(tdir, "WASP-39 b")
    wl, u1, u2, meta = tables.load_ld(tdir, "WASP-39 b")
+   g = tables.load_zeta_grid()        # T_K, log_met, c_to_o, wavelength_um, zeta, mu, meta
+   g = tables.load_phoenix_grid()     # teff_K, logg, feh, wavelength_um, log_flam, meta
+
+   # validation material only (precompute/tables/, not shipped)
+   wl, depth, meta = tables.load_model("precompute/tables", "WASP-39 b", "clear")
 
 Planet names are matched against both the display name and the slug. Unknown
 planets and unknown scenarios raise ``KeyError`` listing what *is* available;
@@ -110,22 +123,29 @@ back to the trapezoid model.
 Regenerating the tables
 -----------------------
 
-Four steps, in two conda environments, because POSEIDON and slicersim never
-need to be installed together:
+Five steps, in two conda environments, because POSEIDON and slicersim never
+need to be installed together (``docs/MODEL.md`` in the repository has the
+full detail):
 
 .. code-block:: bash
 
-   # 1. model + star tables (poseidon env; needs the opacity/chemistry inputs)
+   # 1. POSEIDON validation tables (-> precompute/tables/models) + star tables
+   #    (poseidon env; needs the opacity/chemistry inputs)
    POSEIDON_input_data=$HOME/inputs/ PYSYN_CDBS=$HOME/inputs/stellar_grids \
      ~/anaconda3/envs/poseidon/bin/python precompute/make_model_tables.py [planet ...]
 
-   # 2. flat (featureless) baseline tables (analytic, py313 env)
+   # 2. flat (featureless) validation tables (analytic, py313 env)
    ~/anaconda3/envs/py313/bin/python precompute/make_flat_tables.py
 
    # 3. noise tables (py313 env; needs slicersim)
    ~/anaconda3/envs/py313/bin/python precompute/make_noise_tables.py
 
-   # 4. limb-darkening tables (py313 env; needs exotic-ld, network on first
+   # 4. parametric grids (zeta: poseidon env, ~14 min; PHOENIX: ~1 min), then the gate
+   POSEIDON_input_data=$HOME/inputs/ ~/anaconda3/envs/poseidon/bin/python precompute/make_zeta_grid.py
+   PYSYN_CDBS=$HOME/inputs/stellar_grids PYTHONPATH=src python precompute/make_phoenix_grid.py
+   ~/anaconda3/envs/py313/bin/python precompute/validate_zeta_grid.py
+
+   # 5. limb-darkening tables (py313 env; needs exotic-ld, network on first
    #    run; PHOENIX files cache to $EXOTIC_LD_DATA, default
    #    ~/inputs/exotic_ld_data)
    ~/anaconda3/envs/py313/bin/python precompute/make_ld_tables.py
@@ -145,9 +165,11 @@ them:
 
    * - Flag
      - Meaning
-   * - ``meta["model"]["T_clamped"]``
+   * - ``meta["atmosphere"]["T_clamped"]``
      - The target's :math:`T_\mathrm{eq}` fell below the 300 K fastchem grid
-       floor and was clamped. True for K2-18 b, LHS 1140 b, TRAPPIST-1 e.
+       floor, so the chemistry uses 300 K (``T_chem_K``) while the scale
+       height uses the true :math:`T_\mathrm{eq}`. True for K2-18 b,
+       LHS 1140 b, TRAPPIST-1 e.
    * - ``meta["noise"]["fully_desaturated"]``
      - ``False`` when the detector ramp retained saturated pixels; the count
        is in ``nsaturated_detpx``. ``observe()`` also raises a

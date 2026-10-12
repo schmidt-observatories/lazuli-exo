@@ -12,7 +12,7 @@ Optional extras:
 ============  =====================================================
 Extra         Pulls in / needed for
 ============  =====================================================
-``plot``      ``matplotlib`` — :meth:`~lazuli_exo.SimulatedSpectrum.plot`
+``plot``      ``matplotlib`` — the ``.plot()`` methods (:mod:`lazuli_exo.plotting`)
 ``test``      ``pytest`` — the test suite
 ``web``       ``flask`` — the local Plotly demo UI under ``webapp/``
 ``docs``      Sphinx, nbsphinx, the RTD theme — building these docs
@@ -53,7 +53,7 @@ Verify the installation
    obs = lazuli_exo.observe("WASP-39 b", scenario="clear", n_transits=1)
    print(obs.detect()["template_snr_diagonal"])
 
-If that prints a list of 14 planets and a number around 85, you are ready to
+If that prints a list of 14 planets and a number around 69, you are ready to
 go. Continue with :doc:`quickstart`.
 
 Where the tables come from

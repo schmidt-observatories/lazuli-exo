@@ -101,11 +101,14 @@ Validation
 ----------
 
 ``precompute/validate_zeta_grid.py`` compares the model with the 14 × 5
-committed POSEIDON tables at R = 100: feature amplitude within 10 % (clear,
-high metallicity) or 20 % (cloudy, hazy), flat residual below 10 ppm. All
-rows pass except one documented waiver (WASP-12 b cloudy, a 19 ppm error on
-a 73 ppm feature). Direct POSEIDON runs of K2-18 b-like and WASP-12 b-like
-planets agree with the model's clear spectra to 0.99 and 1.00. The notebook
+POSEIDON tables in ``precompute/tables/`` (plus a set of off-registry
+holdout runs) at R = 100, after removing a constant offset, against the
+single-transit per-bin uncertainty. The gates are: worst bin within 1 sigma
+(G2), the error spectrum's own template S/N below 3 (G5), and the template
+S/N within 10 % of the table's (G3); ``flat`` is gated on its absolute
+amplitude. Expected failures are waivers in the script, each naming the
+gate and the GitHub issue that would remove it, and a waiver that no longer
+fails is itself an error. CI runs the gate on every push. The notebook
 :doc:`../notebooks/06_parametric_model` shows the grid and the comparison.
 
 What it cannot do

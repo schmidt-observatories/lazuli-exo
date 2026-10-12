@@ -14,9 +14,10 @@ The mental model
    atmo/    zeta grid (opacities)  ─┐
    noise/   1-transit sigma(lambda) ─┼──►  observe()  ──►  SimulatedSpectrum
    ld/      limb darkening          ─┤                       ├─ .detect()
-   targets  frozen NEA registry     ─┘                       ├─ .light_curves()
+   targets  frozen NEA registry     ─┘                       ├─ .light_curves() ─ .plot()
                                                              ├─ .simulate_points()
-                                                             └─ .plot()
+                                                             ├─ .plot()
+                                                             └─ .plot_noise()
 
 ``observe()`` evaluates the parametric model at the registry values of the
 showcase planet (the same model ``simulate()`` runs for any planet), bins it
@@ -51,11 +52,13 @@ and scales the uncertainty by :math:`1/\sqrt{N_\mathrm{transits}}`.
    obs.depth_err         # per-bin 1-sigma, already scaled by 1/sqrt(N)
    obs.model_wavelength  # native-resolution model, for overplotting
    obs.model_depth
-   obs.flat_depth        # (Rp/Rs)^2 baseline from the 'flat' table
+   obs.flat_depth        # geometric (Rp/Rs)^2 from the registry radii
 
-``R`` is capped by the native sampling of the noise tables — roughly 230 at
-the blue end. Asking for more raises a ``ValueError`` naming the empty bin.
-See :doc:`user_guide/noise`.
+``R`` has two limits, both set near 1.0 µm where the pixels are coarsest in
+resolving power. Above the instrument resolving power (about 100)
+``observe()`` warns that neighbouring bins are correlated by the line-spread
+function; above the native channel sampling (about 230) it raises a
+``ValueError``. See :doc:`user_guide/noise`.
 
 3. Draw a noisy realization
 ---------------------------
@@ -102,11 +105,22 @@ See :doc:`user_guide/lightcurves`.
 6. Plot
 -------
 
-Requires the ``[plot]`` extra.
+Requires the ``[plot]`` extra. Every plot method takes an optional ``ax``
+and returns the matplotlib Axes, so plots overlay and tile.
 
 .. code-block:: python
 
-   obs.plot(seed=0)   # noiseless model + one simulated realization
+   obs.plot(seed=0)                 # noiseless model + one simulated realization
+   obs.plot_noise()                 # per-bin 1-sigma error against wavelength
+   lcb.plot()                       # the banded light curves, stacked
+
+   # overlay scenarios on one Axes, model lines only, in ppm
+   fig, ax = plt.subplots()
+   for s in ["clear", "cloudy", "hazy"]:
+       lazuli_exo.observe("WASP-39 b", s).plot(ax=ax, show_points=False, units="ppm")
+
+See :mod:`lazuli_exo.plotting` for the keywords (``units``, ``label``,
+``show_model``, ``show_points``, ``offset``).
 
 7. Check the provenance
 -----------------------
@@ -116,9 +130,12 @@ is the first place to look when a number surprises you.
 
 .. code-block:: python
 
-   obs.meta["model"]   # POSEIDON settings: T_iso_K, T_clamped, cloud_*, log_Met
-   obs.meta["noise"]   # slicersim settings: instrument, nmd_used, t14_s,
-                       # fully_desaturated, nsaturated_detpx
+   obs.meta["params"]       # the parameter dict the model was evaluated at
+   obs.meta["atmosphere"]   # derived: g_ms2, H_m, H_over_Rp, mu_used, T_chem_K,
+                            # T_clamped, feature_amplitude_ppm, tlse
+   obs.meta["noise"]        # slicersim settings: instrument, nmd_used, t14_s,
+                            # fully_desaturated, nsaturated_detpx, git_commit
+   obs.meta["instrument_response"]   # LSF sigma, R_instr range, photon weighting
    obs.meta["tables_dir"]
 
 Where to go next
@@ -126,7 +143,7 @@ Where to go next
 
 - :doc:`user_guide/index` — what each subsystem does and, more importantly,
   what it does not.
-- :doc:`tutorials` — five runnable notebooks.
+- :doc:`tutorials` — nine runnable notebooks.
 - :doc:`api/index` — the full auto-generated API reference.
 
 

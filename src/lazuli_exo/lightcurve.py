@@ -54,6 +54,11 @@ class LightCurveSet:
     u2: np.ndarray = None
     meta: dict = field(default_factory=dict)
 
+    def plot(self, ax=None, **kwargs):
+        """One curve per band, stacked; see plotting.plot_light_curves."""
+        from .plotting import plot_light_curves
+        return plot_light_curves(self, ax=ax, **kwargs)
+
 
 def transit_flux(z, k, u1, u2, n_r=1601):
     """Normalized flux of a quadratically limb-darkened star occulted by
