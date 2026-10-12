@@ -18,9 +18,7 @@ author = "Gudmundur Stefansson"
 copyright = "2026, Schmidt Sciences / Schmidt Observatory System"
 
 try:
-    from importlib.metadata import version as _pkg_version
-
-    release = _pkg_version("lazuli-exo")
+    from lazuli_exo import __version__ as release
 except Exception:  # pragma: no cover - docs should still build
     release = "0.1.1"
 version = ".".join(release.split(".")[:2])

@@ -13,7 +13,6 @@ simulate() uses), so observe() and simulate() share one SED by construction
 (issue #34). The POSEIDON star tables (star/<slug>.npz) are validation data.
 """
 import subprocess
-import tomllib
 import warnings
 from datetime import date
 from pathlib import Path
@@ -49,8 +48,8 @@ def provenance():
     dirty = bool(subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain",
                                  "--", "src/lazuli_exo/*.py", "precompute"],
                                 capture_output=True, text=True).stdout.strip())
-    version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
-    return {"package_version": version, "git_commit": commit + ("-dirty" if dirty else ""),
+    import lazuli_exo
+    return {"package_version": lazuli_exo.__version__, "git_commit": commit + ("-dirty" if dirty else ""),
             "instrument_config": cfg.name,
             "instrument_config_sha256": tables.sha256_file(cfg),
             "phoenix_grid_sha256": tables.sha256_file(TABLES / tables.PHOENIX_GRID),

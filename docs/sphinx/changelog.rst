@@ -25,6 +25,14 @@ Physics review of 2026-10-10 (tracked in GitHub issue #31, milestone
   and table (``observe``) noise paths now agree to ≈ 3 % instead of
   0.5–1.6× (#44, part of #34).
 - ``.readthedocs.yaml`` so the docs build on Read the Docs.
+- Release plumbing (#31 section 1): ``publish.yml`` builds sdist + wheel
+  from a clean checkout, checks the wheel ships exactly the tracked tables,
+  and uploads with PyPI trusted publishing on a ``v*`` tag (manual dry run
+  to TestPyPI); the same wheel check runs in CI. ``lazuli_exo.__version__``
+  is the single version source; ``pyproject.toml`` gains readme, authors,
+  urls and classifiers. ``observe``/``simulate`` reject non-positive or
+  non-integer ``R`` and ``n_transits`` (``R=0`` was a ZeroDivisionError,
+  ``n_transits=2.5`` was applied but reported as 2).
 - Noise tables regenerated (2026-10-11) with saturation tested at the last
   read, the pixel-averaged PHOENIX SED, the reset-frame overhead and the
   narrow field pinned: single-transit errors 2-30 % larger at the median;
