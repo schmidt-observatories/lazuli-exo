@@ -7,6 +7,9 @@ entries below group the development history by theme rather than by release.
 Unreleased
 ----------
 
+- Release decisions (#31): HD 189733 b stays in the tables with its
+  saturation warning; the internal design notes under ``docs/superpowers/``
+  are no longer tracked in the public tree.
 - Release scrub (#31): ``numpy>=2.0`` is declared (the runtime uses
   ``np.trapezoid``); the test workflow runs on Python 3.10-3.13; ``run.sh``
   binds to 127.0.0.1 without ``--debug``; README and

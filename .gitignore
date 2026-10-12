@@ -24,3 +24,6 @@ memo/*.synctex.gz
 
 # Internal cross-check memo (scripts, data snapshot, results, PDF): kept local, not in the repo
 memo/
+
+# Internal design notes and implementation plans (kept locally, not in the public tree)
+docs/superpowers/
