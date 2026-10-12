@@ -77,7 +77,7 @@ WAIVED = {
     ("WASP-107 b", "clear"): dict(gates=("G2", "G5"), reason=P35_X),
     ("WASP-107 b", "cloudy"): dict(gates=("G2", "G5"), reason=P35_X),
     ("WASP-107 b", "high_metallicity"): dict(gates=("G2", "G5"), reason=P35_X),
-    ("GJ 1214 b", "clear"): dict(gates=("G2", "G5"), reason=P35_T),
+    ("GJ 1214 b", "clear"): dict(gates=("G5",), reason=P35_T),
     ("GJ 1214 b", "high_metallicity"): dict(gates=("G5",), reason=P35_T),
     ("WASP-12 b", "cloudy"): dict(gates=("G3",), reason=(
         "73 ppm feature, 19 ppm absolute error (noise floor 178 ppm/transit): "
@@ -97,7 +97,7 @@ WAIVED = {
     "w12_2600_co0.9": dict(gates=("GZ", "G2", "G5"), reason=P35_CO),
     "w107_700_m0": dict(gates=("G5",), reason=P35_X),
     "w107_736_m0": dict(gates=("GZ", "G2", "G5"), reason=f"{P35_X}; {P35_T}"),
-    "w107_800_m0": dict(gates=("G2", "G5"), reason=P35_X),
+    "w107_800_m0": dict(gates=("G5",), reason=P35_X),
 }
 
 R_CMP, BAND = 100, (0.40, 1.70)

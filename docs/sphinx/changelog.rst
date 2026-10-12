@@ -25,6 +25,12 @@ Physics review of 2026-10-10 (tracked in GitHub issue #31, milestone
   and table (``observe``) noise paths now agree to ≈ 3 % instead of
   0.5–1.6× (#44, part of #34).
 - ``.readthedocs.yaml`` so the docs build on Read the Docs.
+- Noise tables regenerated (2026-10-11) with saturation tested at the last
+  read, the pixel-averaged PHOENIX SED, the reset-frame overhead and the
+  narrow field pinned: single-transit errors 2-30 % larger at the median;
+  HD 209458 b and HAT-P-11 b now desaturate fully. Tables carry package
+  version, git commit and input hashes; ``index.json`` schema 4 adds a
+  per-file sha256 manifest (#4, #33, #34, #37).
 - ``simulate(star, spectrum=(wl_um, depth))`` accepts a transit spectrum
   from any forward model in place of the parametric atmosphere; the noise,
   contamination and instrument response are unchanged

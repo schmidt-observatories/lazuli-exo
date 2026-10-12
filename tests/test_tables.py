@@ -153,3 +153,12 @@ def test_default_tables_dir_is_inside_the_package():
     d = tables.resolve_tables_dir(None)
     assert d == Path(lazuli_exo.__file__).resolve().parent / "data" / "tables"
     assert (d / "index.json").exists() and (d / "atmo" / "zeta_grid.npz").exists()
+
+
+def test_index_carries_a_sha256_manifest(tmp_path):
+    tdir = tmp_path / "tables"
+    tables.write_noise_table(tdir, "Fake b", np.array([0.5, 1.0]), np.array([1e-4, 1e-4]), meta={})
+    idx = tables.rebuild_index(tdir)
+    assert idx["version"] == 4
+    assert idx["files"] == {"noise/fake-b.npz": tables.sha256_file(tdir / "noise" / "fake-b.npz")}
+    assert len(idx["files"]["noise/fake-b.npz"]) == 64

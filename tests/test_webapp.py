@@ -72,7 +72,7 @@ def test_observe_carries_status_caveats(client):
     assert "saturat" not in joined
 
     j = client.get("/api/observe", query_string={
-        "planet": "HD 209458 b"}).get_json()
+        "planet": "HD 189733 b"}).get_json()
     assert j["noise_validated"] is False
     assert any("saturat" in c.lower() for c in j["caveats"])
 

@@ -2,6 +2,52 @@
  "atmo": {
   "zeta_grid": true
  },
+ "files": {
+  "atmo/zeta_grid.npz": "d4a9a37c0714e237bdb575cc9526996888f325daf3ce8a27c432ad9856ffce11",
+  "ld/gj-1214-b.npz": "42094cb91535515f075bb26ca3e1319dc3635b56abfc818c69dec34506110b2b",
+  "ld/gj-3470-b.npz": "14587bc2fbaaf200b273c3d2d5ccb073440ac6d910abacb16fdb35d1c5bf6fce",
+  "ld/hat-p-11-b.npz": "4fc169f8903a8f95aece07763ec243a695fd6e11b50e67855a4e9b059e2b7109",
+  "ld/hd-189733-b.npz": "cc518811ef9a3db3872b937ea7293a0d3780342807886ed96b2d6cd6334dbaeb",
+  "ld/hd-209458-b.npz": "b860b70d785b01a513062014f045307568d6b6106ab53428ec7b81a664b0d0cc",
+  "ld/k2-18-b.npz": "19b9938f4cca2500a64c0c323c2cca6c92dff09ec986d543949c1a8157ae1db3",
+  "ld/lhs-1140-b.npz": "992c847086add807587c7890769244490120fcaea64d1b863721e49efb38cdbf",
+  "ld/toi-270-d.npz": "1296593eb770578d64d3bd19c4a459eb35ae15d7d650769306a521dbe466730f",
+  "ld/trappist-1-e.npz": "ba306bca7fb9f9d5e5536269ef227e7da4007095be77eb5473aa147541b05615",
+  "ld/wasp-107-b.npz": "e0d41054a5d2630ffbe4d4ea93f08ba8583574e5ce7d384f14747917f8e2cda9",
+  "ld/wasp-12-b.npz": "76d9e7c1887ff80f7659bf993f19cda4d282b06c753e81d8d1ddbccc8cf0e10b",
+  "ld/wasp-121-b.npz": "ada2640ff9732e83c182d575dc4a8642021d2cc57683aabaa31d684da6f653d6",
+  "ld/wasp-39-b.npz": "6637a5a7d357623b36231068725d7f6ea3cdbcd68efe74118bec1713f1ff9ec3",
+  "ld/wasp-96-b.npz": "77e2d48778bce62664539223d242759deb306e264ed24186f29864e6119d6fa6",
+  "noise/gj-1214-b.npz": "a911623796b4fdb0ce8e6efdd9d4817d5aa0748209b8956bc49d5bcd46eeb761",
+  "noise/gj-3470-b.npz": "3fb3003cbcf3964cfc1fd557e4e67cdcb2f10eff886c8bb1aee581dd79d81f60",
+  "noise/hat-p-11-b.npz": "7b8255abc99503b9d56f3af17c5b8083533d34ae291018a1a53f9eaaf815bb55",
+  "noise/hd-189733-b.npz": "fed619b902c347fca72124d01c29839cefabd35530fc32b6d1969624d50c75e0",
+  "noise/hd-209458-b.npz": "138f84032bf9ae291f8b47a73a3ac842ae7470d3de2ef65861c41d74d28ed1e3",
+  "noise/k2-18-b.npz": "8ba7e4ab8d6b51c4f869e77fe60e53602b31a3b70f24b8146202ed018776dcbb",
+  "noise/lhs-1140-b.npz": "2a30a0039967446a40dc1906a7c8ee89c48bcb68c24306b2110bb4e7fbeb637a",
+  "noise/toi-270-d.npz": "24f805594c72e004fe36c2bcf687d55dd2385097e83231050ee33cdcdfdef186",
+  "noise/trappist-1-e.npz": "acb8bc161d721d381e3320c61d65653ff3aa2e5089ee016650803688f5c4fbfa",
+  "noise/wasp-107-b.npz": "3c55ecf7496628b2e7db20f352a20a4110682e1ac99b0b5d5fea539428aa9bc6",
+  "noise/wasp-12-b.npz": "a78cdeb12a5a1cff92c2b4260d5a88a3ce5b42223f12d0424992b67e38ce4167",
+  "noise/wasp-121-b.npz": "29a38aad966c7f029b47fb8ee255252d8540538a7b87d0442c072b2170869d56",
+  "noise/wasp-39-b.npz": "baf4e4a67de0a11d390802870d98a4d33ca4795d4859b7871e1f48b0b65028fe",
+  "noise/wasp-96-b.npz": "f53cb9910105cfd687067152d969ca7a2cb1f67f4f7d5e802eaa597067c5f4b0",
+  "star/gj-1214-b.npz": "7745b4aa7414e40fc9bd7b9c02f3aa41c6129789144fb1e97bfc621897dcc899",
+  "star/gj-3470-b.npz": "ff40d855dd5e9f5f114ee94bbff8e82c5ec44415db5dd78091ded67065d11cc8",
+  "star/hat-p-11-b.npz": "8d3b7cb9bf4d738e7d2e2855d1e0c8fcd3b3fec36065110ee2cdbf58b3f4c742",
+  "star/hd-189733-b.npz": "922fcd3634798d7b19bb299f9af4f89ce40d2e94d71dc5ad215dd3e49fc6bf53",
+  "star/hd-209458-b.npz": "34fec9505508bfe3f01590a775a44dcc772e3bbdc72ef3c57dd7d96c96e13a13",
+  "star/k2-18-b.npz": "3ad6b44544642510c0250d3603b28f86addbf19bc26bac1776ca2ec327c75335",
+  "star/lhs-1140-b.npz": "dd89c1e85b830c78aec3237e41217b66bda136de67d191c510a0355b1be5f7ec",
+  "star/phoenix_grid.npz": "8d70ff2d232938b4dbf9b35815032e9cb504905a9ae2fd4949c9f49cf33cbaba",
+  "star/toi-270-d.npz": "a2446e133023c37d18e7ce2718c80e885686180550713940cbe5d17b659f7907",
+  "star/trappist-1-e.npz": "3f92edd967b606ec2d234136daa0d554ee2c91b4ecaea6b99f3c5a8e9e3d3d59",
+  "star/wasp-107-b.npz": "49e04f89ddfc2b35dd0837b78a6bb9560d768fa7a74123ade83df72e643c9583",
+  "star/wasp-12-b.npz": "2aa5a1a30d98a5ec8ad141117699fe4894af1178fb7129f482ccb0f7a708e30f",
+  "star/wasp-121-b.npz": "c7c7d6c21a522914ad81faad8bb8bfd361792bf5b174c65069937507d063b569",
+  "star/wasp-39-b.npz": "a7c995a7fdb9cee83d37c96a94b22bed111a9bf0313ae7a0a77f015fe833d759",
+  "star/wasp-96-b.npz": "8aac9322e43fd16be701749daefe762acbd3eabe706c68fb4cf8c965e3954577"
+ },
  "planets": {
   "GJ 1214 b": {
    "has_ld": true,
@@ -77,5 +123,5 @@
  "star_grid": {
   "phoenix_grid": true
  },
- "version": 3
+ "version": 4
 }
