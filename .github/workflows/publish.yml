@@ -3,7 +3,8 @@ name: Publish
 # Builds sdist + wheel from a clean checkout and uploads with PyPI trusted
 # publishing (no API token in secrets). A v* tag publishes to PyPI; run the
 # workflow by hand to dry-run against TestPyPI first. Never upload a locally
-# built wheel (#31).
+# built wheel (#31). TestPyPI needs the 'testpypi' environment and a trusted
+# publisher registered on test.pypi.org for this repo/workflow/environment.
 on:
   push:
     tags: ["v*"]
