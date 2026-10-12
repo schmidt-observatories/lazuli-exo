@@ -12,12 +12,12 @@ Optional extras:
 ============  =====================================================
 Extra         Pulls in / needed for
 ============  =====================================================
-``plot``      ``matplotlib`` — the ``.plot()`` methods (:mod:`lazuli_exo.plotting`)
-``test``      ``pytest`` — the test suite
-``web``       ``flask`` — the local Plotly demo UI under ``webapp/``
-``docs``      Sphinx, nbsphinx, the RTD theme — building these docs
-``transit``   ``astropy``, ``pandas``, ``jaxoplanet`` — :mod:`lazuli_exo.transit` models
-``archive``   ``astroquery`` — :func:`~lazuli_exo.transit.download_exoplanet_archive`
+``plot``      ``matplotlib``: the ``.plot()`` methods (:mod:`lazuli_exo.plotting`)
+``test``      ``pytest``: the test suite
+``web``       ``flask``: the local Plotly demo UI under ``webapp/``
+``docs``      Sphinx, nbsphinx, myst-parser, the RTD theme: building these docs
+``transit``   ``astropy``, ``pandas``, ``jaxoplanet``: :mod:`lazuli_exo.transit` models
+``archive``   ``astroquery``: :func:`~lazuli_exo.transit.download_exoplanet_archive`
 ============  =====================================================
 
 The parametric model (:func:`lazuli_exo.simulate`) additionally needs
@@ -49,6 +49,20 @@ Clone the repository and install in *editable* mode so local changes to
    git clone git@github.com:schmidt-observatories/lazuli-exo.git
    cd lazuli-exo
    pip install -e ".[plot,test]"
+
+Using a conda environment
+-------------------------
+
+The showcase path needs only numpy, so any environment works. For the
+parametric model, slicersim and sncosmo are easiest to keep in a dedicated
+environment:
+
+.. code-block:: bash
+
+   conda create -n lazuli-exo python=3.12
+   conda activate lazuli-exo
+   pip install "lazuli-exo[plot]"
+   pip install git+https://github.com/MickaelRigault/slicersim.git sncosmo
 
 Verify the installation
 -----------------------
@@ -109,7 +123,7 @@ a full rebuild.
 .. note::
 
    The notebooks are **not re-executed** at build time
-   (``nbsphinx_execute = "never"``) — the committed outputs are what gets
+   (``nbsphinx_execute = "never"``): the committed outputs are what gets
    rendered. ``conf.py`` copies ``notebooks/0*.ipynb`` into
    ``docs/sphinx/notebooks/`` on each build, so ``notebooks/`` stays the
    single source of truth. To refresh the rendered outputs, re-run the

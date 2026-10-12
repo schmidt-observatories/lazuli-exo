@@ -21,7 +21,7 @@ template against the best-fit flat line, assuming independent Gaussian errors
 and no nuisance parameters beyond the mean. It is returned as
 ``template_snr_diagonal``.
 
-Note what it is measured on: ``depth``, the noiseless model — not a noisy
+Note what it is measured on: ``depth``, the noiseless model, not a noisy
 realization. Two calls with the same arguments always give the same number.
 
 What it is not
@@ -34,7 +34,7 @@ What it is not
 
    - no defined null/alternative likelihood ratio,
    - no nuisance model beyond a single free mean,
-   - no covariance — errors are assumed diagonal,
+   - no covariance (errors are assumed diagonal),
    - no false-positive calibration.
 
    A value of 5 does not mean "5σ".
@@ -61,8 +61,8 @@ mask, relative to the same *global* :math:`\bar{d}`:
    These are **band-restricted template norms, not molecule detections.**
    Each includes absorption from every other species in the mask, plus
    haze, cloud, and continuum structure, plus the offset of the masked region
-   from the global mean. The masks *overlap* — H2O and CH4 both cover
-   1.10–1.20 µm — so their values are not independent.
+   from the global mean. The masks *overlap* (H2O and CH4 both cover
+   1.10 to 1.20 µm), so their values are not independent.
 
    CO and NH3 are present in the models but have no band masks in the
    0.4–1.7 µm range, so they are never reported. **Their absence from the
@@ -115,9 +115,9 @@ of assumptions:
 - Comparing scenarios for the same target.
 - Tracking how a quantity moves with ``n_transits`` or ``R``.
 
-It is not useful for absolute statements — "detectable", "5σ", "N transits
-required" — and the package deliberately gives you no function that produces
-one.
+It is not useful for absolute statements such as "detectable", "5σ" or
+"N transits required", and the package deliberately gives you no function
+that produces one.
 
 The upgrade path
 ----------------
@@ -125,5 +125,5 @@ The upgrade path
 The rigorous replacement is a **likelihood ratio against per-molecule
 leave-one-out model tables**: for each species, a model computed with that
 species removed, and a ratio test against the full model. This slots into the
-existing table schema without any API change — the schema already allows
+existing table schema without any API change: the schema already allows
 arbitrary scenario names per planet.

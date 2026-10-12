@@ -8,8 +8,8 @@ level of the ``lazuli_exo`` package, so ``lazuli_exo.observe`` and
 
 .. note::
 
-   The runtime is deliberately terse — several helpers carry no docstring and
-   are documented here by signature alone. The narrative explanation of what
+   The runtime is terse: several helpers carry no docstring and are
+   documented here by signature alone. The narrative explanation of what
    each subsystem computes lives in the :doc:`../user_guide/index`.
 
 Top-level public API

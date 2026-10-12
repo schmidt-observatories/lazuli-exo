@@ -82,7 +82,7 @@ function; above the native channel sampling (about 230) it raises a
 
    ``template_snr_diagonal`` is a **matched-template amplitude S/N against the
    best-fit flat line**, not a calibrated detection significance. The per-band
-   values are the same statistic restricted to fixed wavelength masks — they
+   values are the same statistic restricted to fixed wavelength masks: they
    mix every species in the mask plus haze, cloud, and continuum structure,
    and the masks overlap. They are **not molecule detections**. See
    :doc:`user_guide/detect`.
@@ -141,10 +141,10 @@ is the first place to look when a number surprises you.
 Where to go next
 ----------------
 
-- :doc:`user_guide/index` — what each subsystem does and, more importantly,
-  what it does not.
-- :doc:`tutorials` — nine runnable notebooks.
-- :doc:`api/index` — the full auto-generated API reference.
+- :doc:`user_guide/index`: what each subsystem does, and what it does not.
+- :doc:`user_guide/plotting`: every plot method with its figure.
+- :doc:`tutorials`: nine runnable notebooks.
+- :doc:`api/index`: the full auto-generated API reference.
 
 
 Any planet: the parametric model

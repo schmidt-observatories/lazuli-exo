@@ -14,12 +14,12 @@ showcase planets) simulated transit light curves.
 
 Two ways in:
 
-- **Showcase tables** — 14 well-known planets × 5 atmosphere scenarios,
-  precomputed with POSEIDON: :func:`lazuli_exo.observe`.
-- **Parametric model** — any transiting planet from its star, radius, mass,
+- Showcase tables: 14 well-known planets and 5 atmosphere scenarios each,
+  with precomputed slicersim noise, through :func:`lazuli_exo.observe`.
+- Parametric model: any transiting planet from its star, radius, mass,
   :math:`T_\mathrm{eq}`, transit duration and atmosphere knobs ([M/H], C/O,
-  :math:`\mu`, cloud deck, haze), with slicersim computing the noise live:
-  :func:`lazuli_exo.simulate`.
+  :math:`\mu`, cloud deck, haze), with slicersim computing the noise live,
+  through :func:`lazuli_exo.simulate`.
 
 .. warning::
 
@@ -43,28 +43,29 @@ the parametric model's live noise.
 
    New here? Read :doc:`installation`, then :doc:`quickstart`. The
    :doc:`tutorials` are runnable Jupyter notebooks that cover every feature
-   end to end; notebooks 6–9 cover the parametric model.
+   end to end; notebooks 6 to 9 cover the parametric model.
 
 Highlights
 ----------
 
-- **Atmosphere scenarios** — ``clear``, ``cloudy``, ``hazy``,
-  ``high_metallicity`` and a featureless ``flat`` baseline for 14 showcase
-  targets.
-- **Parametric atmospheres** — a POSEIDON-derived grid of photospheric
+- Atmosphere scenarios ``clear``, ``cloudy``, ``hazy``, ``high_metallicity``
+  and a featureless ``flat`` baseline for 14 showcase targets.
+- Parametric atmospheres from a POSEIDON-derived grid of photospheric
   pressure :math:`\zeta(\lambda)` on (T, [M/H], C/O) plus analytic scale
-  height, slant column, cloud deck and haze; validated against the showcase
+  height, slant column, cloud deck and haze, validated against the showcase
   tables (:doc:`user_guide/parametric`).
-- **Instrument noise** — per-channel single-transit depth uncertainty from
-  slicersim, Vega→AB handled, readout desaturated per target, scaled by
+- Instrument noise per channel from slicersim for a single transit, with
+  Vega to AB handled, the readout desaturated per target, scaled by
   :math:`1/\sqrt{N_\mathrm{transits}}` and binned in inverse variance.
-- **Spectral-template S/N** — a matched-template amplitude statistic against
+- A spectral-template S/N: a matched-template amplitude statistic against
   the best-fit flat line, overall and per molecular band mask.
-- **Transit light curves** — quadratically limb-darkened, numpy-only, for the
+- Transit light curves, quadratically limb-darkened and numpy-only, for the
   showcase planets.
-- **Web ready** — a form/report layer (:mod:`lazuli_exo.forms`,
-  :mod:`lazuli_exo.report`) that the local Flask applet and the Lazuli
-  simulators site share (:doc:`user_guide/webapp`).
+- Plot methods on the results (:doc:`user_guide/plotting`), each taking an
+  ``ax`` and returning it.
+- A form/report layer (:mod:`lazuli_exo.forms`, :mod:`lazuli_exo.report`)
+  that the local Flask applet and the Lazuli simulators site share
+  (:doc:`user_guide/webapp`).
 
 Contents
 --------
@@ -93,6 +94,7 @@ Contents
    :caption: Reference
 
    api/index
+   model
    changelog
 
 Indices and tables
