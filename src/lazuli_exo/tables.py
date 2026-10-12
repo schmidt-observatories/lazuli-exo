@@ -21,7 +21,7 @@ from pathlib import Path
 
 import numpy as np
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4   # 4: per-file sha256 manifest in index["files"]
 ZETA_GRID = Path("atmo") / "zeta_grid.npz"
 PHOENIX_GRID = Path("star") / "phoenix_grid.npz"
 _GRID_CACHE = {}
@@ -208,6 +208,15 @@ def load_ld(tables_dir, planet):
     return _read(path, "wavelength_um", "u1", "u2")
 
 
+def sha256_file(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def rebuild_index(tables_dir):
     tdir = Path(tables_dir)
     planets = {}
@@ -218,7 +227,9 @@ def rebuild_index(tables_dir):
                          "has_ld": (tdir / "ld" / f"{slugify(name)}.npz").exists()}
     index = {"version": SCHEMA_VERSION, "planets": planets,
              "atmo": {"zeta_grid": (tdir / ZETA_GRID).exists()},
-             "star_grid": {"phoenix_grid": (tdir / PHOENIX_GRID).exists()}}
+             "star_grid": {"phoenix_grid": (tdir / PHOENIX_GRID).exists()},
+             "files": {str(f.relative_to(tdir)): sha256_file(f)
+                       for f in sorted(tdir.rglob("*.npz"))}}
     tdir.mkdir(parents=True, exist_ok=True)
     (tdir / "index.json").write_text(json.dumps(index, indent=1, sort_keys=True))
     return index
