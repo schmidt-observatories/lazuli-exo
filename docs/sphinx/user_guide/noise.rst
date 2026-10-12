@@ -138,6 +138,8 @@ Bright hosts: unvalidated uncertainties
    as indicative only until an unsaturated readout strategy or an
    injection/recovery validation exists. HAT-P-11 b and HD 209458 b were on
    this list before the 2026-10-11 table regeneration and now desaturate.
+   HD 189733 b stays in the tables on purpose: it is the brightest host in
+   the sample and the warning travels with every result.
 
 Rather than silently ignoring this, ``observe()`` raises a ``UserWarning``:
 
