@@ -3,6 +3,22 @@
 Reference material moved out of the README. The README stays short; this
 file keeps the physics, the table pipeline and the known approximations.
 
+## Noise tables: 2026-10-11 regeneration and provenance
+
+The 14 noise tables were rebuilt in one pass on `main` with slicersim 1.3.4
+and the narrow field pinned, picking up #33 (saturation at the last read),
+#34 (one PHOENIX SED for both paths), #37 (pixel-averaged SED, one reset
+frame per ramp) and #44 (solar-metallicity grid, log g to 5.5). Against the
+2026-10-04 tables the single-transit errors rose by 2-30 % at the median
+(shorter ramps and the reset overhead), most at the bright hosts; HD 209458 b
+and HAT-P-11 b now desaturate fully, HD 189733 b keeps 324 saturated pixels
+at the (2,1,0) floor with the 0.7 s subframe and still carries the warning.
+Every table's `meta` records `package_version`, `git_commit` (of the code
+that built it), `slicersim_version`, `instrument_config_sha256` and
+`phoenix_grid_sha256` (#4), and `index.json` (schema 4) holds a sha256 per
+table file. `make_noise_tables.py` refuses nothing but marks the commit
+`-dirty` when generator code is uncommitted.
+
 ## Bring your own spectrum
 
 `simulate(star, spectrum=(wl_um, depth))` bypasses the parametric atmosphere
@@ -123,7 +139,7 @@ only tabulated below 5100 K and log g 5.0 below 10200 K; hotter nodes repeat
 the nearest available column (`meta["filled_from_nearest_logg"]`).
 `precompute/make_noise_tables.py` builds the noise tables from this same SED,
 so `observe()` and `simulate()` share one stellar spectrum (the committed
-noise tables are regenerated in a separate pass, issue #34); the POSEIDON
+noise tables were regenerated this way on 2026-10-11, issue #34); the POSEIDON
 star tables `star/<slug>.npz` are validation data only.
 
 **Spectrograph field.** `depth_error` rescales the slicersim target to the

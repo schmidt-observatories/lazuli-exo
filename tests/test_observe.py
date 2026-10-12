@@ -79,10 +79,12 @@ def test_unknown_planet_raises(fixture_tables):
 # --- unvalidated (residually saturated) noise tables ----------------------
 
 def test_saturated_noise_table_warns():
-    """The three bright hosts whose noise tables retain detector saturation
-    must be flagged, not silently treated as validated forecasts."""
+    """A host whose noise table retains detector saturation (HD 189733 b,
+    324 px at the (2,1,0) floor with the 0.7 s subframe; HD 209458 b and
+    HAT-P-11 b are clean since the 2026-10-11 tables) must be flagged, not
+    silently treated as a validated forecast."""
     with pytest.warns(UserWarning, match="saturat"):
-        lazuli_exo.observe("HD 209458 b", scenario="flat", R=50)
+        lazuli_exo.observe("HD 189733 b", scenario="flat", R=50)
 
 
 def test_clean_noise_table_does_not_warn():

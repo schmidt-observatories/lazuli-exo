@@ -83,8 +83,10 @@ def _observing(noise_meta):
         n, m, d = nmd
         nramps = noise_meta.get("nramps") or 1
         nframes = n * (m + d) - d
-        ramp_s = t_obs / nramps
-        tframe = ramp_s / nframes
+        # tables since 2026-10-11 record tframe_s and count a reset frame per
+        # ramp in t_obs_s; older tables have neither, so derive from t_obs
+        tframe = noise_meta.get("tframe_s") or (t_obs / nramps) / nframes
+        ramp_s = tframe * nframes
         out.update(
             readout_mode="MACC up-the-ramp",
             macc=f"{n}:{m}:{d}",
