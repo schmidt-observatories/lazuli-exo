@@ -19,7 +19,7 @@ except OSError:
 
 import lazuli_exo
 
-print("lazuli_exo", lazuli_exo.__file__)'''
+print("lazuli_exo", lazuli_exo.__version__ if hasattr(lazuli_exo, "__version__") else "(dev)")'''
 
 cells = [
 new_markdown_cell(r"""# 1. Getting started
@@ -57,9 +57,12 @@ new_markdown_cell(r"""## A single observation
 
 `observe()` takes a planet name, a scenario, the number of transits to co-add
 and the resolving power `R` to bin the spectrum to."""),
-new_code_cell(r'''obs = lazuli_exo.observe("WASP-39 b", scenario="clear",
+new_code_cell(r'''import dataclasses
+
+obs = lazuli_exo.observe("WASP-39 b", scenario="clear",
                          n_transits=1, R=100)
-obs'''),
+print(type(obs).__name__, "fields:",
+      ", ".join(f.name for f in dataclasses.fields(obs)))'''),
 new_markdown_cell(r"""## Anatomy of a `SimulatedSpectrum`
 
 The result is a plain dataclass. You will use `wavelength`, `depth` and

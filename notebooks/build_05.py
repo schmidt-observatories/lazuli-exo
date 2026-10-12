@@ -19,7 +19,7 @@ except OSError:
 
 import lazuli_exo
 
-print("lazuli_exo", lazuli_exo.__file__)'''
+print("lazuli_exo", lazuli_exo.__version__ if hasattr(lazuli_exo, "__version__") else "(dev)")'''
 
 cells = [
 new_markdown_cell(r"""# 5. Tables and targets
@@ -51,7 +51,8 @@ new_code_cell(r'''from pathlib import Path
 from lazuli_exo import tables
 
 tdir = tables.resolve_tables_dir(None)
-print(f"tables dir: {tdir}\n")
+PKG = Path(lazuli_exo.__file__).parent
+print(f"tables dir: <package>/{tdir.relative_to(PKG)}\n")
 
 for sub in ["atmo", "star", "noise", "ld"]:
     files = sorted((tdir / sub).glob("*.npz"))
@@ -247,7 +248,8 @@ pass `tables_dir=` per call. Both take precedence over the packaged default, in
 that order."""),
 new_code_cell(r'''import os
 
-print(f"default (package-relative): {tables.resolve_tables_dir(None)}")
+print(f"default (package-relative): <package>/"
+      f"{tables.resolve_tables_dir(None).relative_to(PKG)}")
 print(f"explicit argument:          "
       f"{tables.resolve_tables_dir('/some/other/tables')}")
 
@@ -264,7 +266,8 @@ del os.environ["LAZULI_EXO_TABLES"]
 # observe() takes the same argument
 obs = lazuli_exo.observe(PLANET, scenario="clear", n_transits=1,
                          tables_dir=tdir)
-print(f"\nobs.meta['tables_dir']:     {obs.meta['tables_dir']}")'''),
+print(f"\nobs.meta['tables_dir']:     <package>/"
+      f"{Path(obs.meta['tables_dir']).relative_to(PKG)}")'''),
 new_markdown_cell(r"""## Summary
 
 - Per-planet star, noise and limb-darkening tables plus two grids (ζ and

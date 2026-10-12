@@ -19,7 +19,7 @@ except OSError:
 
 import lazuli_exo
 
-print("lazuli_exo", lazuli_exo.__file__)'''
+print("lazuli_exo", lazuli_exo.__version__ if hasattr(lazuli_exo, "__version__") else "(dev)")'''
 
 cells = [
 new_markdown_cell(r"""# 2. Atmosphere scenarios
