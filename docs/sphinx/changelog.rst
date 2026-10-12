@@ -7,6 +7,11 @@ entries below group the development history by theme rather than by release.
 Unreleased
 ----------
 
+- Docs aligned with wcc-etc: a :doc:`user_guide/plotting` page whose
+  figures are drawn at build time, ``docs/MODEL.md`` included in the
+  reference as :doc:`model`, a conda section on the installation page, and
+  a one-page primer plus glossary at the top of :doc:`user_guide/concepts`
+  for readers new to transmission spectroscopy. Prose pass over every page.
 - Release decisions (#31): HD 189733 b stays in the tables with its
   saturation warning; the internal design notes under ``docs/superpowers/``
   are no longer tracked in the public tree.
