@@ -84,7 +84,9 @@ obs = lazuli_exo.observe("WASP-39 b", scenario="cloudy", n_transits=5, R=100)
 obs.wavelength, obs.depth, obs.depth_err      # binned spectrum + 1-sigma per bin
 obs.detect()                                  # {"template_snr_diagonal": ..., "band_snr": {...}}
 obs.simulate_points(seed=0)                   # one noisy realization
-obs.plot()                                    # [plot] extra
+obs.plot()                                    # model + one realization   [plot] extra
+obs.plot_noise()                              # per-bin error bar vs wavelength
+obs.light_curves(n_groups=5, seed=0).plot()   # banded transit light curves
 
 # any planet (needs slicersim + sncosmo)
 p = lazuli_exo.presets.showcase("WASP-39 b", "clear")   # or build the dict by hand
@@ -124,11 +126,11 @@ See the `notebooks/` directory:
 
 | Notebook | Covers |
 |---|---|
-| `01_getting_started` | `observe -> detect -> plot`, `SimulatedSpectrum` fields, reproducible noise |
-| `02_scenarios` | The five scenarios, and why `hazy` can out-score `clear` |
-| `03_transits_and_binning` | `n_transits` and `R`, the sqrt(N) scaling, the resolution ceiling |
-| `04_light_curves` | White-light and banded transits, limb darkening |
-| `05_tables_and_targets` | Table layout, the index, the frozen NEA registry, caveat flags |
+| `01_getting_started` | `observe -> detect -> plot`, `SimulatedSpectrum` fields, reproducible noise, `meta` provenance |
+| `02_scenarios` | The five scenario presets, overlaying them with `.plot(ax=ax)`, why `hazy` can out-score `clear` |
+| `03_transits_and_binning` | `n_transits` and `R`, the sqrt(N) scaling, `.plot_noise()`, the two resolution limits |
+| `04_light_curves` | `.light_curves().plot()`, white-light and banded transits, limb darkening, the trapezoid fallback |
+| `05_tables_and_targets` | Table layout and the sha256 manifest, the frozen NEA registry, caveat flags in the data |
 | `06_parametric_model` | The zeta grid, the parametric model, validation against POSEIDON |
 | `07_custom_planet` | A planet not in the registry from a dozen numbers; the forms/report web path |
 | `08_atmosphere_knobs` | Sweeps of mu, metallicity, deck, haze and T_eq; transits needed |

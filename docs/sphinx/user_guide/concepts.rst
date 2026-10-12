@@ -20,18 +20,20 @@ coexist:
 
 .. code-block:: text
 
-   inputs (POSEIDON opacities + fastchem grid)
+   inputs (POSEIDON opacities + fastchem grid, PHOENIX stellar grid)
          |
          v  poseidon conda env
-   models/<planet>__<scenario>.npz      star/<planet>.npz
-         |
-         v  py313 env + slicersim
-   noise/<planet>.npz    (per-planet single-transit depth_err(lambda))
-         |
-         v  py313 env + exotic-ld
-   ld/<planet>.npz       (quadratic limb darkening u1(lambda), u2(lambda))
-
+   atmo/zeta_grid.npz     star/phoenix_grid.npz     star/<planet>.npz
+   (opacity shape on a (T, [M/H], C/O) grid)             |
+         |                                               v  py313 env + slicersim
+         |                                         noise/<planet>.npz
+         |                                         (single-transit depth_err(lambda))
+         |                                               v  py313 env + exotic-ld
+         |                                         ld/<planet>.npz
+         v                                         (quadratic limb darkening)
    runtime (src/lazuli_exo/) = numpy + these tables, nothing heavier
+
+   precompute/tables/models/<planet>__<scenario>.npz   POSEIDON validation data
 
 POSEIDON and slicersim are never installed together. The runtime imports
 neither. This is what lets the package be deployed behind a web app without
@@ -44,24 +46,23 @@ These are the limits that matter. Each is real, each is knowable, and each is
 recorded somewhere you can check.
 
 Isothermal equilibrium chemistry
-    Every scenario uses a single :math:`T = T_\mathrm{eq}` isotherm, not a
-    real pressure–temperature profile. Equilibrium chemistry throughout, with
-    C/O = 0.55 fixed.
+    Every spectrum uses a single :math:`T = T_\mathrm{eq}` isotherm, not a
+    real pressure-temperature profile, with equilibrium chemistry throughout
+    (the scenario presets fix C/O = 0.55; ``simulate()`` lets you vary it).
+
+Surrogate atmosphere
+    The spectrum is an interpolation of a POSEIDON-derived opacity grid
+    plus analytic scale-height, column, deck and haze terms, not a live
+    radiative-transfer run. Inside its validated box it matches POSEIDON to
+    well under the single-transit noise; see :doc:`parametric` for the box
+    and the gates.
 
 Cold-planet temperature floor
     The fastchem equilibrium-chemistry grid has a hard floor at 300 K. K2-18 b
     (:math:`T_\mathrm{eq} \approx 284` K), LHS 1140 b (≈ 226 K), and
-    TRAPPIST-1 e (≈ 250 K) are clamped to 300 K for both the isotherm and the
-    chemistry lookup. Recorded per table as ``meta["model"]["T_clamped"]``.
-
-``hazy`` is ``deck_haze``, not haze alone
-    POSEIDON's ``cloud_type="haze"`` alone is a silent no-op for a 1D model —
-    it zeroes the cloudy-sector fraction, so the haze opacity is computed but
-    never mixed into the spectrum (confirmed by an empirical A/B check giving
-    a spectrum bit-identical to ``clear``). The ``hazy`` scenario therefore
-    uses ``cloud_model="MacMad17"``, ``cloud_type="deck_haze"``, with the
-    deck's own opaque cloud pinned at the pressure grid floor (100 bar) so it
-    never shadows the atmosphere — only the haze term contributes opacity.
+    TRAPPIST-1 e (≈ 250 K) use 300 K chemistry, while the scale height uses
+    the true :math:`T_\mathrm{eq}`. Recorded on every observation as
+    ``meta["atmosphere"]["T_clamped"]`` (and ``T_chem_K``).
 
 :math:`\sqrt{N}` S/N scaling
     ``depth_err`` scales as :math:`1/\sqrt{N_\mathrm{transits}}` from a single
@@ -83,13 +84,13 @@ Template S/N, not detection significance
     no covariance, and no false-positive calibration. See :doc:`detect`.
 
 Residual detector saturation on bright hosts
-    For HAT-P-11 b, HD 189733 b, and HD 209458 b, slicersim's detector ramp
-    cannot be fully de-saturated even at the minimal MACC configuration
-    (2 groups × 1 frame). The residual pixel count is recorded as
-    ``meta["noise"]["nsaturated_detpx"]`` and ``observe()`` raises a
-    ``UserWarning``. **Their uncertainties are unvalidated** — saturation can
-    bias extraction weights, nonlinearity, and wavelength dependence in either
-    direction.
+    For HD 189733 b, slicersim's detector ramp cannot be fully de-saturated
+    even at the minimal MACC configuration (2 groups × 1 frame). The residual
+    pixel count is recorded as ``meta["noise"]["nsaturated_detpx"]`` and
+    ``observe()`` raises a ``UserWarning``. **Its uncertainties are
+    unvalidated**: saturation can bias extraction weights, nonlinearity, and
+    wavelength dependence in either direction. Check the flag rather than
+    the name; the list changes when the tables are regenerated.
 
 Light-curve geometry
     Quadratically limb-darkened transits with geometry from a frozen NASA
@@ -106,7 +107,7 @@ them rather than relying on someone having read this page:
 .. code-block:: python
 
    obs = lazuli_exo.observe("K2-18 b", scenario="clear")
-   obs.meta["model"]["T_clamped"]            # True — chemistry grid floor hit
+   obs.meta["atmosphere"]["T_clamped"]       # True: chemistry grid floor hit
 
    obs = lazuli_exo.observe("HD 189733 b")   # also raises a UserWarning
    obs.meta["noise"]["fully_desaturated"]    # False

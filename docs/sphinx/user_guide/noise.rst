@@ -10,7 +10,8 @@ What ``observe()`` does with it
 
 Two operations, both simple and both worth knowing exactly:
 
-1. **Bin** the native noise channels onto the requested constant-R grid, in
+1. **Bin** the native noise channels onto the requested constant-R grid
+   (edges snapped to whole detector pixels, see :doc:`spectra`), in
    inverse variance:
 
    .. math::
@@ -26,7 +27,8 @@ Two operations, both simple and both worth knowing exactly:
       \sqrt{N_\mathrm{transits}}
 
 That is the entire noise model at runtime. The binned model ``depth`` is
-untouched by ``n_transits``.
+untouched by ``n_transits``. ``obs.plot_noise()`` draws the result against
+wavelength.
 
 .. warning::
 
@@ -36,30 +38,43 @@ untouched by ``n_transits``.
    computed from these outputs is a lower bound, optimistic by an amount this
    model cannot tell you.
 
-The resolution ceiling
-----------------------
+The two resolution limits
+-------------------------
 
-``R`` is limited by the *coarsest* part of the native noise sampling, not its
-median. For the shipped tables the native sampling runs from about R = 231 at
-the blue end to R = 848 at the red end, so requests much above R ≈ 230 will
-empty a bin at the blue end and raise:
+Both are set by the part of the band where the dispersion makes the pixels
+coarsest in resolving power, which for the shipped tables is near 1.0 µm,
+not by the median.
+
+**The instrument resolving power** is 2.3 pixels per resolution element
+(:data:`~lazuli_exo.binning.RESOLUTION_PX`): R ≈ 369 at 0.40 µm, a minimum
+of R ≈ 101 near 1.02 µm, and R ≈ 165 at 1.69 µm. Above the minimum,
+``observe()`` and ``simulate()`` still run but warn: bins narrower than a
+resolution element are correlated by the line-spread function, so the error
+bars are no longer independent.
 
 .. code-block:: text
 
-   ValueError: Bin 162 ([0.5994, 0.6009] um) contains no noise samples;
-   requested R exceeds the native noise sampling
+   UserWarning: requested R=150 exceeds the instrument resolving power
+   (R_instr = 101-369 over the binned range); bins narrower than a
+   resolution element are correlated by the LSF
 
-The error names the offending bin and its wavelength range rather than
-silently producing a ``NaN``. You can check the ceiling yourself:
+**The native channel sampling** is the hard ceiling: one pixel per bin,
+R ≈ 231 at its minimum (848 at 0.40 µm). Above it the request raises:
+
+.. code-block:: text
+
+   ValueError: requested R exceeds the native noise sampling (bins narrower
+   than one channel; R_px >= 231)
+
+Both numbers are on every observation and in the tables:
 
 .. code-block:: python
 
-   from lazuli_exo import tables
-
-   tdir = tables.resolve_tables_dir(None)
-   wl, err, meta = tables.load_noise(tdir, "WASP-39 b")
-   native_R = wl[:-1] / np.diff(wl)
-   native_R.min()      # ~231 — the binding constraint
+   obs.meta["instrument_response"]["R_instr_min"]     # ~101
+   from lazuli_exo import tables, binning
+   wl, err, meta = tables.load_noise(tables.resolve_tables_dir(None), "WASP-39 b")
+   binning.R_instr(wl).min()                            # ~101, the warning threshold
+   (wl[:-1] / np.diff(wl)).min()                        # ~231, the hard ceiling
 
 What the tables assume
 ----------------------
@@ -69,16 +84,21 @@ The assumptions are recorded in ``meta["noise"]`` on every observation:
 ``instrument``
     The instrument configuration used, e.g. ``lazuli_cbe``.
 
-``norm_band`` / ``J_mag``
-    The band the source was normalized in, and the host magnitude used.
+``norm_band`` / ``J_mag`` / ``mag_ab`` / ``vega_ab_offset``
+    The band the source was normalized in, the archive (Vega) magnitude
+    and its AB equivalent, which is what slicersim actually normalizes to.
 
 ``default_nmd`` / ``nmd_used``
     The MACC readout configuration — the default, and what was actually used
     after tuning to remove point-source saturation.
 
-``t14_s`` / ``t_obs_s``
-    Transit duration and the native integration time, both in seconds. These
-    also set the light-curve window and cadence.
+``t14_s`` / ``t_obs_s`` / ``tframe_s`` / ``n_reset_frames``
+    Transit duration and the native integration time (including the reset
+    frame overhead), in seconds. These also set the light-curve window and
+    cadence.
+
+``package_version`` / ``git_commit`` / ``slicersim_version`` / ``*_sha256``
+    Provenance: the code and the input files the table was generated from.
 
 ``assumption``
     A plain-text statement of the depth-uncertainty model: *equal
@@ -110,13 +130,14 @@ Bright hosts: unvalidated uncertainties
 
 .. danger::
 
-   For **HAT-P-11 b**, **HD 189733 b**, and **HD 209458 b**, slicersim's
-   detector ramp could not be fully de-saturated even at the minimal MACC
-   configuration (2 groups × 1 frame). Saturation can bias extraction weights,
-   nonlinearity, and wavelength dependence in *either* direction, so the
-   uncertainties for these three targets are **unvalidated**. Treat their
-   forecasts as indicative only until an unsaturated readout strategy or an
-   injection/recovery validation exists.
+   For **HD 189733 b**, slicersim's detector ramp could not be fully
+   de-saturated even at the minimal MACC configuration (2 groups × 1 frame;
+   324 pixels remain saturated at the last read). Saturation can bias
+   extraction weights, nonlinearity, and wavelength dependence in *either*
+   direction, so its uncertainties are **unvalidated**. Treat its forecasts
+   as indicative only until an unsaturated readout strategy or an
+   injection/recovery validation exists. HAT-P-11 b and HD 209458 b were on
+   this list before the 2026-10-11 table regeneration and now desaturate.
 
 Rather than silently ignoring this, ``observe()`` raises a ``UserWarning``:
 
@@ -124,11 +145,11 @@ Rather than silently ignoring this, ``observe()`` raises a ``UserWarning``:
 
    obs = lazuli_exo.observe("HD 189733 b")
    # UserWarning: HD 189733 b: noise table was generated with residual
-   # detector saturation (7452 px); its uncertainties are unvalidated —
+   # detector saturation (324 px); its uncertainties are unvalidated —
    # do not use for quantitative forecasts
 
 To find the affected targets programmatically, check the flag rather than
-hard-coding the three names:
+hard-coding the name:
 
 .. code-block:: python
 

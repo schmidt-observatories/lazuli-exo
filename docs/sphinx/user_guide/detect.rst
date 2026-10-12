@@ -74,11 +74,11 @@ A worked warning: why ``hazy`` can beat ``clear``
 The statistic rewards *any* departure from a flat line, including one that
 carries no molecular information at all.
 
-For WASP-39 b at one transit, ``hazy`` scores **132.7** against ``clear``'s
-**123.0** — even though every individual band norm is *lower* in ``hazy``
-(H2O drops from 82.8 to 58.5 as the molecular bands are partly veiled). The
-extra amplitude is entirely outside the band masks, in the blue continuum
-below 0.575 µm where the haze's Rayleigh-like slope is steepest:
+For WASP-39 b at one transit and R = 100, ``hazy`` scores **71.7** against
+``clear``'s **68.6**, even though every individual band norm is *lower* in
+``hazy`` (H2O drops from 46.6 to 31.5 as the molecular bands are partly
+veiled). The extra amplitude is entirely outside the band masks, in the blue
+continuum below 0.575 µm where the haze's Rayleigh-like slope is steepest:
 
 .. list-table::
    :header-rows: 1
@@ -90,20 +90,20 @@ below 0.575 µm where the haze's Rayleigh-like slope is steepest:
      - Out-of-mask
      - Out fraction
    * - ``clear``
-     - 123.0
-     - 102.2
-     - 68.5
-     - 0.31
+     - 68.6
+     - 56.5
+     - 39.1
+     - 0.32
    * - ``hazy``
-     - 132.7
-     - 83.9
-     - 102.8
-     - 0.60
+     - 71.7
+     - 44.0
+     - 56.7
+     - 0.62
 
 Read ``template_snr_diagonal`` as **"how much structure is there"**, never as
 **"how much atmosphere is detectable"**. Notebook
-:doc:`../notebooks/02_scenarios` reproduces this table from the tables
-themselves.
+:doc:`../notebooks/02_scenarios` recomputes this table, so its numbers track
+the current model and noise tables.
 
 How to use it responsibly
 -------------------------

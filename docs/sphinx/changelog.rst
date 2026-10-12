@@ -7,6 +7,20 @@ entries below group the development history by theme rather than by release.
 Unreleased
 ----------
 
+- Plotting as methods on the result objects: ``obs.plot()`` gained
+  ``show_points``, ``units`` ("percent", "ppm", "fraction"), ``label`` and
+  ``title`` so scenarios overlay on one Axes; new ``obs.plot_noise()``
+  (per-bin error against wavelength) and ``LightCurveSet.plot()`` (one
+  curve per band, stacked). ``plotting.wavelength_axis`` is public. The
+  plotting functions no longer apply a matplotlib style globally.
+- Docs refreshed for the parametric runtime: ``meta["model"]`` references
+  (gone since #19) now point at ``meta["params"]`` / ``meta["atmosphere"]``;
+  scenarios are described as presets; the binning page describes the LSF
+  and photon-weighted instrument response; the two resolution limits, the
+  single remaining saturated host and the validation gates are current.
+  Tutorial notebooks 01-05 are rebuilt from ``notebooks/build_0N.py``
+  scripts like 06-09, and 06 is regenerated from its builder.
+
 Physics review of 2026-10-10 (tracked in GitHub issue #31, milestone
 "Quantitative atmospheres"):
 

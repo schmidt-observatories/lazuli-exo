@@ -14,21 +14,21 @@ Notebooks 6–9 need ``slicersim`` and ``sncosmo`` installed (live noise).
      - What it covers
    * - :doc:`notebooks/01_getting_started`
      - The ``observe → detect → plot`` loop, the ``SimulatedSpectrum`` fields,
-       reproducible noise realizations, and reading table provenance.
+       reproducible noise realizations, and reading the provenance in ``meta``.
    * - :doc:`notebooks/02_scenarios`
-     - The five atmosphere scenarios, what separates them, why ``hazy`` can
-       out-score ``clear``, and the cold-planet temperature clamp.
+     - The five scenario presets, overlaying them with ``.plot(ax=ax)``, why
+       ``hazy`` can out-score ``clear``, and the cold-planet temperature clamp.
    * - :doc:`notebooks/03_transits_and_binning`
-     - ``n_transits`` and ``R``: the exact :math:`1/\sqrt{N}` scaling, the
-       constant-R binning module, and the resolution ceiling set by the noise
-       tables.
+     - ``n_transits`` and ``R``: the exact :math:`1/\sqrt{N}` scaling,
+       ``.plot_noise()``, the instrument response and the two resolution
+       limits.
    * - :doc:`notebooks/04_light_curves`
-     - White-light and wavelength-banded transits, validation of
-       ``transit_flux`` against the analytic uniform-disk limit, limb
-       darkening, and the trapezoid fallback.
+     - ``.light_curves().plot()`` for white-light and banded transits,
+       validation of ``transit_flux`` against the analytic uniform-disk limit,
+       limb darkening, and the trapezoid fallback.
    * - :doc:`notebooks/05_tables_and_targets`
-     - The table layout and index, the loaders, the frozen NEA registry, and
-       where the caveats are recorded in the data itself.
+     - The table layout, index and sha256 manifest, the loaders, the frozen NEA
+       registry, and where the caveats are recorded in the data itself.
    * - :doc:`notebooks/06_parametric_model`
      - The :math:`\zeta` grid, the mean molecular weight from chemistry, the
        reconstruction of the POSEIDON tables, the validation table, and a
