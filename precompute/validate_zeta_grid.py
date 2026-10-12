@@ -84,15 +84,9 @@ WAIVED = {
         "POSEIDON's discretized deck sits between the literal 1 mbar and the "
         "1.376 mbar realized at 300 K; at 2600 K the x-extrapolation is also "
         "+0.09 high. Clear spectrum matches POSEIDON to 1.00.")),
-    ("WASP-121 b", "cloudy"): dict(gates=("G3",), reason=(
-        "203 ppm feature, 15 ppm absolute error: discretized-deck convention "
-        "(review B F8), same as WASP-12 b cloudy.")),
-    ("TRAPPIST-1 e", "cloudy"): dict(gates=("G3",), reason=(
-        "amplitude 0.88 at the 300 K node (0.15 sigma of 553 ppm/transit): "
-        "slant-column x-scaling at H/R_p = 0.026 (review B F7).")),
     # holdouts (label -> gates): the alkali-transition, x-extrapolation and
     # C/O = 0.9 cases of review B, i.e. exactly the #35 regeneration items
-    "gj1214_567_m0": dict(gates=("G2", "G5"), reason=P35_T),
+    "gj1214_567_m0": dict(gates=("G5",), reason=P35_T),
     "gj1214_567_m2": dict(gates=("G5",), reason=P35_T),
     "gj3470_650_m2": dict(gates=("G5",), reason=P35_T),
     "gj3470_600_m1.75": dict(gates=("G5",), reason=P35_MU),
@@ -101,7 +95,7 @@ WAIVED = {
         "1000 and 1200 K nodes, 1.1 sigma on this 29 ppm host)")),
     "hd189_1200_co0.9": dict(gates=("GZ", "G2", "G5"), reason=P35_CO),
     "w12_2600_co0.9": dict(gates=("GZ", "G2", "G5"), reason=P35_CO),
-    "w107_700_m0": dict(gates=("G2", "G5"), reason=P35_X),
+    "w107_700_m0": dict(gates=("G5",), reason=P35_X),
     "w107_736_m0": dict(gates=("GZ", "G2", "G5"), reason=f"{P35_X}; {P35_T}"),
     "w107_800_m0": dict(gates=("G2", "G5"), reason=P35_X),
 }

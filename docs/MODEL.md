@@ -27,7 +27,8 @@ radius, which replaces the P_ref convention for this path. The physics is
 
     zeta(lambda) = -ln P_photo / bar      (tabulated: T, [M/H], C/O; two fiducials)
     zeta_p = zeta + 0.5 ln[(R_p H) / (R_p,fid H_fid)]   (blended between the fiducials)
-    tau(z) = exp((zeta_p - s gamma_E - z)/s) + exp(zeta_haze - z)
+           + 1.5 s [ln(r(lambda)/R_p) - ln(r_0(lambda)/R_fid)]   (local slant column, iterated)
+    tau(z) = exp((zeta_p - s gamma_E - z)/s) + exp(zeta_haze + 1.5 ln(r/R_p) - z)
     zeta_eff = zeta_d + int_0^inf [1 - exp(-tau(zeta_d + u))] du
     R(lambda) = R_p / (1 - (H / R_p) (zeta_eff - median zeta_eff)),   depth = (R / R_s)^2
 
@@ -38,7 +39,18 @@ with exponent 1; the integral is the thin-atmosphere effective radius of the
 summed profile over an opaque deck at zeta_d = -ln P_cloud, which for pure
 gas is zeta_d + s Ein(exp((zeta_p - zeta_d)/s - gamma_E)); the last line is
 the exact isothermal hydrostatic solution with g ~ 1/r^2; H = k T_eq /
-(mu m_H g) with g at R_p). zeta is stored at the model's native
+(mu m_H g) with g at R_p). The chord column at wavelength lambda is
+sqrt(2 pi r H(r)) ~ r^1.5 at that wavelength's own radius r(lambda), not at
+R_p, so the gas level gains 1.5 s ln(r/R_p) less the same term for the
+fiducial's own radius r_0(lambda) (already in the grid) and the haze level
+gains 1.5 ln(r/R_p); r is the effective radius of the previous iterate and
+the fixed point converges to 1e-4 in ln r in 2-4 steps (contraction
+~1.5 s H/R_p; `info["column_iterations"]`, `info["column_correction_max_H"]`).
+This matters for puffy planets (H/R_p >= 0.015; a 1 R_J, g = 1.7 m/s^2,
+1000 K planet goes from 0.93 to 0.98 of the brute-force amplitude); the
+residual 0.1-0.2 H at H/R_p = 0.033 is the second-order sphericity term
+(the chord sampling r(z) across the tau profile, not just at r_eff), which
+is not modelled. zeta is stored at the model's native
 R = 10,000 so that a cloud deck clips individual line cores, as in POSEIDON,
 and on two fiducial planets (1 R_J at g = 10 m/s^2; 0.3 R_J at g = 30 m/s^2) so that the
 pressure dependence of the line cores is captured to first order.
