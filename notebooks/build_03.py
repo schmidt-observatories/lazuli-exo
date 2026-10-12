@@ -114,7 +114,7 @@ new_code_cell(r'''fig, axes = plt.subplots(3, 1, figsize=(9.5, 9), sharex=True)
 
 for ax, R in zip(axes, [30, 100, 200]):
     o = lazuli_exo.observe(PLANET, scenario="clear", n_transits=1, R=R)
-    o.plot(ax=ax, seed=0, label=f"R = {R}, {o.wavelength.size} bins")
+    o.plot(ax=ax, seed=0, label=f"R = {R}, {o.wavelength.size} bins", title="")
     ax.legend(frameon=False, loc="upper left")
 for ax in axes[:-1]:
     ax.set_xlabel("")
