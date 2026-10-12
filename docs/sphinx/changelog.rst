@@ -4,8 +4,12 @@ Changelog
 The project is pre-release; there has been no tagged version yet, so the
 entries below group the development history by theme rather than by release.
 
-Unreleased
-----------
+0.1.2 (2026-10-12)
+------------------
+
+First PyPI release (``pip install lazuli-exo``). The ``v0.1.1`` tag was
+never published; everything below the 0.1.1 heading is the state of that
+tag, and everything in this section landed since.
 
 - Docs aligned with wcc-etc: a :doc:`user_guide/plotting` page whose
   figures are drawn at build time, ``docs/MODEL.md`` included in the

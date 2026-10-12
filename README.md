@@ -1,4 +1,4 @@
-![Logo](docs/logo_schmidt_observatory_system.png)
+![Logo](https://raw.githubusercontent.com/schmidt-observatories/lazuli-exo/main/docs/logo_schmidt_observatory_system.png)
 
 [![Tests](https://github.com/schmidt-observatories/lazuli-exo/actions/workflows/tests.yml/badge.svg)](https://github.com/schmidt-observatories/lazuli-exo/actions/workflows/tests.yml)
 
@@ -53,7 +53,7 @@ would dominate). `simulate()` warns on the ones it can detect.
 petitRADTRANS, PICASO or any forward model you trust, and pass
 `spectrum=(wl_um, depth)` to `simulate()`: the star, noise, contamination and
 instrument response are applied exactly as for the surrogate. Details,
-physics and caveats: [docs/MODEL.md](docs/MODEL.md).
+physics and caveats: [docs/MODEL.md](https://github.com/schmidt-observatories/lazuli-exo/blob/main/docs/MODEL.md).
 
 # Installation
 
@@ -164,7 +164,7 @@ local exploration tool; the public page lives on the Lazuli simulators site.
   package; `LAZULI_EXO_TABLES` overrides the location. The POSEIDON
   validation tables stay in `precompute/tables/` and are not runtime data.
 - Regenerating tables needs POSEIDON (conda env `poseidon`) and slicersim;
-  see [docs/MODEL.md](docs/MODEL.md).
+  see [docs/MODEL.md](https://github.com/schmidt-observatories/lazuli-exo/blob/main/docs/MODEL.md).
 - Tests: `pytest` (the slicersim-dependent tests skip when it is absent).
 
 ## Viewing documentation locally
