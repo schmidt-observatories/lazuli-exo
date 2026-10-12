@@ -10,7 +10,7 @@ readme = "README.md"
 license = { text = "BSD-3-Clause" }
 authors = [{ name = "Gudmundur Stefansson", email = "gstefansson@schmidtsciences.org" }]
 requires-python = ">=3.10"
-dependencies = ["numpy"]
+dependencies = ["numpy>=2.0"]   # np.trapezoid
 keywords = ["exoplanets", "transmission spectroscopy", "exposure time calculator", "Lazuli", "integral field spectrograph"]
 classifiers = [
     "Development Status :: 3 - Alpha",
