@@ -145,6 +145,23 @@ and ``sncosmo`` installed):
    p.update(T_eq_K=900.0, mu=None, log_P_cloud_bar=-2.0)    # cooler, chemistry mu, deck at 10 mbar
    obs = lazuli_exo.simulate(p, R=100, n_transits=5)
 
+Bring your own spectrum
+-----------------------
+
+If you already have a forward model you trust (POSEIDON, petitRADTRANS,
+PICASO, ...), skip the surrogate and pass its transit depth directly. The
+star, the live slicersim noise, stellar contamination and the instrument
+response are applied exactly as for the parametric model; only the star
+keys are required.
+
+.. code-block:: python
+
+   # wl_um increasing, depth = (R_p/R_s)^2 (not ppm), covering 0.40-1.70 um
+   # with a little margin (the LSF reaches a few pixels past the band)
+   star = dict(teff_K=5485., logg=4.45, feh=0.0, mag=10.66, t14_s=10092.)
+   obs = lazuli_exo.simulate(star, spectrum=(wl_um, depth), R=100, n_transits=5)
+   obs.meta["atmosphere"]["source"]     # "user"
+
    obs.detect()["template_snr_diagonal"]
    obs.meta["atmosphere"]["H_m"], obs.meta["noise"]["mag_ab"]
 

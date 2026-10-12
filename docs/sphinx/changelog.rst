@@ -25,6 +25,11 @@ Physics review of 2026-10-10 (tracked in GitHub issue #31, milestone
   and table (``observe``) noise paths now agree to ≈ 3 % instead of
   0.5–1.6× (#44, part of #34).
 - ``.readthedocs.yaml`` so the docs build on Read the Docs.
+- ``simulate(star, spectrum=(wl_um, depth))`` accepts a transit spectrum
+  from any forward model in place of the parametric atmosphere; the noise,
+  contamination and instrument response are unchanged
+  (``meta["atmosphere"]["source"] == "user"``). README and index now state
+  the scope: quantitative instrument half, surrogate atmosphere half.
 - Live noise (``slicer.depth_error``, hence ``simulate``) pins the narrow
   spectrograph field by default. slicersim >= 1.3.3 no longer rescales a new
   ``LazuliTarget`` to a field, which halved the throughput and left
