@@ -4,7 +4,7 @@ zeta(lambda) = -ln P_photo(lambda)/bar is tabulated on a (T, [M/H], C/O) grid
 for two fiducial planets (1 R_J at g = 10 m/s^2; 0.3 R_J at g = 30 m/s^2),
 i.e. at two nodes x = 0 and -1.15 of the slant-column axis x = 0.5 ln[(R_p H)/(R_p H)_0]
 (precompute/make_zeta_grid.py). For any other planet, with
-x_p = 0.5 ln[(R_p H)/(R_p,0 H_0)] - ln(T_eq/T_chem):
+x_p = 0.5 ln[(R_p H)/(R_p,0 H_0)] - ln(T_eq/T_chem)::
 
     s(lam)  = (zeta_1 - zeta_0) / (x_1 - x_0)        slant-column exponent, ~1/(1+a)
     zeta_p  = zeta_0 + s (x_p - x_0)                  linear in x, extrapolated

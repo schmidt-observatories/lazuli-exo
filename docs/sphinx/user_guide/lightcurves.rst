@@ -2,7 +2,7 @@ Transit light curves
 ====================
 
 :meth:`~lazuli_exo.SimulatedSpectrum.light_curves` turns a simulated spectrum
-into the time domain — one white-light curve, or several split by wavelength
+into the time domain: one white-light curve, or several split by wavelength
 band.
 
 .. code-block:: python
@@ -19,8 +19,8 @@ limb darkening are not.
 The observation window
 ----------------------
 
-Sampling spans :math:`\pm t_{14}` around mid-transit — the equal
-out-of-transit baseline the noise tables assume (see :doc:`noise`) — at the
+Sampling spans :math:`\pm t_{14}` around mid-transit, the equal
+out-of-transit baseline the noise tables assume (see :doc:`noise`), at the
 instrument's native integration time ``t_obs_s``. If that would exceed
 ``max_points`` samples (default 2000), the cadence is coarsened; it is never
 made finer than the real integration time.
@@ -35,13 +35,13 @@ quadratically limb-darkened star occulted by an opaque disk of radius ratio
 It is a numpy-only numerical disk integration: per separation, quadrature over
 the occulted radial band :math:`[|z|-k,\, |z|+k]` of the analytic overlap-arc
 weight times the intensity profile. A Chebyshev-type substitution
-:math:`r = c - h\cos\psi` absorbs the square-root behaviour at both band edges
-— the planet edge and the stellar limb.
+:math:`r = c - h\cos\psi` absorbs the square-root behaviour at both band edges, the
+planet edge and the stellar limb.
 
 **It is validated, not asserted.** Against the analytic uniform-source
 solution (:math:`u_1 = u_2 = 0`), the maximum absolute flux error at the
-default resolution is :math:`\sim 3 \times 10^{-7}` for :math:`k = 0.15` —
-about 13 ppm of the transit depth, and the fractional error is independent of
+default resolution is :math:`\sim 3 \times 10^{-7}` for :math:`k = 0.15`, about
+13 ppm of the transit depth, and the fractional error is independent of
 :math:`k`. Notebook :doc:`../notebooks/04_light_curves` runs that comparison
 in full.
 
@@ -65,9 +65,9 @@ rather than assumed:
 
 Limb-darkening coefficients come from per-planet tables computed with
 exotic-ld (PHOENIX grid, trilinear interpolation, 48 wavelength chunks),
-interpolated to each band's bin centres. They vary strongly across the band —
-for WASP-39 b, :math:`u_1` runs from 0.78 in the blue to 0.18 in the near-IR —
-which is why banded curves change *shape*, not just depth.
+interpolated to each band's bin centres. They vary strongly across the band (for
+WASP-39 b, :math:`u_1` runs from 0.78 in the blue to 0.18 in the near-IR),
+which is why banded curves change *shape* as well as depth.
 
 The trapezoid fallback
 ----------------------
@@ -98,7 +98,7 @@ computed independently:
    \sqrt{ t_{14} / 2c }
 
 for cadence :math:`c`. This keeps the light curves consistent with the same
-equal out-of-transit baseline the spectra assume — the two views of an
+equal out-of-transit baseline the spectra assume, so the two views of an
 observation cannot silently disagree about how much signal there was.
 
 It also means the light curves inherit every caveat from :doc:`noise`,

@@ -3,14 +3,60 @@ Concepts and known approximations
 
 ``lazuli_exo`` is a **comparison tool**, not a forecasting tool. It exists to
 let you ask "how do these atmospheres, targets, or transit counts compare
-under one consistent set of assumptions?" — and it is deliberately explicit
-about which assumptions those are.
+under one consistent set of assumptions?", and it is explicit about which
+assumptions those are.
 
 .. warning::
 
    Every scenario is a toy H2/He atmosphere with idealized noise. No number
    produced by this package is a calibrated detection significance or an
    observing-time forecast. Treat outputs as *relative* and *qualitative*.
+
+The measurement in one page
+---------------------------
+
+If transmission spectroscopy is new to you, this is the whole idea.
+
+When a planet crosses its star, the star dims by the fraction of its disk the
+planet covers, the transit depth :math:`\delta = (R_p/R_s)^2`. At a
+wavelength where the planet's atmosphere absorbs, the planet looks slightly
+larger, so the transit is slightly deeper. The size of that extra depth is set
+by the atmospheric scale height :math:`H = k T_\mathrm{eq} / (\mu m_H g)`:
+one scale height of extra radius adds about :math:`2 R_p H / R_s^2` to the
+depth. For a hot Jupiter that is a few hundred parts per million (ppm); for a
+temperate sub-Neptune, tens of ppm. The transmission spectrum is the transit
+depth measured as a function of wavelength, and its bumps are the molecular
+bands (water near 1.4 µm, sodium and potassium in the optical) and the
+continuum slope of a haze.
+
+``lazuli_exo`` computes two things for such a measurement with Lazuli. The
+model spectrum, binned to a resolving power ``R`` (the number of wavelength
+bins per octave divided by :math:`\ln 2`; ``R = 100`` gives about 145 bins
+over the band). And the 1-sigma uncertainty on the depth in each bin for
+``n_transits`` co-added transits, from the host star's brightness, the
+transit duration and the instrument's photon and read noise. From those two
+arrays it derives a single number, the template S/N, which says how far the
+model spectrum sits from a flat line in units of the error bars. It is a
+comparison statistic between planets, scenarios and observing strategies;
+:doc:`detect` explains why it is not a detection significance.
+
+A few terms used throughout:
+
+``depth``, ``depth_err``
+    The binned model transit depth (a fraction; multiply by :math:`10^6`
+    for ppm) and its 1-sigma uncertainty per bin.
+``R``
+    Resolving power of the binned grid, :math:`\lambda / \Delta\lambda`.
+    Coarser bins (smaller ``R``) have smaller error bars and resolve less.
+``n_transits``
+    Transits co-added; error bars shrink as :math:`1/\sqrt{N}` with no floor.
+``feature_amplitude_ppm``
+    Peak-to-trough of the binned model over 0.40 to 1.70 µm, in ppm.
+``template_snr_diagonal``
+    The template S/N described above.
+``scenario``
+    A preset of the atmosphere parameters: ``clear``, ``cloudy``, ``hazy``,
+    ``high_metallicity`` or ``flat`` (:doc:`spectra`).
 
 The two-stage architecture
 --------------------------
@@ -74,7 +120,7 @@ Cold-planet temperature floor
 Equal out-of-transit baseline
     The noise model assumes an out-of-transit baseline exposure equal to the
     in-transit one, i.e. :math:`\sigma_\mathrm{depth} = \sqrt{1/\mathrm{SNR}_\mathrm{in}^2 + 1/\mathrm{SNR}_\mathrm{out}^2}`
-    with :math:`\mathrm{SNR}_\mathrm{in} = \mathrm{SNR}_\mathrm{out}` — not an
+    with :math:`\mathrm{SNR}_\mathrm{in} = \mathrm{SNR}_\mathrm{out}`, not an
     optimized or telescope-time-constrained baseline.
 
 Template S/N, not detection significance

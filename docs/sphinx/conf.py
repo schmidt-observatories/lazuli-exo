@@ -32,7 +32,15 @@ extensions = [
     "sphinx.ext.intersphinx",   # cross-link to numpy/matplotlib docs
     "sphinx.ext.mathjax",       # render LaTeX math
     "nbsphinx",                 # render the tutorial Jupyter notebooks
+    "matplotlib.sphinxext.plot_directive",  # execute the user-guide plots
 ]
+
+# -- plot directive (user_guide/plotting.rst) --------------------------------
+plot_include_source = True
+plot_html_show_source_link = False
+plot_html_show_formats = False
+plot_formats = [("png", 110)]
+plot_rcparams = {"figure.figsize": (9, 4.5), "savefig.bbox": "tight"}
 
 # Optional: enable Markdown authoring if myst-parser is installed.
 try:

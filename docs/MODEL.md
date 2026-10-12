@@ -338,19 +338,19 @@ repo/package.
 - **"hazy" is deck_haze, not haze-alone**: POSEIDON's `cloud_type="haze"`
   alone is a no-op for a 1D model (it silently zeroes the cloudy-sector
   fraction, so the haze opacity is computed but never mixed into the
-  spectrum — confirmed by an empirical A/B check). The `hazy` scenario
+  spectrum, confirmed by an empirical A/B check). The `hazy` scenario
   instead uses `cloud_model="MacMad17"`, `cloud_type="deck_haze"`, with the
   deck's own opaque cloud pinned at the pressure grid floor (100 bar) so it
-  never actually shadows the atmosphere — only the haze term contributes
+  never actually shadows the atmosphere: only the haze term contributes
   opacity.
 - **Template S/N, not detection significance**: `detect()` returns a
   matched-template amplitude S/N against the best-fit flat line under a
-  diagonal covariance (`template_snr_diagonal`) — there is no defined
+  diagonal covariance (`template_snr_diagonal`): there is no defined
   null/alternative likelihood ratio, nuisance model, covariance, or
   false-positive calibration. Per-band values (`band_snr`, masks in
   `lazuli_exo.detect.BAND_MASKS`) restrict the same statistic to fixed
   wavelength masks; they mix every species in the mask plus haze/cloud/
-  continuum structure, and bands overlap (e.g. H2O and CH4 near 1.15 um) —
+  continuum structure, and bands overlap (e.g. H2O and CH4 near 1.15 um), so
   they are not molecule detections. The rigorous upgrade path is a
   likelihood ratio against per-molecule leave-one-out model tables, which
   slots into the existing table schema without API changes.
@@ -393,7 +393,7 @@ repo/package.
 - **Saturation is tested at the last read, not by slicersim's count**:
   slicersim 1.0.0 flags a pixel on `rate * (n-1)(m+d) * tframe`, the slope
   signal between group means, while the last read of the ramp accumulates
-  `rate * nframes * tframe` — every (2, m, 0) ramp is tested at half its
+  `rate * nframes * tframe`, so every (2, m, 0) ramp is tested at half its
   real charge (#33, upstream #6). `slicer._nsat_lastread` recomputes the
   count at the last read from slicersim's own projected cube (same pixel
   rate: cube / anamorphose x QE + effective dark) and drives the readout
@@ -430,7 +430,7 @@ repo/package.
 
 The runtime ships with its lookup tables and no heavy dependencies (numpy,
 plus matplotlib as an optional extra), so a future Django frontend can be
-deployed on Heroku importing `lazuli-exo` directly — no POSEIDON, slicersim,
+deployed on Heroku importing `lazuli-exo` directly: no POSEIDON, slicersim,
 jax, or opacity data needs to reach the web dyno. That app is a separate,
 not-yet-started follow-up project.
 

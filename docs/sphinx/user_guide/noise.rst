@@ -89,7 +89,7 @@ The assumptions are recorded in ``meta["noise"]`` on every observation:
     and its AB equivalent, which is what slicersim actually normalizes to.
 
 ``default_nmd`` / ``nmd_used``
-    The MACC readout configuration — the default, and what was actually used
+    The MACC readout configuration: the default, and what was actually used
     after tuning to remove point-source saturation.
 
 ``t14_s`` / ``t_obs_s`` / ``tframe_s`` / ``n_reset_frames``
@@ -123,7 +123,7 @@ measurement,
 with the two exposures assumed **equal**. This is neither optimized nor
 constrained by a telescope-time budget. It is also the assumption that lets
 the light-curve module derive its per-point scatter from the band depth
-precision — see :doc:`lightcurves`.
+precision. See :doc:`lightcurves`.
 
 Bright hosts: unvalidated uncertainties
 ---------------------------------------

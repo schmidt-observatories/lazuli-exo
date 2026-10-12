@@ -47,6 +47,7 @@ docs = [
     "nbsphinx>=0.9",
     "ipykernel",
     "matplotlib",
+    "myst-parser",
 ]
 
 [tool.setuptools.dynamic]

@@ -52,7 +52,7 @@ Physics
 
 For an isothermal, well-mixed atmosphere the photospheric pressure at each
 wavelength, written as :math:`\zeta(\lambda) = -\ln[P_{\tau=1}(\lambda)/1\,\mathrm{bar}]`,
-depends on the gas opacity — i.e. on (T, [M/H], C/O) — and only weakly on
+depends on the gas opacity, that is on (T, [M/H], C/O), and only weakly on
 the planet. It is tabulated for two fiducial planets (1 R\ :sub:`J` at
 10 m s\ :sup:`-2` and 0.3 R\ :sub:`J` at 30 m s\ :sup:`-2`) at the model's
 native R = 10,000 and interpolated trilinearly in (T, [M/H], C/O). Everything

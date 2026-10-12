@@ -3,7 +3,7 @@ Tutorials
 
 These tutorials are runnable Jupyter notebooks from the ``notebooks/``
 directory of the repository, rendered here with their saved outputs. Each one
-is self-contained — download it and run it interactively to experiment.
+is self-contained. Download it and run it interactively to experiment.
 Notebooks 6–9 need ``slicersim`` and ``sncosmo`` installed (live noise).
 
 .. list-table::
