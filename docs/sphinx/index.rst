@@ -23,11 +23,16 @@ Two ways in:
 
 .. warning::
 
-   These are **isothermal, equilibrium-chemistry toy models with statistical
-   noise only** — comparison material, *not* calibrated detection
-   significances or observing-time forecasts. Read :doc:`user_guide/concepts`
-   before quoting any number. The limits are specific and knowable, and they
-   are all written down.
+   **The instrument half is quantitative; the atmosphere half is a fast
+   surrogate.** Noise comes from slicersim with the Lazuli CBE instrument
+   and a verified photon budget. The atmosphere is a millisecond
+   interpolation of POSEIDON isothermal, equilibrium-chemistry spectra that
+   matches POSEIDON to well under the single-transit noise inside a
+   validated box, and is a 1D toy model outside it. Use the outputs for
+   rankings, trade studies and scenario comparisons; do not quote the
+   sigmas as detection significances. For an accurate atmosphere, pass your
+   own forward model as ``simulate(star, spectrum=(wl_um, depth))``. Read
+   :doc:`user_guide/concepts` before quoting any number.
 
 The runtime is **numpy-only with its lookup tables shipped as package data**.
 POSEIDON, slicersim, jax and astropy are never imported by

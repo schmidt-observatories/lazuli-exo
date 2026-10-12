@@ -20,9 +20,39 @@ Both paths evaluate the same parametric model (a POSEIDON-derived opacity
 grid), so a showcase planet and the same numbers typed by hand give the same
 spectrum.
 
-The runtime is numpy-only with its lookup tables shipped as package data.
-These are isothermal, equilibrium-chemistry model atmospheres (gray cloud deck, power-law haze) with statistical noise
-only: comparison material, not calibrated detection significances. Details,
+## What this is, and is not
+
+**The instrument half is quantitative.** Photon and read noise come from
+slicersim with the Lazuli CBE throughput, the H4RG MACC readout with
+saturation tested at the last read, the LSF and within-pixel photon weighting.
+The photon budget is verified against first principles to < 1 % per channel.
+
+**The atmosphere half is a fast surrogate, not a retrieval-grade model.**
+`simulate()` interpolates a grid of POSEIDON isothermal, equilibrium-chemistry
+spectra (gray deck, power-law haze) in about a millisecond. Inside its
+validated box it reproduces POSEIDON to well under the single-transit noise
+(median 2 ppm rms, worst bin < 1 sigma, gated in CI). It is a surrogate for
+two separate reasons:
+
+- *deployment*: POSEIDON needs ~70 GB of opacity inputs, ~6 GB of RAM and a
+  numpy<2 environment that cannot hold slicersim; the runtime here is numpy
+  plus 50 MB of tables, so it fits a wheel and a web ETC;
+- *physics class*: even run live, this is a 1D isothermal model with
+  equilibrium chemistry and statistical noise only. No P-T profile, no
+  disequilibrium, no patchy clouds, no systematics floor.
+
+**Use it for** target ranking, choosing R and the transit count, comparing
+scenarios on one planet, and instrument trade studies: anything that is a
+ratio or an ordering. **Do not quote** its sigmas as detection significances
+in a proposal, read abundances off it, or trust it outside the validated box
+(H/R_p > 0.015, 400-800 K hosts across the alkali transition, T_eq > 2000 K,
+mean molecular weight > 15, many-transit forecasts where a systematics floor
+would dominate). `simulate()` warns on the ones it can detect.
+
+**For an accurate atmosphere, bring your own spectrum.** Run POSEIDON,
+petitRADTRANS, PICASO or any forward model you trust, and pass
+`spectrum=(wl_um, depth)` to `simulate()`: the star, noise, contamination and
+instrument response are applied exactly as for the surrogate. Details,
 physics and caveats: [docs/MODEL.md](docs/MODEL.md).
 
 # Installation
@@ -60,6 +90,11 @@ obs.plot()                                    # [plot] extra
 p = lazuli_exo.presets.showcase("WASP-39 b", "clear")   # or build the dict by hand
 p.update(T_eq_K=900.0, mu=None, log_P_cloud_bar=-2.0)
 obs = lazuli_exo.simulate(p, R=100, n_transits=5)
+
+# your own forward model (POSEIDON, petitRADTRANS, PICASO, ...): (wl_um, depth)
+# covering 0.40-1.70 um with a little margin; only the star keys are needed
+star = dict(teff_K=5485., logg=4.45, feh=0.0, mag=10.66, t14_s=10092.)
+obs = lazuli_exo.simulate(star, spectrum=(wl_um, depth), R=100, n_transits=5)
 ```
 
 Parameter names for `simulate`: `T_eq_K, R_p_RJ, M_p_MJ, R_s_RSun, teff_K,

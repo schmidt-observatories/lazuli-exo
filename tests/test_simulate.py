@@ -75,3 +75,27 @@ def test_simulate_forwards_the_instrument_setup(both_grids, monkeypatch):
     assert n["nmd_used"] == [8, 4, 0] and n["readout_mode"] == "fixed"
     assert n["setup"] == dict(nmd=(8, 4, 0), tframe=0.7, spectrograph_mode="narrow",
                               guiding_sigma=0.01, zodi_ab_mag=22.5)
+
+
+def test_simulate_accepts_a_user_spectrum(both_grids, monkeypatch):
+    # bring your own forward model: (wl_um, depth) replaces the parametric
+    # atmosphere; star, noise, contamination and binning are unchanged
+    monkeypatch.setattr(sim_mod, "depth_error", fake_depth_error)
+    wl = np.geomspace(0.35, 1.8, 3000)
+    depth = 0.01 + 2e-4 * np.exp(-0.5 * ((wl - 1.4) / 0.05) ** 2)   # one feature
+    star = dict(name="BYO-1 b", teff_K=5000.0, logg=4.5, feh=0.0, mag=10.0, t14_s=7200.0)
+    obs = lazuli_exo.simulate(star, spectrum=(wl, depth), R=50, tables_dir=both_grids)
+    assert obs.scenario == "user" and obs.meta["atmosphere"]["source"] == "user"
+    assert obs.wavelength.shape == obs.depth.shape == obs.depth_err.shape
+    assert obs.flat_depth == pytest.approx(np.median(depth), rel=1e-3)
+    i = np.argmin(abs(obs.wavelength - 1.4))
+    assert obs.depth[i] > obs.depth[0] + 1e-4                 # the feature survives binning
+    assert obs.detect()["template_snr_diagonal"] > 0
+    # no atmosphere keys needed, but R_p/R_s still set flat_depth when given
+    obs2 = lazuli_exo.simulate({**star, "R_p_RJ": 1.0, "R_s_RSun": 1.0},
+                               spectrum=(wl, depth), R=50, tables_dir=both_grids)
+    np.testing.assert_allclose(obs2.flat_depth, (7.1492e7 / 6.957e8) ** 2)
+    with pytest.raises(ValueError, match="spectrum"):
+        lazuli_exo.simulate(star, spectrum=(wl[::2], depth), tables_dir=both_grids)
+    with pytest.raises(ValueError, match="missing"):
+        lazuli_exo.simulate({"teff_K": 5000.0}, spectrum=(wl, depth), tables_dir=both_grids)

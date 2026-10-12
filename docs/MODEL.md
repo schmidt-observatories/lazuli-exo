@@ -3,6 +3,23 @@
 Reference material moved out of the README. The README stays short; this
 file keeps the physics, the table pipeline and the known approximations.
 
+## Bring your own spectrum
+
+`simulate(star, spectrum=(wl_um, depth))` bypasses the parametric atmosphere
+and runs the rest of the pipeline on a user transit depth (R_p/R_s)^2: the
+PHOENIX star, live slicersim noise, stellar contamination and the LSF /
+photon-weighted binning are identical to the parametric path (feeding the
+parametric model's own native-grid output back in reproduces its binned
+depths to 0 ppm). Only `teff_K, logg, feh, mag, t14_s` are required;
+`R_p_RJ`/`R_s_RSun` set `flat_depth` when given, else it is the median
+depth. The spectrum must be increasing in wavelength and reach into the
+first and last bin; give it a few pixels of margin beyond 0.40-1.70 um,
+because the LSF convolution reaches past the band and the interpolation
+holds the edge value there (a spectrum cut exactly at the band edge moves
+the last bin by ~100 ppm for WASP-39 b). This is the intended route to an
+accurate atmosphere; a POSEIDON backend inside the package is not planned,
+because POSEIDON and slicersim do not share an environment.
+
 ## Parametric model
 
 `lazuli_exo.simulate(params)` builds a spectrum for any transiting planet from a
