@@ -45,9 +45,10 @@ def provenance():
     cfg = Path(slicersim.__file__).parent / "config" / f"{INSTRUMENT}.toml"
     commit = subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"],
                             capture_output=True, text=True).stdout.strip()
+    # code only: the tables this script writes are not "dirt"
     dirty = bool(subprocess.run(["git", "-C", str(ROOT), "status", "--porcelain",
-                                 "src", "precompute"], capture_output=True,
-                                text=True).stdout.strip())
+                                 "--", "src/lazuli_exo/*.py", "precompute"],
+                                capture_output=True, text=True).stdout.strip())
     version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
     return {"package_version": version, "git_commit": commit + ("-dirty" if dirty else ""),
             "instrument_config": cfg.name,
