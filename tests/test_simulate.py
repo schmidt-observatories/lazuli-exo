@@ -99,3 +99,10 @@ def test_simulate_accepts_a_user_spectrum(both_grids, monkeypatch):
         lazuli_exo.simulate(star, spectrum=(wl[::2], depth), tables_dir=both_grids)
     with pytest.raises(ValueError, match="missing"):
         lazuli_exo.simulate({"teff_K": 5000.0}, spectrum=(wl, depth), tables_dir=both_grids)
+
+
+@pytest.mark.parametrize("bad", [dict(R=0), dict(R=2.5), dict(n_transits=0), dict(n_transits=2.5)])
+def test_simulate_rejects_non_positive_int_R_and_n_transits(both_grids, monkeypatch, bad):
+    monkeypatch.setattr(sim_mod, "depth_error", fake_depth_error)
+    with pytest.raises(ValueError, match="positive integer"):
+        lazuli_exo.simulate(PARAMS, tables_dir=both_grids, **bad)

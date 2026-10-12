@@ -4,11 +4,32 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lazuli-exo"
-version = "0.1.1"
+dynamic = ["version"]
 description = "Lazuli IFS exoplanet transmission spectroscopy simulator (lookup-table runtime)"
+readme = "README.md"
 license = { text = "BSD-3-Clause" }
+authors = [{ name = "Gudmundur Stefansson", email = "gstefansson@schmidtsciences.org" }]
 requires-python = ">=3.10"
 dependencies = ["numpy"]
+keywords = ["exoplanets", "transmission spectroscopy", "exposure time calculator", "Lazuli", "integral field spectrograph"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Astronomy",
+]
+
+[project.urls]
+Homepage = "https://github.com/schmidt-observatories/lazuli-exo"
+Repository = "https://github.com/schmidt-observatories/lazuli-exo"
+Issues = "https://github.com/schmidt-observatories/lazuli-exo/issues"
+Changelog = "https://github.com/schmidt-observatories/lazuli-exo/blob/main/docs/sphinx/changelog.rst"
 
 [project.optional-dependencies]
 plot = ["matplotlib"]
@@ -27,6 +48,9 @@ docs = [
     "ipykernel",
     "matplotlib",
 ]
+
+[tool.setuptools.dynamic]
+version = { attr = "lazuli_exo.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,0 +1,59 @@
+name: Publish
+
+# Builds sdist + wheel from a clean checkout and uploads with PyPI trusted
+# publishing (no API token in secrets). A v* tag publishes to PyPI; run the
+# workflow by hand to dry-run against TestPyPI first. Never upload a locally
+# built wheel (#31).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: "testpypi (dry run) or pypi"
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install build
+      - run: python -m build
+      - run: .github/scripts/check_wheel_tables.sh dist/*.whl
+      - name: Tag matches package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          pkg=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('src/lazuli_exo/__init__.py').read()).group(1))")
+          [ "v$pkg" = "${GITHUB_REF_NAME}" ] || { echo "::error::tag ${GITHUB_REF_NAME} != v$pkg"; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ (github.event_name == 'workflow_dispatch' && inputs.repository == 'testpypi') && 'testpypi' || 'pypi' }}
+    permissions:
+      id-token: write    # trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Upload to TestPyPI
+        if: github.event_name == 'workflow_dispatch' && inputs.repository == 'testpypi'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+      - name: Upload to PyPI
+        if: github.event_name != 'workflow_dispatch' || inputs.repository == 'pypi'
+        uses: pypa/gh-action-pypi-publish@release/v1

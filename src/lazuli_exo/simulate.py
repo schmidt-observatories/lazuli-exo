@@ -3,7 +3,7 @@ import numpy as np
 
 from . import binning
 from .atmosphere import R_J, R_SUN, grid_wavelengths, transmission_depth
-from .observe import SimulatedSpectrum
+from .observe import SimulatedSpectrum, positive_int
 from .slicer import depth_error
 from .star import contamination, phoenix_sed
 
@@ -45,8 +45,7 @@ def simulate(params, R=100, n_transits=1, tables_dir=None,
     missing = [k for k in required if params.get(k) is None]
     if missing:
         raise ValueError(f"simulate() params missing {missing}")
-    if n_transits < 1:
-        raise ValueError("n_transits must be >= 1")
+    n_transits, R = positive_int("n_transits", n_transits), positive_int("R", R)
     p = {**ATMO_DEFAULTS, **TLSE_DEFAULTS, **params}
 
     if spectrum is not None:

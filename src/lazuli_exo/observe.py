@@ -45,6 +45,15 @@ class SimulatedSpectrum:
         return plot_spectrum(self, ax=ax, **kwargs)
 
 
+def positive_int(name, value):
+    """Validate a count or resolving power: a positive integer (an integral
+    float such as 3.0 is accepted); bool is rejected."""
+    if isinstance(value, bool) or not isinstance(value, (int, float, np.integer, np.floating)) \
+            or not np.isfinite(value) or value != int(value) or value < 1:
+        raise ValueError(f"{name} must be a positive integer, got {value!r}")
+    return int(value)
+
+
 def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None,
             f_spot=0.0, T_spot_K=None, f_fac=0.0, T_fac_K=None):
     """Simulate observing showcase `planet` under `scenario` for `n_transits`.
@@ -58,8 +67,7 @@ def observe(planet, scenario="clear", n_transits=1, R=100, tables_dir=None,
     (star.contamination, registry T_eff/log g/[Fe/H]); default off.
     `flat_depth` stays the geometric (R_p/R_s)^2.
     """
-    if n_transits < 1:
-        raise ValueError("n_transits must be >= 1")
+    n_transits, R = positive_int("n_transits", n_transits), positive_int("R", R)
     tdir = tables.resolve_tables_dir(tables_dir)
     p = presets.showcase(planet, scenario)
     wl_m = grid_wavelengths(tdir)

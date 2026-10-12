@@ -18,3 +18,15 @@ jobs:
       # slicersim and sncosmo are not on PyPI; the tests that need them skip.
       - run: pip install -e .[test,plot,web,transit]
       - run: pytest
+
+  wheel:
+    # the wheel must ship exactly the tables git tracks (#31)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install build
+      - run: python -m build
+      - run: .github/scripts/check_wheel_tables.sh dist/*.whl

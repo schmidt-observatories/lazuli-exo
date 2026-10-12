@@ -92,3 +92,17 @@ def test_clean_noise_table_does_not_warn():
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         lazuli_exo.observe("WASP-39 b", scenario="flat", R=50)
+
+
+@pytest.mark.parametrize("bad", [dict(R=0), dict(R=-5), dict(R=2.5), dict(R="100"),
+                                 dict(n_transits=0), dict(n_transits=2.5), dict(n_transits=True)])
+def test_observe_rejects_non_positive_int_R_and_n_transits(bad):
+    # #31 section 1: R=0 was a ZeroDivisionError; n_transits=2.5 was used in
+    # the errors but reported as 2
+    with pytest.raises(ValueError, match="positive integer"):
+        lazuli_exo.observe("WASP-39 b", scenario="flat", **bad)
+
+
+def test_observe_accepts_integral_floats():
+    obs = lazuli_exo.observe("WASP-39 b", scenario="flat", R=50.0, n_transits=3.0)
+    assert obs.R == 50 and obs.n_transits == 3
