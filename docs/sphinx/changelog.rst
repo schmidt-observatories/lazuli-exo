@@ -7,6 +7,10 @@ entries below group the development history by theme rather than by release.
 Unreleased
 ----------
 
+- Release scrub (#31): ``numpy>=2.0`` is declared (the runtime uses
+  ``np.trapezoid``); the test workflow runs on Python 3.10-3.13; ``run.sh``
+  binds to 127.0.0.1 without ``--debug``; README and
+  :doc:`installation` document ``pip install lazuli-exo`` and the extras.
 - Plotting as methods on the result objects: ``obs.plot()`` gained
   ``show_points``, ``units`` ("percent", "ppm", "fraction"), ``label`` and
   ``title`` so scenarios overlay on one Axes; new ``obs.plot_noise()``

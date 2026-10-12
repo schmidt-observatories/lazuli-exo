@@ -5,7 +5,7 @@ Requirements
 ------------
 
 - **Python 3.10 or newer.**
-- **numpy** — the only hard runtime dependency.
+- **numpy 2.0 or newer**, the only hard runtime dependency.
 
 Optional extras:
 
@@ -28,6 +28,15 @@ install it from its repository into the same environment.
 Nothing heavier is ever imported at runtime. POSEIDON, slicersim, jax, and
 astropy are needed only to *regenerate* the lookup tables (see
 :doc:`user_guide/tables`), never to use them.
+
+Install from PyPI
+-----------------
+
+.. code-block:: bash
+
+   pip install lazuli-exo                      # numpy + the lookup tables (~35 MB)
+   pip install "lazuli-exo[plot]"              # matplotlib for the .plot() methods
+   pip install "lazuli-exo[transit,archive]"   # transit models, Exoplanet Archive cache
 
 Install from source
 -------------------
