@@ -57,22 +57,30 @@ physics and caveats: [docs/MODEL.md](docs/MODEL.md).
 
 # Installation
 
-## **1. Clone the repository**
+## From PyPI
+
+```sh
+pip install lazuli-exo                      # numpy + the lookup tables (~35 MB)
+pip install "lazuli-exo[plot]"              # matplotlib for the .plot() methods
+pip install "lazuli-exo[transit,archive]"   # jaxoplanet transit models, Exoplanet Archive cache
+```
+
+Extras: `plot` (matplotlib), `transit` (astropy, pandas, jaxoplanet),
+`archive` (astroquery), `web` (Flask for the local applet), `test` (pytest),
+`docs` (Sphinx, nbsphinx). The showcase path (`observe`) needs nothing
+beyond numpy. The parametric model's live noise (`simulate`) needs
+`slicersim` and `sncosmo` in the same environment; slicersim is not on PyPI,
+install it from https://github.com/MickaelRigault/slicersim.
+
+## From source
+
 ```sh
 git clone git@github.com:schmidt-observatories/lazuli-exo.git
 cd lazuli-exo
+pip install -e ".[plot,test]"
 ```
 
-## **2. Install the package**
-```sh
-pip install -e .
-```
-
-Optional extras: `pip install -e ".[plot,web,test,docs]"` (matplotlib for
-`.plot()`, Flask for the applet, pytest, Sphinx), and `[transit]` /
-`[archive]` for the transit models below. The parametric model's live
-noise needs `slicersim` and `sncosmo` installed in the same environment; the
-showcase tables do not.
+The same extras apply, e.g. `pip install -e ".[plot,web,test,docs]"`.
 
 # Quickstart
 
