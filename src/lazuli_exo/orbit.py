@@ -20,15 +20,16 @@ def transit_duration_s(period_d, a_over_rs, rp_rs, inc_deg=90.0, ecc=0.0,
     return period_d * 86400.0 / math.pi * math.asin(min(arg, 1.0)) * fac
 
 
-def projected_separation(t_s, period_d, a_over_rs, inc_deg=90.0, ecc=0.0,
-                         w_deg=90.0):
-    """Sky-projected star-planet separation z(t) in stellar radii for a
-    Keplerian orbit (Winn 2010, eqs. 2-5), `t_s` seconds from mid-transit.
+def sky_position(t_s, period_d, a_over_rs, inc_deg=90.0, ecc=0.0, w_deg=90.0):
+    """Planet position (X, Y, Z) in stellar radii for a Keplerian orbit
+    (Winn 2010, eqs. 2-5), `t_s` seconds from mid-transit.
 
-    Mid-transit is inferior conjunction (true anomaly f = pi/2 - w, planet
-    in front of the star, batman/jaxoplanet convention), so z(0) is the
-    eccentric impact parameter. Kepler's equation is solved by vectorised
-    Newton iteration; for ecc = 0 this reduces to the circular arc.
+    X and Y lie in the sky plane (Y along the projected orbital axis), Z
+    points toward the observer, so Z > 0 is the planet in front of the star.
+    Mid-transit is inferior conjunction (true anomaly f = pi/2 - w, batman /
+    jaxoplanet convention), so hypot(X, Y) at t = 0 is the eccentric impact
+    parameter. Kepler's equation is solved by vectorised Newton iteration;
+    for ecc = 0 this reduces to the circular arc.
     """
     w, i = math.radians(w_deg), math.radians(inc_deg)
     f_c = math.pi / 2.0 - w
@@ -42,4 +43,15 @@ def projected_separation(t_s, period_d, a_over_rs, inc_deg=90.0, ecc=0.0,
     f = 2.0 * np.arctan2(np.sqrt(1.0 + ecc) * np.sin(E / 2.0),
                          np.sqrt(1.0 - ecc) * np.cos(E / 2.0))
     r = a_over_rs * (1.0 - ecc**2) / (1.0 + ecc * np.cos(f))
-    return r * np.hypot(np.cos(w + f), np.sin(w + f) * math.cos(i))
+    X = -r * np.cos(w + f)
+    Y = -r * np.sin(w + f) * math.cos(i)
+    Z = r * np.sin(w + f) * math.sin(i)
+    return X, Y, Z
+
+
+def projected_separation(t_s, period_d, a_over_rs, inc_deg=90.0, ecc=0.0,
+                         w_deg=90.0):
+    """Sky-projected star-planet separation z(t) in stellar radii, the
+    hypotenuse of :func:`sky_position`'s X and Y."""
+    X, Y, _ = sky_position(t_s, period_d, a_over_rs, inc_deg, ecc, w_deg)
+    return np.hypot(X, Y)

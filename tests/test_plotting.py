@@ -2,6 +2,7 @@ import dataclasses
 import warnings
 
 import matplotlib
+import numpy as np
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pytest
@@ -109,4 +110,55 @@ def test_transit_registry_planet_uses_orbit():
     planet = [p for p in fig.axes[0].patches if p.get_facecolor()[:3] == (0.0, 0.0, 0.0)][-1]
     assert planet.center[1] == pytest.approx(lcb.meta["b"])        # impact parameter
     assert "u1 = 0." in fig.axes[0].get_title() and "u1 = 0.00" not in fig.axes[0].get_title()
+    plt.close("all")
+
+
+def test_shade_bands(fixture_tables):
+    from lazuli_exo.detect import BAND_MASKS
+    from lazuli_exo import plotting
+    obs = lazuli_exo.observe(PLANET, R=50, tables_dir=fixture_tables)
+    ax = obs.plot(bands=True)
+    n_spans = sum(len(v) for v in BAND_MASKS.values())
+    assert len(ax.patches) == n_spans
+    assert sorted(t.get_text().split(",")[0] for t in ax.texts) == sorted(BAND_MASKS)
+    _, ax2 = plt.subplots()
+    patches = plotting.shade_bands(ax2, ["H2O"], names="common", label="legend")
+    assert len(patches) == len(BAND_MASKS["H2O"])
+    assert ax2.get_legend_handles_labels()[1] == ["water"]
+    plt.close("all")
+
+
+def test_orbit_plot_and_animation():
+    from lazuli_exo import plotting
+    obs = lazuli_exo.observe("WASP-39 b", R=50)
+    fig = obs.plot_orbit(t_d=0.0)
+    planet = fig.axes[0].patches[-1]
+    b = obs.light_curves(n_groups=1).meta["b"]
+    assert planet.center[1] == pytest.approx(b, abs=0.05)   # mid-transit: at +b, like plot_transit
+    assert abs(planet.center[0]) < 0.05
+    assert planet.get_zorder() == 6                         # in front of the star
+    fig2 = plotting.plot_orbit("WASP-39 b", t_d=obs.meta["params"]["t14_s"] / 86400 + 2.0)
+    assert fig2.axes[0].patches[-1].get_zorder() == 2       # half an orbit later: behind
+    anim = plotting.animate_orbit({"name": "x", "period_d": 3.0, "a_over_rs": 8.0, "inc_deg": 85.0,
+                                   "depth": 0.01}, n_frames=5, view="top")
+    assert anim._save_count == 5 or anim.save_count == 5
+    with pytest.raises(ValueError):
+        plotting.plot_orbit("Nonexistent b")
+    with pytest.raises(ValueError, match="view"):
+        plotting.plot_orbit("WASP-39 b", view="side")
+    plt.close("all")
+
+
+def test_orbit_params_keep_zero_omega():
+    from lazuli_exo.plotting import _orbit_params
+    out = _orbit_params({"period_d": 3.0, "a_over_rs": 8.0, "inc_deg": 85.0, "ecc": 0.2, "w_deg": 0.0})
+    assert out[4] == 0.2 and out[5] == 0.0                  # 0 deg is kept, not replaced by 90
+    assert _orbit_params({"period_d": 3.0, "a_over_rs": 8.0})[5] == 90.0
+
+
+def test_bands_shaded_once_on_overlay(fixture_tables):
+    _, ax = plt.subplots()
+    for R in (30, 60):
+        lazuli_exo.observe(PLANET, R=R, tables_dir=fixture_tables).plot(ax=ax, show_points=False, bands=True)
+    assert len(ax.patches) == 10 and len(ax.texts) == 5     # not doubled by the second call
     plt.close("all")
