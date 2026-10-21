@@ -219,7 +219,8 @@ def _transit_scene(lc, offset, cmap, npix, show_points):
     mu = np.sqrt(np.clip(1.0 - r2, 0.0, 1.0))
 
     fig = plt.figure(figsize=(max(2.3 * n, 6.0), 7.2))
-    gs = fig.add_gridspec(2, n, height_ratios=[1.0, 1.6], hspace=0.3, wspace=0.08)
+    gs = fig.add_gridspec(2, n, height_ratios=[1.6, 1.0] if n == 1 else [1.0, 1.6],
+                          hspace=0.3, wspace=0.08)
     planets, points = [], []
     for i in range(n):
         ax = fig.add_subplot(gs[0, i])
