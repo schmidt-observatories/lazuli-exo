@@ -4,8 +4,11 @@ Changelog
 The project is pre-release; there has been no tagged version yet, so the
 entries below group the development history by theme rather than by release.
 
-Unreleased
-----------
+0.1.3 (2026-10-21)
+------------------
+
+Visualization release: the transit and the orbit as animations, and the
+molecular bands named on the spectrum.
 
 - ``LightCurveSet.plot_transit(t_hr)`` and ``LightCurveSet.animate()``
   (``plotting.plot_transit`` / ``plotting.animate_transit``): the transit
