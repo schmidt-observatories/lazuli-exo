@@ -176,3 +176,123 @@ def plot_light_curves(lc, ax=None, offset=None, show_points=True, show_model=Tru
         ax.set_title(title)
     _legend(ax)
     return ax
+
+
+# ---------------------------------------------------------------------------
+# The transit in colour: one limb-darkened stellar disk per band with the
+# planet crossing it, over the band light curves filling in with time.
+
+def _transit_scene(lc, offset, cmap, npix, show_points):
+    """Build the figure and return (fig, draw) where draw(idx) renders time sample idx."""
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LinearSegmentedColormap
+    from matplotlib.patches import Circle
+
+    from . import orbit
+    from .targets import get_target
+
+    n = lc.flux_model.shape[0]
+    time_s = lc.time_hr * 3600.0
+    k = np.sqrt(np.clip(lc.depth, 0.0, None))
+    m = lc.meta
+    if m.get("shape") == "quadratic-ld":
+        t = get_target(m["planet"])
+        b = float(m["b"])
+        z = orbit.projected_separation(time_s * m["time_stretch"], t["period_d"],
+                                       m["a_over_rs"], t["inc_deg"],
+                                       t["ecc"] or 0.0, t["w_deg"] or 90.0)
+        x_pl = np.sign(time_s) * np.sqrt(np.clip(z ** 2 - b ** 2, 0.0, None))
+        u1, u2 = lc.u1, lc.u2
+    else:   # trapezoid fallback: central chord at constant speed, uniform disk
+        b = 0.0
+        k_med = float(np.sqrt(max(np.median(lc.depth), 0.0)))
+        x_pl = time_s / (lc.t14_s / 2.0) * (1.0 + k_med)
+        u1 = u2 = np.zeros(n)
+    wl_mid = np.sqrt(lc.wl_lo * lc.wl_hi)
+    colors = plt.get_cmap(cmap)((wl_mid - 0.40) / (1.70 - 0.40))
+    if offset is None:
+        offset = 0.0 if n == 1 else 1.25 * float(lc.depth.max())
+
+    g = np.linspace(-1.15, 1.15, npix)
+    X, Y = np.meshgrid(g, g)
+    r2 = X ** 2 + Y ** 2
+    mu = np.sqrt(np.clip(1.0 - r2, 0.0, 1.0))
+
+    fig = plt.figure(figsize=(max(2.3 * n, 6.0), 7.2))
+    gs = fig.add_gridspec(2, n, height_ratios=[1.0, 1.6], hspace=0.3, wspace=0.08)
+    planets, points = [], []
+    for i in range(n):
+        ax = fig.add_subplot(gs[0, i])
+        disk = np.ma.masked_where(r2 > 1.0, 1.0 - u1[i] * (1.0 - mu) - u2[i] * (1.0 - mu) ** 2)
+        ax.imshow(disk, extent=[g[0], g[-1], g[0], g[-1]], origin="lower", vmin=0.0, vmax=1.0,
+                  cmap=LinearSegmentedColormap.from_list("tint", ["black", colors[i]]),
+                  interpolation="bilinear")
+        ax.set_facecolor("black")
+        ax.add_patch(Circle((0.0, 0.0), 1.0, fill=False, ec="0.45", lw=0.6, zorder=4))
+        planets.append(ax.add_patch(Circle((x_pl[0], b), k[i], color="black", zorder=5)))
+        ax.set_xticks([]); ax.set_yticks([]); ax.grid(False)
+        ax.set_title(f"{lc.labels[i]}\nu1 = {u1[i]:.2f}, depth {lc.depth[i] * 100:.3f} %",
+                     fontsize=9)
+
+    ax_lc = fig.add_subplot(gs[1, :])
+    for i in range(n):
+        dy = -i * offset
+        ax_lc.plot(lc.time_hr, lc.flux_model[i] + dy, lw=1.2, color=colors[i], alpha=0.5)
+        pt, = ax_lc.plot([], [], ".", ms=3, color=colors[i])
+        points.append(pt)
+        if n > 1:
+            ax_lc.annotate(lc.labels[i], (lc.time_hr[0], 1.0 + dy), xytext=(0, 3),
+                           textcoords="offset points", fontsize=9, color=colors[i])
+    cursor = ax_lc.axvline(lc.time_hr[0], color="0.4", lw=0.8, ls="--")
+    ax_lc.set_xlim(lc.time_hr[0], lc.time_hr[-1])
+    dmax = float(lc.depth.max())
+    ax_lc.set_ylim(1.0 - (n - 1) * offset - 1.3 * dmax, 1.0 + 0.4 * dmax)
+    ax_lc.set_xlabel("Hours from mid-transit")
+    ax_lc.set_ylabel("Normalized flux" + (" + offset" if offset else ""))
+    n_tr = m.get("n_transits", 1)
+    fig.suptitle(f"{m.get('planet', '')}, {m.get('scenario', '')}, {n_tr} transit"
+                 f"{'s' if n_tr > 1 else ''}: the transit in {n} band{'s' if n > 1 else ''}",
+                 y=0.98)
+
+    def draw(idx):
+        for i in range(n):
+            planets[i].center = (x_pl[idx], b)
+            if show_points:
+                points[i].set_data(lc.time_hr[:idx + 1], lc.flux[i, :idx + 1] - i * offset)
+        cursor.set_xdata([lc.time_hr[idx], lc.time_hr[idx]])
+        return planets + points + [cursor]
+
+    return fig, draw
+
+
+def plot_transit(lc, t_hr=0.0, offset=None, cmap="plasma", npix=241, show_points=True):
+    """Figure of the transit at time ``t_hr`` (hours from mid-transit), one
+    limb-darkened stellar disk per band with the planet on it, over the band
+    light curves drawn up to that time. Returns the Figure.
+
+    Registry planets use their orbit and limb darkening; a custom planet
+    (trapezoid light curves) gets a uniform disk and a central chord. Bands
+    are tinted by wavelength through ``cmap``.
+    """
+    fig, draw = _transit_scene(lc, offset, cmap, npix, show_points)
+    draw(int(np.argmin(np.abs(lc.time_hr - t_hr))))
+    return fig
+
+
+def animate_transit(lc, n_frames=60, fps=12, offset=None, cmap="plasma", npix=241,
+                    show_points=True):
+    """``matplotlib.animation.FuncAnimation`` of the transit, ``n_frames``
+    evenly spaced over the observation window; see :func:`plot_transit` for
+    the layout. Save it with ``anim.save("transit.gif")`` (pillow) or
+    ``anim.save("transit.mp4")`` (ffmpeg); in a notebook, display it with
+    ``IPython.display.HTML(anim.to_jshtml())`` or save and show the GIF.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.animation import FuncAnimation
+
+    fig, draw = _transit_scene(lc, offset, cmap, npix, show_points)
+    frames = np.linspace(0, lc.time_hr.size - 1, n_frames).astype(int)
+    anim = FuncAnimation(fig, lambda j: draw(frames[j]), frames=n_frames,
+                         interval=1000.0 / fps, blit=False)
+    plt.close(fig)        # the animation keeps its own reference
+    return anim

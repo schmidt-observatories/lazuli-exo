@@ -89,3 +89,24 @@ def test_shared_axes_keep_log_limits(fixture_tables):
     lo, hi = axes[1].get_xlim()
     assert lo <= obs.model_wavelength.min() and hi >= obs.model_wavelength.max()
     assert lo > 0.3 and hi < 2.0                      # not squeezed by linear autoscale
+
+
+def test_transit_still_and_animation_fallback(fixture_tables):
+    # fixture planet: no registry orbit, so the trapezoid path and a uniform disk
+    lcb = lazuli_exo.observe(PLANET, R=50, tables_dir=fixture_tables).light_curves(n_groups=3, seed=0)
+    fig = lcb.plot_transit(t_hr=0.0)
+    assert len(fig.axes) == 4                          # 3 disks + the light curves
+    planet = [p for p in fig.axes[0].patches if p.get_facecolor()[:3] == (0.0, 0.0, 0.0)][-1]
+    assert planet.center == pytest.approx((0.0, 0.0), abs=0.02)   # central chord, within half a cadence of mid-transit
+    anim = lcb.animate(n_frames=4)
+    assert anim._save_count == 4 or anim.save_count == 4
+    plt.close("all")
+
+
+def test_transit_registry_planet_uses_orbit():
+    lcb = lazuli_exo.observe("WASP-39 b", R=50).light_curves(n_groups=2, seed=0)
+    fig = lcb.plot_transit(t_hr=0.0)
+    planet = [p for p in fig.axes[0].patches if p.get_facecolor()[:3] == (0.0, 0.0, 0.0)][-1]
+    assert planet.center[1] == pytest.approx(lcb.meta["b"])        # impact parameter
+    assert "u1 = 0." in fig.axes[0].get_title() and "u1 = 0.00" not in fig.axes[0].get_title()
+    plt.close("all")
