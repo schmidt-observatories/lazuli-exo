@@ -64,6 +64,23 @@ points and the matching model line (``model (<label>)``).
        o.plot(ax=ax, label=f"R = {R}, {o.wavelength.size} bins")
    ax.set_title("WASP-39 b, clear, 1 transit: two binnings")
 
+Which band is which molecule
+----------------------------
+
+``bands=True`` shades the wavelength bands of
+:data:`lazuli_exo.detect.BAND_MASKS` and names them; a list such as
+``bands=["H2O", "Na"]`` shades only those. The bands overlap (water and
+methane both cover 1.10 to 1.20 µm) and are the masks of the template
+statistic, so they say where a molecule absorbs, not that it was detected.
+:func:`~lazuli_exo.plotting.shade_bands` does the same on any Axes, with
+``names="common"`` for plain-language labels or ``label="legend"`` for
+legend entries instead of text.
+
+.. plot::
+   :context: close-figs
+
+   obs.plot(seed=0, bands=True)
+
 The error bar against wavelength
 --------------------------------
 
@@ -122,6 +139,28 @@ registry orbit gets a uniform disk and a central chord.
    anim = lcb.animate(n_frames=60, fps=12)
    anim.save("wasp39b_transit.gif")
 
+The orbit
+---------
+
+``obs.plot_orbit(t_d)`` draws the planet on its registry orbit ``t_d`` days
+after mid-transit, star and planet to scale in stellar radii and the star
+coloured by its temperature; ``obs.animate_orbit()`` is the same scene over
+one full orbit as a ``FuncAnimation``. ``view`` is ``"observer"`` (Earth's
+line of sight, so the planet transits and then passes behind the star),
+``"top"`` (face-on) or an inclination in degrees. A planet without a
+registry entry can be given as a dict with ``period_d``, ``a_over_rs`` and
+``inc_deg``.
+
+.. plot::
+   :context: close-figs
+
+   obs.plot_orbit(t_d=0.6)
+
+.. code-block:: python
+
+   anim = obs.animate_orbit(n_frames=120, fps=15, view=60)
+   anim.save("wasp39b_orbit.gif")
+
 Tiling
 ------
 
@@ -148,13 +187,16 @@ Keywords
      - Keywords
    * - ``obs.plot``
      - ``ax``, ``seed``, ``show_model``, ``show_points``, ``units``,
-       ``label``, ``title``; anything else goes to ``ax.errorbar`` (``color``
-       or ``c`` also colours the model line).
+       ``label``, ``title``, ``bands``; anything else goes to ``ax.errorbar``
+       (``color`` or ``c`` also colours the model line).
    * - ``obs.plot_noise``
      - ``ax``, ``units``, ``label``; anything else goes to ``ax.plot``.
    * - ``lc.plot``
      - ``ax``, ``offset`` (band spacing in normalized flux), ``show_points``,
        ``show_model``, ``label`` (white light only), ``title``.
+   * - ``obs.plot_orbit`` / ``obs.animate_orbit``
+     - ``t_d`` (still only), ``n_frames`` and ``fps`` (animation only),
+       ``view`` ("observer", "top" or degrees), ``npix``.
    * - ``lc.plot_transit`` / ``lc.animate``
      - ``t_hr`` (still only), ``n_frames`` and ``fps`` (animation only),
        ``offset``, ``cmap`` (wavelength tint), ``npix`` (disk resolution),

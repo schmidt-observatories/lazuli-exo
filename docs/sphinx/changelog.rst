@@ -13,6 +13,14 @@ Unreleased
   on the registry orbit over the light curves filling in with time; a still
   for talks, or a ``FuncAnimation`` to save as GIF or MP4. Custom planets
   get a uniform disk and a central chord.
+- ``obs.plot(bands=True)`` and ``plotting.shade_bands(ax)`` shade and name
+  the molecular bands of ``detect.BAND_MASKS`` (chemical, common or both
+  names; text labels or legend entries).
+- ``obs.plot_orbit(t_d)`` and ``obs.animate_orbit()``
+  (``plotting.plot_orbit`` / ``plotting.animate_orbit``): the planet on its
+  registry orbit to scale, seen from Earth, face-on or at any inclination,
+  as a still or a ``FuncAnimation``; ``orbit.sky_position`` returns the
+  (X, Y, Z) planet position that ``projected_separation`` now derives from.
 
 0.1.2 (2026-10-12)
 ------------------

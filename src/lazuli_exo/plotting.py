@@ -62,8 +62,47 @@ def wavelength_axis(ax, ticks=WAVELENGTH_TICKS, margin=1.03):
     return ax
 
 
+BAND_COLORS = {"Na": "#edae49", "K": "#66a182", "H2O": "#30638e",
+               "CH4": "#d1495b", "CO2": "#8e6c8a"}
+BAND_NAMES = {"Na": "sodium", "K": "potassium", "H2O": "water",
+              "CH4": "methane", "CO2": "carbon dioxide"}
+
+
+def shade_bands(ax, molecules=None, names="both", alpha=0.15, label="text"):
+    """Shade the wavelength bands of :data:`lazuli_exo.detect.BAND_MASKS` on
+    ``ax``, one colour per molecule, and name them.
+
+    ``molecules`` selects a subset (default: all). ``names`` is "chemical"
+    ("H2O"), "common" ("water") or "both" ("H2O, water"). ``label`` is "text"
+    (a label at the top of each molecule's widest band), "legend" (one legend
+    entry per molecule; call ``ax.legend()`` afterwards) or None. Returns the
+    list of shaded patches. The bands overlap (H2O and CH4 near 1.15 µm) and
+    are the masks of the template statistic, not line lists.
+    """
+    from matplotlib.transforms import blended_transform_factory
+    from .detect import BAND_MASKS
+
+    molecules = list(BAND_MASKS) if molecules is None else list(molecules)
+    patches = []
+    for mol in molecules:
+        spans = BAND_MASKS[mol]
+        color = BAND_COLORS.get(mol, "0.5")
+        name = {"chemical": mol, "common": BAND_NAMES.get(mol, mol),
+                "both": f"{mol}, {BAND_NAMES.get(mol, mol)}"}[names]
+        widest = max(spans, key=lambda s: s[1] - s[0])
+        for lo, hi in spans:
+            patches.append(ax.axvspan(lo, hi, color=color, alpha=alpha, lw=0, zorder=0,
+                                      label=name if (label == "legend" and (lo, hi) == widest) else None))
+        if label == "text":
+            ax.text(np.sqrt(widest[0] * widest[1]), 0.985, name, color=color, fontsize=8,
+                    ha="center", va="top", rotation=90 if widest[1] - widest[0] < 0.06 else 0,
+                    transform=blended_transform_factory(ax.transData, ax.transAxes))
+    return patches
+
+
 def plot_spectrum(obs, ax=None, seed=0, show_model=True, show_points=True,
-                  units="percent", label=None, title=None, **errorbar_kw):
+                  units="percent", label=None, title=None, bands=False,
+                  **errorbar_kw):
     """Model spectrum and one noisy realization of the binned observation.
 
     ``show_model`` draws the native-resolution model as a line; ``show_points``
@@ -73,7 +112,9 @@ def plot_spectrum(obs, ax=None, seed=0, show_model=True, show_points=True,
     ``label`` replaces the scenario text in those entries. ``units`` is
     "percent", "ppm" or "fraction". ``**errorbar_kw`` goes to ``ax.errorbar``;
     ``color``/``c`` also colours the model line. A title is set on a new
-    figure or an empty Axes unless ``title`` is given.
+    figure or an empty Axes unless ``title`` is given. ``bands=True`` shades
+    the molecular bands (:func:`shade_bands`); a list of molecule names
+    shades only those.
     """
     scale, unit = _depth_scale(units)
     ax, fresh = _get_ax(ax, figsize=(9, 4.5))
@@ -93,6 +134,8 @@ def plot_spectrum(obs, ax=None, seed=0, show_model=True, show_points=True,
         kw.update(errorbar_kw)
         ax.errorbar(obs.wavelength, points * scale, yerr=obs.depth_err * scale, **kw)
     wavelength_axis(ax)
+    if bands:
+        shade_bands(ax, None if bands is True else bands)
     ax.set_ylabel(f"Transit depth{unit}")
     if title is None and fresh:
         title = (f"{obs.planet}, {obs.scenario}, {obs.n_transits} "
@@ -296,4 +339,115 @@ def animate_transit(lc, n_frames=60, fps=12, offset=None, cmap="plasma", npix=24
     anim = FuncAnimation(fig, lambda j: draw(frames[j]), frames=n_frames,
                          interval=1000.0 / fps, blit=False)
     plt.close(fig)        # the animation keeps its own reference
+    return anim
+
+
+# ---------------------------------------------------------------------------
+# The orbit: the planet going round its star, from a chosen vantage point.
+
+def _star_color(teff_K):
+    """A plausible star colour from T_eff (interpolated between a few anchors)."""
+    anchors = [(2500, (1.0, 0.45, 0.25)), (3800, (1.0, 0.70, 0.40)),
+               (5000, (1.0, 0.88, 0.60)), (5800, (1.0, 0.97, 0.85)),
+               (7000, (0.90, 0.93, 1.0)), (10000, (0.70, 0.80, 1.0))]
+    T = np.array([a[0] for a in anchors], float)
+    rgb = np.array([a[1] for a in anchors], float)
+    return tuple(np.interp(float(teff_K or 5800.0), T, rgb[:, j]) for j in range(3))
+
+
+def _orbit_params(planet):
+    """Registry name, SimulatedSpectrum or dict -> (name, period_d, a_over_rs,
+    inc_deg, ecc, w_deg, k, teff_K)."""
+    from .targets import get_target
+    if isinstance(planet, dict):
+        t = planet
+    else:
+        name = getattr(planet, "planet", planet)
+        try:
+            t = get_target(name)
+        except KeyError:
+            raise ValueError(f"{name!r} has no registry orbit; pass a dict with period_d, "
+                             "a_over_rs, inc_deg (ecc, w_deg, depth, name, T_eff_K optional)") from None
+    k = float(t["k"]) if "k" in t else float(np.sqrt(t.get("depth", 0.01)))
+    return (t.get("name", "planet"), float(t["period_d"]), float(t["a_over_rs"]),
+            float(t.get("inc_deg", 90.0)), float(t.get("ecc") or 0.0),
+            float(t.get("w_deg") or 90.0), k, t.get("T_eff_K"))
+
+
+def _orbit_scene(planet, view, n_frames, npix):
+    """Build the figure; return (fig, draw, time_d) with draw(idx) at time_d[idx]."""
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LinearSegmentedColormap
+    from matplotlib.patches import Circle
+    from . import orbit
+
+    name, period, a_rs, inc, ecc, w, k, teff = _orbit_params(planet)
+    inc_view = {"observer": inc, "top": 0.0}.get(view, view)
+    label = {"observer": "seen from Earth", "top": "face-on"}.get(view, f"inclined {inc_view:.0f} deg")
+    time_d = np.linspace(0.0, period, n_frames, endpoint=False)
+    X, Y, Z = orbit.sky_position(time_d * 86400.0, period, a_rs, inc_view, ecc, w)
+    t_path = np.linspace(0.0, period, 720)
+    Xp, Yp, Zp = orbit.sky_position(t_path * 86400.0, period, a_rs, inc_view, ecc, w)
+
+    g = np.linspace(-1.0, 1.0, npix)
+    gx, gy = np.meshgrid(g, g)
+    mu = np.sqrt(np.clip(1.0 - gx ** 2 - gy ** 2, 0.0, 1.0))
+    disk = np.ma.masked_where(gx ** 2 + gy ** 2 > 1.0,
+                              1.0 - 0.4 * (1.0 - mu) - 0.25 * (1.0 - mu) ** 2)
+
+    half = 1.12 * a_rs * (1.0 + ecc)
+    fig, ax = plt.subplots(figsize=(7.5, 7.5))
+    ax.set_facecolor("black")
+    ax.grid(False)
+    ax.set_xticks([]); ax.set_yticks([])
+    ax.set_xlim(-half, half); ax.set_ylim(-half, half)
+    ax.set_aspect("equal")
+    behind = Zp < 0
+    ax.plot(np.where(behind, np.nan, Xp), np.where(behind, np.nan, Yp), color="0.6", lw=0.8, zorder=5)
+    ax.plot(np.where(behind, Xp, np.nan), np.where(behind, Yp, np.nan), color="0.35", lw=0.8, zorder=1)
+    ax.imshow(disk, extent=[-1, 1, -1, 1], origin="lower", vmin=0, vmax=1, zorder=3,
+              cmap=LinearSegmentedColormap.from_list("star", ["black", _star_color(teff)]))
+    pl = ax.add_patch(Circle((X[0], Y[0]), k, color="0.2", ec="0.6", lw=0.5, zorder=6))
+    txt = ax.text(0.02, 0.98, "", transform=ax.transAxes, color="white", va="top", fontsize=10)
+    ax.set_title(f"{name}: orbit {label} (sizes to scale)")
+
+    def draw(idx):
+        pl.center = (X[idx], Y[idx])
+        pl.set_zorder(6 if Z[idx] >= 0 else 2)
+        near = np.hypot(X[idx], Y[idx]) < 1.0 + k
+        txt.set_text(f"day {time_d[idx]:.2f} of {period:.2f}"
+                     + ("   transit" if (Z[idx] > 0 and near) else
+                        "   behind the star" if (Z[idx] < 0 and near) else ""))
+        return [pl, txt]
+
+    return fig, draw, time_d
+
+
+def plot_orbit(planet, t_d=0.0, view="observer", n_frames=360, npix=201):
+    """Figure of the planet on its orbit ``t_d`` days after mid-transit.
+
+    ``planet`` is a registry name, a :class:`~lazuli_exo.SimulatedSpectrum`
+    or a dict (``period_d``, ``a_over_rs``, ``inc_deg``; optional ``ecc``,
+    ``w_deg``, ``depth`` or ``k``, ``name``, ``T_eff_K``). ``view`` is
+    "observer" (Earth's line of sight, the registry inclination), "top"
+    (face-on) or an inclination in degrees. Star and planet are to scale in
+    stellar radii; the star's colour follows its temperature.
+    """
+    fig, draw, time_d = _orbit_scene(planet, view, n_frames, npix)
+    period = time_d[1] * n_frames if n_frames > 1 else 1.0
+    draw(int(np.argmin(np.abs(time_d - (t_d % period)))))
+    return fig
+
+
+def animate_orbit(planet, n_frames=120, fps=15, view="observer", npix=201):
+    """``FuncAnimation`` of one full orbit, starting at mid-transit; see
+    :func:`plot_orbit` for the arguments and ``anim.save("orbit.gif")`` to
+    write it out.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.animation import FuncAnimation
+
+    fig, draw, _ = _orbit_scene(planet, view, n_frames, npix)
+    anim = FuncAnimation(fig, draw, frames=n_frames, interval=1000.0 / fps, blit=False)
+    plt.close(fig)
     return anim

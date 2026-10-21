@@ -50,6 +50,16 @@ class SimulatedSpectrum:
         from .plotting import plot_noise
         return plot_noise(self, ax=ax, **kwargs)
 
+    def plot_orbit(self, t_d=0.0, **kwargs):
+        """The planet on its registry orbit; see plotting.plot_orbit."""
+        from .plotting import plot_orbit
+        return plot_orbit(self, t_d=t_d, **kwargs)
+
+    def animate_orbit(self, **kwargs):
+        """FuncAnimation of one orbit; see plotting.animate_orbit."""
+        from .plotting import animate_orbit
+        return animate_orbit(self, **kwargs)
+
 
 def positive_int(name, value):
     """Validate a count or resolving power: a positive integer (an integral
