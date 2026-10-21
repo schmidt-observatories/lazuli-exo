@@ -59,6 +59,16 @@ class LightCurveSet:
         from .plotting import plot_light_curves
         return plot_light_curves(self, ax=ax, **kwargs)
 
+    def plot_transit(self, t_hr=0.0, **kwargs):
+        """Stellar disks per band with the planet at time t_hr; see plotting.plot_transit."""
+        from .plotting import plot_transit
+        return plot_transit(self, t_hr=t_hr, **kwargs)
+
+    def animate(self, **kwargs):
+        """FuncAnimation of the transit in colour; see plotting.animate_transit."""
+        from .plotting import animate_transit
+        return animate_transit(self, **kwargs)
+
 
 def transit_flux(z, k, u1, u2, n_r=1601):
     """Normalized flux of a quadratically limb-darkened star occulted by

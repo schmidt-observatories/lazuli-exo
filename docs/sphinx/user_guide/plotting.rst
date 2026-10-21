@@ -99,6 +99,29 @@ band; the geometry is shared.
 
    obs.light_curves(n_groups=5, seed=0).plot()
 
+The transit in colour
+---------------------
+
+``lc.plot_transit(t_hr)`` draws the transit at one moment: a stellar disk per
+band, with that band's limb darkening and tinted by wavelength, the planet
+on the registry orbit, and the band light curves filled in up to that time.
+``lc.animate()`` returns a matplotlib ``FuncAnimation`` of the same scene
+over the whole window; save it with ``anim.save("transit.gif")`` (pillow) or
+``anim.save("transit.mp4")`` (ffmpeg), or show it in a notebook with
+``IPython.display.HTML(anim.to_jshtml())``. A custom planet without a
+registry orbit gets a uniform disk and a central chord.
+
+.. plot::
+   :context: close-figs
+
+   lcb = obs.light_curves(n_groups=5, seed=0)
+   lcb.plot_transit(t_hr=-0.8)
+
+.. code-block:: python
+
+   anim = lcb.animate(n_frames=60, fps=12)
+   anim.save("wasp39b_transit.gif")
+
 Tiling
 ------
 
@@ -132,6 +155,10 @@ Keywords
    * - ``lc.plot``
      - ``ax``, ``offset`` (band spacing in normalized flux), ``show_points``,
        ``show_model``, ``label`` (white light only), ``title``.
+   * - ``lc.plot_transit`` / ``lc.animate``
+     - ``t_hr`` (still only), ``n_frames`` and ``fps`` (animation only),
+       ``offset``, ``cmap`` (wavelength tint), ``npix`` (disk resolution),
+       ``show_points``.
    * - ``plotting.wavelength_axis(ax)``
      - Log wavelength axis with the Lazuli band ticks; call it after
        plotting on an Axes you drew yourself.

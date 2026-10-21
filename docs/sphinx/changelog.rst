@@ -4,6 +4,16 @@ Changelog
 The project is pre-release; there has been no tagged version yet, so the
 entries below group the development history by theme rather than by release.
 
+Unreleased
+----------
+
+- ``LightCurveSet.plot_transit(t_hr)`` and ``LightCurveSet.animate()``
+  (``plotting.plot_transit`` / ``plotting.animate_transit``): the transit
+  seen band by band, a limb-darkened stellar disk per band with the planet
+  on the registry orbit over the light curves filling in with time; a still
+  for talks, or a ``FuncAnimation`` to save as GIF or MP4. Custom planets
+  get a uniform disk and a central chord.
+
 0.1.2 (2026-10-12)
 ------------------
 
