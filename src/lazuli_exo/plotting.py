@@ -92,6 +92,7 @@ def shade_bands(ax, molecules=None, names="both", alpha=0.15, label="text"):
         widest = max(spans, key=lambda s: s[1] - s[0])
         for lo, hi in spans:
             patches.append(ax.axvspan(lo, hi, color=color, alpha=alpha, lw=0, zorder=0,
+                                      gid="lazuli-band",
                                       label=name if (label == "legend" and (lo, hi) == widest) else None))
         if label == "text":
             ax.text(np.sqrt(widest[0] * widest[1]), 0.985, name, color=color, fontsize=8,
@@ -134,8 +135,8 @@ def plot_spectrum(obs, ax=None, seed=0, show_model=True, show_points=True,
         kw.update(errorbar_kw)
         ax.errorbar(obs.wavelength, points * scale, yerr=obs.depth_err * scale, **kw)
     wavelength_axis(ax)
-    if bands:
-        shade_bands(ax, None if bands is True else bands)
+    if bands and not any(p.get_gid() == "lazuli-band" for p in ax.patches):
+        shade_bands(ax, None if bands is True else bands)   # once per Axes, overlays included
     ax.set_ylabel(f"Transit depth{unit}")
     if title is None and fresh:
         title = (f"{obs.planet}, {obs.scenario}, {obs.n_transits} "
@@ -243,7 +244,8 @@ def _transit_scene(lc, offset, cmap, npix, show_points):
         b = float(m["b"])
         z = orbit.projected_separation(time_s * m["time_stretch"], t["period_d"],
                                        m["a_over_rs"], t["inc_deg"],
-                                       t["ecc"] or 0.0, t["w_deg"] or 90.0)
+                                       0.0 if t["ecc"] is None else t["ecc"],
+                                       90.0 if t["w_deg"] is None else t["w_deg"])
         x_pl = np.sign(time_s) * np.sqrt(np.clip(z ** 2 - b ** 2, 0.0, None))
         u1, u2 = lc.u1, lc.u2
     else:   # trapezoid fallback: central chord at constant speed, uniform disk
@@ -369,9 +371,10 @@ def _orbit_params(planet):
             raise ValueError(f"{name!r} has no registry orbit; pass a dict with period_d, "
                              "a_over_rs, inc_deg (ecc, w_deg, depth, name, T_eff_K optional)") from None
     k = float(t["k"]) if "k" in t else float(np.sqrt(t.get("depth", 0.01)))
+    ecc = 0.0 if t.get("ecc") is None else float(t["ecc"])
+    w_deg = 90.0 if t.get("w_deg") is None else float(t["w_deg"])   # 0 is a valid argument of periastron
     return (t.get("name", "planet"), float(t["period_d"]), float(t["a_over_rs"]),
-            float(t.get("inc_deg", 90.0)), float(t.get("ecc") or 0.0),
-            float(t.get("w_deg") or 90.0), k, t.get("T_eff_K"))
+            float(t.get("inc_deg", 90.0)), ecc, w_deg, k, t.get("T_eff_K"))
 
 
 def _orbit_scene(planet, view, n_frames, npix):
@@ -382,12 +385,19 @@ def _orbit_scene(planet, view, n_frames, npix):
     from . import orbit
 
     name, period, a_rs, inc, ecc, w, k, teff = _orbit_params(planet)
-    inc_view = {"observer": inc, "top": 0.0}.get(view, view)
-    label = {"observer": "seen from Earth", "top": "face-on"}.get(view, f"inclined {inc_view:.0f} deg")
+    if isinstance(view, str):
+        if view not in ("observer", "top"):
+            raise ValueError(f"view must be 'observer', 'top' or an inclination in degrees, got {view!r}")
+        inc_view = inc if view == "observer" else 0.0
+        label = "seen from Earth" if view == "observer" else "face-on"
+    else:
+        inc_view = float(view)
+        label = f"inclined {inc_view:.0f} deg"
     time_d = np.linspace(0.0, period, n_frames, endpoint=False)
     X, Y, Z = orbit.sky_position(time_d * 86400.0, period, a_rs, inc_view, ecc, w)
     t_path = np.linspace(0.0, period, 720)
     Xp, Yp, Zp = orbit.sky_position(t_path * 86400.0, period, a_rs, inc_view, ecc, w)
+    Y, Yp = -Y, -Yp          # draw the transit chord at +b, as plot_transit does
 
     g = np.linspace(-1.0, 1.0, npix)
     gx, gy = np.meshgrid(g, g)

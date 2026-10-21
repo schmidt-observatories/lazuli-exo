@@ -134,7 +134,8 @@ def test_orbit_plot_and_animation():
     fig = obs.plot_orbit(t_d=0.0)
     planet = fig.axes[0].patches[-1]
     b = obs.light_curves(n_groups=1).meta["b"]
-    assert abs(np.hypot(*planet.center) - b) < 0.05       # mid-transit: at the impact parameter
+    assert planet.center[1] == pytest.approx(b, abs=0.05)   # mid-transit: at +b, like plot_transit
+    assert abs(planet.center[0]) < 0.05
     assert planet.get_zorder() == 6                         # in front of the star
     fig2 = plotting.plot_orbit("WASP-39 b", t_d=obs.meta["params"]["t14_s"] / 86400 + 2.0)
     assert fig2.axes[0].patches[-1].get_zorder() == 2       # half an orbit later: behind
@@ -143,4 +144,21 @@ def test_orbit_plot_and_animation():
     assert anim._save_count == 5 or anim.save_count == 5
     with pytest.raises(ValueError):
         plotting.plot_orbit("Nonexistent b")
+    with pytest.raises(ValueError, match="view"):
+        plotting.plot_orbit("WASP-39 b", view="side")
+    plt.close("all")
+
+
+def test_orbit_params_keep_zero_omega():
+    from lazuli_exo.plotting import _orbit_params
+    out = _orbit_params({"period_d": 3.0, "a_over_rs": 8.0, "inc_deg": 85.0, "ecc": 0.2, "w_deg": 0.0})
+    assert out[4] == 0.2 and out[5] == 0.0                  # 0 deg is kept, not replaced by 90
+    assert _orbit_params({"period_d": 3.0, "a_over_rs": 8.0})[5] == 90.0
+
+
+def test_bands_shaded_once_on_overlay(fixture_tables):
+    _, ax = plt.subplots()
+    for R in (30, 60):
+        lazuli_exo.observe(PLANET, R=R, tables_dir=fixture_tables).plot(ax=ax, show_points=False, bands=True)
+    assert len(ax.patches) == 10 and len(ax.texts) == 5     # not doubled by the second call
     plt.close("all")
