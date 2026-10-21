@@ -1,5 +1,5 @@
 """lazuli-exo: Lazuli IFS exoplanet transmission spectroscopy simulator."""
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 from . import atmosphere, binning, forms, lightcurve, presets, report, slicer, star, tables
 from .observe import SimulatedSpectrum, observe
