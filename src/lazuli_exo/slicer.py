@@ -7,6 +7,7 @@ Vega, so the default path converts with sncosmo's own band definitions.
 """
 from copy import deepcopy
 from functools import lru_cache
+from importlib.resources import files
 import warnings
 
 import numpy as np
@@ -14,19 +15,58 @@ import numpy as np
 BANDS = {"J": "2massj", "H": "2massh", "Ks": "2massks", "V": "bessellv"}
 ANGSTROM_PER_UM = 1.0e4
 
+# sncosmo downloads the 2MASS curves (from the SVO filter service, plain http)
+# and the Vega reference spectrum on first use and caches them per user. The
+# same files ship here so a transit simulation still runs when that fetch
+# fails (SVO was down on 2026-10-22); they are used only after sncosmo's own
+# load raised, so an installed sncosmo stays authoritative.
+BUNDLED_BANDS = {"2massj": "2mass.J", "2massh": "2mass.H", "2massks": "2mass.Ks"}
+BUNDLED_VEGA = "alpha_lyr_stis_007.fits"
+_BANDPASS_TRIM_LEVEL = 0.001   # sncosmo.builtins.BANDPASS_TRIM_LEVEL, for identical curves
+
+
+def _bundled(name):
+    return str(files("lazuli_exo") / "data" / "sncosmo" / name)
+
 
 def _sncosmo_band(band):
-    """sncosmo bandpass name for `band`: the J/H/Ks/V aliases, or any name sncosmo knows."""
-    if band in BANDS:
-        return BANDS[band]
-    import sncosmo
+    """sncosmo bandpass name for `band`: the J/H/Ks/V aliases, or any name sncosmo
+    knows. Falls back to the bundled 2MASS curve when sncosmo cannot load it."""
+    band = BANDS.get(band, band)
+    try:
+        import sncosmo
+    except ImportError:
+        return band          # resolved by name only; whatever needs sncosmo raises its own error
     try:
         sncosmo.get_bandpass(band)
-    except Exception:
-        raise ValueError(
-            f"band must be one of the aliases {sorted(BANDS)} or an sncosmo bandpass "
-            f"name (e.g. '2massj', 'sdssr'); got {band!r}") from None
+    except Exception as e:
+        if band not in BUNDLED_BANDS:
+            raise ValueError(
+                f"band must be one of the aliases {sorted(BANDS)} or an sncosmo bandpass "
+                f"name (e.g. '2massj', 'sdssr'); got {band!r} ({type(e).__name__}: {e})") from e
+        warnings.warn(f"sncosmo could not load {band!r} ({type(e).__name__}: {e}); "
+                      "using the copy bundled with lazuli_exo", stacklevel=2)
+        bp = sncosmo.read_bandpass(_bundled(BUNDLED_BANDS[band]),
+                                   trim_level=_BANDPASS_TRIM_LEVEL, name=band)
+        sncosmo.register(bp, band, force=True)
     return band
+
+
+def _vega_bandmag(spectrum, band):
+    """`spectrum.bandmag(band, 'vega')`, registering the bundled Vega spectrum
+    when sncosmo cannot fetch its own (same file, alpha_lyr_stis_007)."""
+    import sncosmo
+    try:
+        return spectrum.bandmag(band, "vega")
+    except Exception as e:
+        warnings.warn(f"sncosmo could not load the Vega magnitude system ({type(e).__name__}: {e}); "
+                      "using the spectrum bundled with lazuli_exo", stacklevel=2)
+        from astropy.io import fits
+        from sncosmo.specmodel import SpectrumModel
+        with fits.open(_bundled(BUNDLED_VEGA)) as hdul:
+            ref = SpectrumModel(hdul[1].data["WAVELENGTH"], hdul[1].data["FLUX"])
+        sncosmo.register(sncosmo.SpectralMagSystem(ref, name="vega"), "vega", force=True)
+        return spectrum.bandmag(band, "vega")
 
 
 @lru_cache(maxsize=32)
@@ -37,7 +77,7 @@ def vega_to_ab_offset(band):
     bp = sncosmo.get_bandpass(b)
     wave = np.linspace(bp.minwave() * 0.9, bp.maxwave() * 1.1, 2000)
     s = sncosmo.Spectrum(wave, np.full_like(wave, 1e-15))
-    return float(s.bandmag(b, "ab") - s.bandmag(b, "vega"))
+    return float(s.bandmag(b, "ab") - _vega_bandmag(s, b))
 
 
 SPECTROGRAPH_MODES = ("narrow", "wide")

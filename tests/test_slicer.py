@@ -151,6 +151,30 @@ def test_unknown_sncosmo_band_raises():
         slicer._sncosmo_band("nope")
 
 
+def test_bundled_sncosmo_data_is_used_when_sncosmo_cannot_fetch(monkeypatch, tmp_path):
+    # The web app saw "band must be one of ... got '2massj'" on 2026-10-22 when
+    # the SVO filter service (sncosmo's source for the 2MASS curves) was down.
+    from sncosmo import builtins, utils
+    reference = slicer.vega_to_ab_offset.__wrapped__("2massj")      # sncosmo's own data
+
+    def offline(*args, **kwargs):
+        raise OSError("simulated: no network")
+    monkeypatch.setattr(utils, "download_file", offline)
+    monkeypatch.setattr(utils.DataMirror, "_fetch_redirects", offline)
+    monkeypatch.setenv("SNCOSMO_DATA_DIR", str(tmp_path))           # empty cache, like a fresh dyno
+    monkeypatch.setattr(builtins.DATADIR, "_checked_rootdir", None)
+    for key in [("2massj", None), ("2massh", None), ("2massks", None), ("sdssr", None)]:
+        monkeypatch.delitem(sncosmo.bandpasses._BANDPASSES._instances, key, raising=False)
+    monkeypatch.delitem(sncosmo.magsystems._MAGSYSTEMS._instances, ("vega", None), raising=False)
+
+    with pytest.warns(UserWarning, match="bundled"):
+        assert slicer._sncosmo_band("J") == "2massj"
+    with pytest.warns(UserWarning, match="Vega"):
+        assert slicer.vega_to_ab_offset.__wrapped__("2massj") == pytest.approx(reference, abs=1e-6)
+    with pytest.raises(ValueError, match="no network"):             # the real cause is kept
+        slicer._sncosmo_band("sdssr")
+
+
 def test_gj1214b_desaturates_at_the_last_read_to_2_4_0():
     # review 2026-10-10 (#33): the committed (2,8,0) table saturates 284 px at
     # the last read; (2,4,0) is the smallest clean ramp of the ladder

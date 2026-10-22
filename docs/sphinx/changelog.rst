@@ -4,6 +4,16 @@ Changelog
 The project is pre-release; there has been no tagged version yet, so the
 entries below group the development history by theme rather than by release.
 
+Unreleased
+----------
+
+- ``slicer``: the 2MASS J/H/Ks curves and the Vega reference spectrum ship
+  with the package (``data/sncosmo/``, the files sncosmo itself downloads)
+  and are registered with sncosmo only when its own load fails, so a transit
+  simulation no longer depends on the SVO filter service being up (it was
+  down on 2026-10-22). The "band must be one of" error now carries the
+  underlying exception instead of discarding it.
+
 0.1.3 (2026-10-21)
 ------------------
 

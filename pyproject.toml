@@ -57,4 +57,4 @@ version = { attr = "lazuli_exo.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-lazuli_exo = ["data/tables/index.json", "data/tables/*/*.npz"]
+lazuli_exo = ["data/tables/index.json", "data/tables/*/*.npz", "data/sncosmo/*"]
