@@ -33,7 +33,10 @@ def _sncosmo_band(band):
     """sncosmo bandpass name for `band`: the J/H/Ks/V aliases, or any name sncosmo
     knows. Falls back to the bundled 2MASS curve when sncosmo cannot load it."""
     band = BANDS.get(band, band)
-    import sncosmo
+    try:
+        import sncosmo
+    except ImportError:
+        return band          # resolved by name only; whatever needs sncosmo raises its own error
     try:
         sncosmo.get_bandpass(band)
     except Exception as e:
